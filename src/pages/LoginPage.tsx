@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/button";
 import { FormSelect } from "@/components/ui/form-select";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -18,7 +17,6 @@ const ROLE_OPTIONS: { role: AuthRole; label: string }[] = [
 export function LoginPage() {
   const role = useAuthStore((state) => state.role);
   const login = useAuthStore((state) => state.login);
-  const [selectedRole, setSelectedRole] = useState<AuthRole | null>(null);
   const [entityId, setEntityId] = useState("");
 
   if (role) {
@@ -27,19 +25,9 @@ export function LoginPage() {
 
   const chooseRole = (next: AuthRole) => {
     setEntityId("");
-    setSelectedRole(next);
     if (next === "CENTER") {
       login("CENTER", null);
     }
-  };
-
-  const canEnter = selectedRole === "DETACHMENT" || selectedRole === "CREW" ? entityId !== "" : false;
-
-  const enter = () => {
-    if (!canEnter || !selectedRole) {
-      return;
-    }
-    login(selectedRole, entityId);
   };
 
   return (

@@ -109,7 +109,6 @@ export function MissionPreviewPage() {
   const isArchived = entityState === "archived";
   const planningLocked = isMissionPlanningLocked(mission, tasks, reports);
   const canConfirm = managesMissions && !isConfirmed && !isArchived && allMissionReportsSubmitted(mission, tasks, reports);
-  const canToggleEdit = managesMissions && (!planningLocked || isArchived);
   const editMode = isEditMode && !planningLocked;
   const title = mission.name ? `${mission.label} — ${mission.name}` : mission.label;
   const createdAt = mission.created_at;
@@ -217,6 +216,7 @@ export function MissionPreviewPage() {
       </header>
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
         <div className="flex min-h-0 flex-col overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
+          
           <MissionForm
             scheduledAt={scheduledAt}
             name={name}

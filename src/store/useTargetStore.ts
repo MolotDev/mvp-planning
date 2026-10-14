@@ -120,7 +120,7 @@ export const useTargetStore = create<TargetStoreState>()(
         get().targets.some((target) => target.name.trim() === name.trim() && target.id !== excludeId),
       isTargetMgrsTaken: (mgrs, excludeId) =>
         get().targets.some((target) => target.mgrs.trim() === mgrs.trim() && target.id !== excludeId),
-      isAimingPointDisplayedIdTaken: (targetId, displayedId, excludeId) =>
+      isAimingPointDisplayedIdTaken: (targetId, _displayedId, excludeId) =>
         get().aimingPoints.some(
           (point) =>
             point.target_id === targetId &&

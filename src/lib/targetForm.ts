@@ -1,11 +1,5 @@
 import { DICTIONARY } from "@/constants/dictionary";
-import {
-  isValidAimingPointDisplayedId,
-  isValidTargetDisplayedId,
-  mgrsError,
-  parseRequiredNumber,
-  requiredError,
-} from "@/lib/validation";
+import { mgrsError, parseRequiredNumber, requiredError } from "@/lib/validation";
 import { useTargetStore } from "@/store/useTargetStore";
 import type { AimingPointFormValues, TargetFormValues } from "@/types/target";
 
@@ -86,7 +80,7 @@ export function validateTargetForm(
 
 export function validateAimingPointForm(
   values: AimingPointFormValues,
-  targetId: string,
+  _targetId: string,
   excludeId?: string,
 ): FieldErrors<AimingPointFormValues> {
   const store = useTargetStore.getState();

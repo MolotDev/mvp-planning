@@ -22,14 +22,10 @@ import {
 } from "@/lib/reportAggregation";
 import {
   combineDateAndTime,
-  DURATION_PATTERN,
   formatDateInput,
   formatHeight,
   formatStampFromIso,
   formatTimeInput,
-  // HEIGHT_PATTERN,
-  parseDistance,
-  parseHeight,
   parseStamp,
   STAMP_PATTERN,
 } from "@/lib/reportFormat";
@@ -65,7 +61,6 @@ interface ReportDocumentProps {
 export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, onClear, onSubmit }: ReportDocumentProps) {
   const assets = useAssetStore((state) => state.assets);
   const updateReport = useReportStore((state) => state.updateReport);
-  const updateTrajectory = useReportStore((state) => state.updateTrajectory);
   const addEvent = useReportStore((state) => state.addEvent);
   const removeEvent = useReportStore((state) => state.removeEvent);
   const updateEvent = useReportStore((state) => state.updateEvent);
@@ -1227,24 +1222,12 @@ function executionCrews(slice: DaySlice): string[] {
   ];
 }
 
-function isHeightDraftValid(value: string): boolean {
-  const slash = value.indexOf("/");
-  if (slash < 0) {
-    return false;
-  }
-  return value.slice(0, slash).trim() !== "" && value.slice(slash + 1).trim() !== "";
-}
-
 function isEventTimeValid(value: string): boolean {
   return /^\d{2}:\d{2}$/.test(value);
 }
 
 function isEventDateValid(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function eventDetail(description: string): string {
-  return description.split("//")[1] ?? "";
 }
 
 function isLaunchNumberValid(value: number | undefined): boolean {
