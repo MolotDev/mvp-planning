@@ -14,7 +14,8 @@ import {
   // getTargetMetrics,
   useTargetStore,
 } from "@/store/useTargetStore";
-import type { StatusFilter, Target } from "@/types/target";
+import { useTargetFilterStore } from "@/store/useTargetFilterStore";
+import type { Target } from "@/types/target";
 // import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 
 export function TargetsCatalogPage() {
@@ -22,8 +23,9 @@ export function TargetsCatalogPage() {
   const targets = useTargetStore((state) => state.targets);
   const archiveTarget = useTargetStore((state) => state.archiveTarget);
   const restoreTarget = useTargetStore((state) => state.restoreTarget);
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<StatusFilter>("active");
+  const query = useTargetFilterStore((state) => state.filters.query);
+  const status = useTargetFilterStore((state) => state.filters.status);
+  const setFilters = useTargetFilterStore((state) => state.setFilters);
   const [modalTarget, setModalTarget] = useState<Target | null | undefined>(undefined);
 
   // const metrics = useMemo(() => getTargetMetrics(filterTargets(targets, query, "all")), [targets, query]);
@@ -49,7 +51,7 @@ export function TargetsCatalogPage() {
             />
             <Input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => setFilters({ query: event.target.value, status })}
               placeholder={DICTIONARY.common.actions.search}
               className="pl-9 pr-9"
               aria-label={DICTIONARY.common.actions.search}
@@ -59,7 +61,7 @@ export function TargetsCatalogPage() {
                 type="button"
                 title={DICTIONARY.common.actions.clear}
                 aria-label={DICTIONARY.common.actions.clear}
-                onClick={() => setQuery("")}
+                onClick={() => setFilters({ query: "", status })}
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-primitive-neutral-300 hover:cursor-pointer hover:bg-primitive-neutral-850"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
@@ -72,7 +74,7 @@ export function TargetsCatalogPage() {
               if (value === "reported") {
                 return;
               }
-              setStatus(value);
+              setFilters({ query, status: value });
             }}
           />
         </div>

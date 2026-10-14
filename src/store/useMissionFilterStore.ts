@@ -53,7 +53,7 @@ export const useMissionFilterStore = create<MissionFilterStore>()(
     }),
     {
       name: MISSION_FILTER_STORE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ filters: state.filters }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as { filters?: Partial<MissionFilterState> } | undefined;

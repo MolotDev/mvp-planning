@@ -10,6 +10,7 @@ import { getEntityState } from "@/lib/entityState";
 import { isValidMgrs } from "@/lib/validation";
 import { signInAs } from "@/test/auth";
 import { useLayoutStore } from "@/store/useLayoutStore";
+import { resetTargetFilterStore } from "@/store/useTargetFilterStore";
 import {
   TARGET_STORE_KEY,
   resetTargetStore,
@@ -28,11 +29,13 @@ function renderApp(initialEntry = "/catalogs/targets") {
 beforeEach(() => {
   signInAs();
   resetTargetStore();
+  resetTargetFilterStore();
   useLayoutStore.setState({ isSidebarOpen: true });
 });
 
 afterEach(() => {
   resetTargetStore();
+  resetTargetFilterStore();
 });
 
 describe("Stage 2 store", () => {

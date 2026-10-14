@@ -35,7 +35,7 @@ export const useTaskFilterStore = create<TaskFilterStore>()(
     }),
     {
       name: TASK_FILTER_STORE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ filters: state.filters }),
     },
   ),

@@ -33,7 +33,7 @@ export const useReportFilterStore = create<ReportFilterStore>()(
     }),
     {
       name: REPORT_FILTER_STORE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ filters: state.filters }),
     },
   ),

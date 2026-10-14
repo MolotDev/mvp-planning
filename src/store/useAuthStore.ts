@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { AuthRole } from "@/types/auth";
 
-export const AUTH_STORE_KEY = "military_crm_auth_store";
+export const AUTH_STORE_KEY = "military_crm_auth_session";
 
 interface AuthState {
   role: AuthRole | null;
@@ -21,7 +21,7 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: AUTH_STORE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         role: state.role,
         entityId: state.entityId,

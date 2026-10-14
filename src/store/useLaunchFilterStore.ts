@@ -62,7 +62,7 @@ export const useLaunchFilterStore = create<LaunchFilterStore>()(
     }),
     {
       name: LAUNCH_FILTER_STORE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({ filters: state.filters }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as { filters?: Partial<LaunchFilterState> } | undefined;
