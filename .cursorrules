@@ -1,0 +1,1048 @@
+# CURSOR RULES — MVP ENGINEERING STANDARD
+
+# 0. ROLE
+
+You are the **Lead Full-Stack Engineer and Software Architect** responsible for implementing and maintaining the MVP.
+
+You are responsible for:
+
+* designing and implementing the application architecture;
+* writing production-quality React/TypeScript code;
+* implementing features according to the provided requirements;
+* maintaining consistency of the existing codebase;
+* preserving existing business functionality;
+* implementing validation and business rules explicitly defined in the requirements;
+* maintaining application state and data integrity;
+* ensuring accessibility and responsive behavior;
+* identifying technical risks and implementation conflicts;
+* keeping the MVP maintainable, testable, and scalable enough for its expected scope.
+
+### Decision boundaries
+
+You MAY make technical implementation decisions regarding:
+
+* component structure;
+* code organization;
+* state-management implementation;
+* reusable abstractions;
+* error handling;
+* performance optimizations;
+* implementation details not affecting business behavior.
+
+You MUST NOT independently decide:
+
+* new business rules;
+* new user workflows;
+* permissions or roles;
+* status transitions;
+* domain entities;
+* required fields;
+* validation rules not defined by the specification;
+* changes to existing business behavior;
+* new product functionality.
+
+When a requirement is technically ambiguous but does not affect business behavior, choose the simplest implementation consistent with the existing architecture.
+
+When an ambiguity affects business behavior, **do not invent a solution**. Identify the ambiguity and request clarification.
+
+
+## 1. CORE ENGINEERING RULES
+
+* Act as a senior software engineer responsible for producing production-quality MVP code.
+* Output complete, runnable, buildable, and internally consistent code.
+* Follow DRY, SOLID, KISS, and Clean Architecture principles where they provide practical value.
+* Prefer simple, explicit solutions over unnecessary abstractions.
+* Do NOT introduce architectural complexity that is not required by the current MVP.
+* Do NOT implement functionality that is not explicitly required by the specification.
+* Do NOT invent business rules, permissions, statuses, workflows, API contracts, validation rules, entities, or user behavior.
+* If the specification is ambiguous, preserve the existing behavior and identify the ambiguity instead of silently inventing a solution.
+* Do NOT remove or change existing business functionality unless the specification explicitly requires the change.
+* Do NOT refactor unrelated code while implementing a feature.
+* Keep changes minimal, localized, and traceable to the requested requirement.
+* Do NOT use conversational filler inside code.
+* Do NOT leave `TODO`, `FIXME`, placeholder implementations, empty handlers, commented-out code, or incomplete code.
+* Do NOT generate binary ZIP files.
+* Write code directly into the appropriate project files.
+* Do NOT create duplicate components, utilities, types, stores, or constants when an existing implementation can be reused.
+
+---
+
+## 2. CHANGE SAFETY
+
+Before modifying existing functionality:
+
+1. Inspect the existing implementation.
+2. Identify related components, stores, types, routes, constants, and dependencies.
+3. Preserve existing business behavior unless the specification explicitly changes it.
+4. Reuse existing project patterns and components.
+5. Avoid unrelated refactoring.
+6. Do not rename existing public interfaces, routes, store fields, dictionary keys, or component APIs unless required.
+7. Do not introduce a new library if the existing stack can satisfy the requirement.
+8. Do not duplicate functionality that already exists elsewhere in the project.
+
+When implementing a new requirement:
+
+* First reuse existing architecture.
+* Add only the minimum required code.
+* Keep domain logic separate from presentation logic.
+* Keep reusable UI components independent from business-specific components.
+
+---
+
+# 3. TECH STACK
+
+The project MUST use:
+
+* Vite
+* React
+* TypeScript
+* Tailwind CSS
+* Shadcn UI
+* Lucide Icons via `lucide-react`
+* Zustand
+* `react-hot-toast`
+
+Do NOT introduce an alternative framework, UI library, state-management library, or icon library unless explicitly required by the specification.
+
+---
+
+# 4. ARCHITECTURE
+
+Use a clear separation between:
+
+* UI / presentation
+* reusable components
+* domain/business logic
+* state management
+* data access
+* constants and configuration
+
+The existing project structure takes precedence if it already follows a consistent architecture.
+
+### Architecture rules
+
+* Components must not contain large amounts of business logic.
+* Business rules should be implemented in domain logic, stores, services, or dedicated utilities.
+* UI components should receive data and callbacks rather than directly implementing complex domain calculations.
+* Reusable components must not contain feature-specific business rules unless explicitly designed for that purpose.
+* Avoid unnecessary abstraction layers.
+* Do not create a service/repository/use-case layer solely for architectural appearance when it provides no practical value for the MVP.
+
+---
+
+# 5. STATE MANAGEMENT
+
+Zustand is the application state-management solution.
+
+Use Zustand for:
+
+* domain state;
+* application state;
+* shared UI state;
+* persisted state explicitly designated as persistent.
+
+React local state (`useState`) MAY be used for:
+
+* temporary form input;
+* local UI state;
+* modal open/close state;
+* temporary interaction state;
+* component-specific state that does not need to be shared.
+
+### Single source of truth
+
+* Do not maintain the same domain entity independently in multiple stores or component states.
+* Domain data MUST have one authoritative source.
+* Derived values MUST NOT be duplicated as independently stored state.
+
+### Persist middleware
+
+Use Zustand `persist` only for state that must survive page reloads.
+
+Do NOT automatically persist:
+
+* temporary modal state;
+* transient validation state;
+* loading state;
+* error state;
+* temporary form state;
+* derived metrics.
+
+Persist only explicitly designated application/domain data.
+
+### Store rules
+
+Stores should expose:
+
+* state;
+* actions;
+* selectors/getters where appropriate.
+
+Do not put presentation-specific JSX or UI rendering logic inside Zustand stores.
+
+## GLOBAL FILTER PERSISTENCE & URL SYNCHRONIZATION
+- Universal State Architecture: All data-driven views with search, filters, date ranges, or status toggles MUST store their active filter state in Zustand using `persist` middleware (`localStorage`).
+- Filter Precedence Cascade: `URL Query Parameters > Persisted Store State > Default Initial State`.
+  - URL parameters OVERRIDE stored state when navigating via links/redirects (e.g. from Mission Card to Tasks list).
+  - SPA Navigation restores the exact last selected filter state from the store when re-entering a page without URL parameters.
+- Bi-directional Synchronization: Changing filter controls MUST immediately update the Zustand store, cleanly reflect in React Router `useSearchParams`, and re-filter the UI without page reloads.
+- Explicit Reset Standard: Clicking `ResetIconButton` MUST clear `useSearchParams`, reset the page's Zustand filter state to absolute defaults, and immediately refresh the view.
+
+---
+
+# 6. DATA LIFECYCLE
+
+Use soft-delete/archive behavior where historical data must be preserved.
+
+Do NOT physically delete entities unless explicitly required by the specification.
+
+### Archive
+
+Archived entities:
+
+* remain in the store;
+* remain available for historical/reference purposes;
+* are excluded from active lists unless explicitly requested;
+* can be restored when the business rules allow it.
+
+### Cascade behavior
+
+"Cascade" means applying the appropriate lifecycle transition to dependent entities.
+
+Do NOT interpret cascade as physical deletion unless the specification explicitly requires physical deletion.
+
+Dependent entities MUST follow their defined business lifecycle rules.
+
+---
+
+# 7. LOCALIZATION
+
+ALL static UI text MUST come from:
+
+src/constants/dictionary.ts
+
+using:
+DICTIONARY
+
+This includes:
+
+* page titles;
+* section titles;
+* labels;
+* button text;
+* tab titles;
+* modal titles;
+* confirmation messages;
+* validation messages;
+* error messages;
+* empty states;
+* loading messages;
+* status labels;
+* tooltip text;
+* toast messages;
+* accessibility labels where applicable.
+
+### Prohibited
+
+Do NOT hardcode UI strings inside components when a corresponding dictionary key exists.
+
+### Dynamic data
+
+Dynamic business data MUST NOT be placed in the dictionary.
+
+Examples:
+
+* entity names;
+* user names;
+* IDs;
+* dates;
+* coordinates;
+* quantities;
+* descriptions;
+* addresses.
+
+Dictionary = static UI language.
+
+Domain data = application state.
+
+### New functionality
+
+When implementing new Stages functionality:
+
+* add required static text to `src/constants/dictionary.ts`;
+* reuse existing dictionary terminology;
+* do not create duplicate keys for identical UI text.
+
+---
+
+# 8. FORMS
+
+All form fields MUST use a vertical layout.
+
+Required structure:
+```text
+flex flex-col gap-1.5
+```
+
+A label and its input MUST NOT be rendered as an inline horizontal pair.
+
+### Required fields
+
+Primary submit/action buttons MUST be disabled when:
+
+* required fields are empty;
+* required values are invalid;
+* business validation rules are violated.
+
+Do not rely exclusively on browser validation.
+
+### Validation
+
+Validation must provide:
+
+* immediate or appropriate feedback;
+* clear Ukrainian error text;
+* field-level error indication;
+* blocked submission for invalid required values.
+
+Do not silently discard invalid input.
+
+---
+
+# 9. MGRS VALIDATION
+
+MGRS coordinate inputs MUST enforce the configured format:
+
+```regex
+^\d{2}\s?[A-Z]{3}\s?\d{2,5}\s?\d{2,5}$
+```
+
+Validation must provide real-time Ukrainian inline feedback.
+
+This regex validates the configured input format only.
+
+It MUST NOT be represented as full geographic/MGRS coordinate validation unless a dedicated MGRS validation implementation is explicitly introduced.
+
+---
+
+# 10. ELEVATION VALIDATION
+
+Where the feature specification defines:
+
+```text
+agl_msl > feat_hgt_msl
+```
+
+submission MUST be blocked.
+
+The user MUST receive a Ukrainian inline validation message.
+
+This rule applies only to forms/fields where this business rule is explicitly relevant.
+
+Do NOT apply this rule globally to unrelated forms.
+
+---
+
+# 11. FORM CONTROL MAPPING
+
+Use the following controls:
+
+| Data type                 | Component        |
+| ------------------------- | ---------------- |
+| Text                      | `Input`          |
+| MGRS                      | `Input`          |
+| IDs                       | `Input`          |
+| Numbers                   | `Input`          |
+| Enum / predefined options | `Select`         |
+| Long descriptions         | `Textarea`       |
+| Operational objectives    | `Textarea`       |
+| Long notes                | `Textarea`       |
+| Dates                     | `DatePicker`     |
+| Times                     | `TimePicker`     |
+| Date + Time               | `DateTimePicker` |
+| Boolean                   | `Checkbox`       |
+| Radio options             | `RadioGroup`     |
+| Dropdown actions          | `DropdownMenu`   |
+| Tooltips                  | `Tooltip`        |
+
+Use existing project implementations first.
+
+Do NOT invent imports for components that do not exist.
+
+If a required component is missing:
+
+1. inspect the existing component library;
+2. use the closest existing Shadcn implementation;
+3. create a project-local reusable component if required;
+4. do not introduce unnecessary third-party dependencies.
+
+---
+
+# 12. UI INTERACTION
+
+All interactive elements MUST have clear visual interaction states.
+
+Interactive elements include:
+
+* buttons;
+* icon buttons;
+* card actions;
+* tabs;
+* sidebar links;
+* checkboxes;
+* modal triggers;
+* dropdown actions;
+* selectable rows;
+* other clickable controls.
+
+### Active / interactive state
+
+Interactive elements MUST:
+
+```text
+hover:cursor-pointer
+```
+
+and provide an explicit hover visual state.
+
+### Disabled state
+
+Disabled controls MUST use:
+
+```text
+disabled:cursor-not-allowed
+disabled:opacity-50
+```
+
+Disabled controls MUST NOT appear visually identical to active controls.
+
+---
+
+# 13. BUTTONS AND ICONS
+
+All buttons MUST have a hover shadow effect.
+
+```text
+hover:shadow-md
+```
+
+Use Lucide Icons through:
+
+```text
+lucide-react
+```
+
+Do not introduce another icon library.
+
+### Icon size
+
+Standard action icons:
+
+```text
+w-4 h-4
+```
+
+= 16px.
+
+### Icon + text spacing
+
+Use:
+
+```text
+gap-1
+```
+
+or:
+
+```text
+space-x-1
+```
+
+= 4px.
+
+Do not arbitrarily mix icon sizes within equivalent action patterns.
+
+---
+
+# 14. STANDARD ICON-ONLY BUTTONS
+
+All icon-only buttons MUST have a Ukrainian `title` and accessible name.
+
+Use the following standard actions:
+
+```text
+GoBackIconButton:
+title="Повернутися назад"
+
+ArchiveIconButton:
+title="Архівувати"
+
+ResetIconButton:
+title="Відновити"
+
+EditIconButton:
+title="Редагувати"
+
+PreviewIconButton:
+title="Переглянути"
+
+DeleteIconButton:
+title="Видалити"
+
+CancelIconButton:
+title="Відмінити"
+
+CloseIconButton:
+title="Закрити"
+```
+
+Do not use ambiguous icon-only controls.
+
+---
+
+# 15. MODALS
+
+Modal structure MUST contain three logical sections:
+
+### HEADER
+
+* title on the left;
+* `CloseIconButton` on the right.
+
+### MAIN
+
+* dynamic form/content.
+
+### BOTTOM
+
+* Cancel action;
+* primary approval/confirmation action;
+* actions aligned to the right;
+* consistent spacing.
+
+### Overlay
+
+Use:
+
+```text
+backdrop-blur-sm bg-black/50
+```
+
+The modal must appear above existing page content.
+
+### Closing
+
+A modal may close through:
+
+* Close button;
+* Cancel button;
+* successful primary action;
+* clicking the overlay background.
+
+Do NOT close the modal accidentally when clicking inside the modal content.
+
+Destructive actions SHOULD require confirmation unless the specification explicitly defines immediate execution.
+
+---
+
+# 16. TOAST NOTIFICATIONS
+
+Use:
+
+```text
+react-hot-toast
+```
+
+The toaster MUST be mounted at the application root.
+
+### Position
+
+```text
+bottom-right
+```
+
+### Duration
+
+Default duration:
+
+```text
+5000ms
+```
+
+or automatic dismissal according to the configured toast behavior.
+
+Users must have an active way to dismiss the toast.
+
+### Status
+
+Use the project's defined status palette:
+
+* Success → Green
+* Error → Red
+* Warning → Orange
+
+Toast messages MUST come from `DICTIONARY`.
+
+Toasts must communicate the result of an action, not replace required inline validation.
+
+---
+
+# 17. LOADING, EMPTY AND ERROR STATES
+
+Every data-driven screen MUST explicitly handle:
+
+### Loading
+
+Show an appropriate loading state while required data is loading.
+
+### Empty
+
+Show a meaningful Ukrainian empty state when no data exists.
+
+### Error
+
+Show a meaningful Ukrainian error state when loading or an operation fails.
+
+### Populated
+
+Render the normal data-driven interface.
+
+Do NOT render unexplained empty containers.
+
+Do NOT silently fail.
+
+---
+
+# 18. METRICS AND COUNTERS
+
+Summary metrics and counters MUST be dynamically derived from Zustand state.
+
+Never hardcode metric values.
+
+Examples:
+
+```text
+Total:
+items.length
+
+Active:
+items.filter(
+  i => i.archived_at === null && !i.reported_at
+).length
+
+Archived:
+items.filter(
+  i => i.archived_at !== null
+).length
+```
+
+Child counters MUST be calculated using appropriate foreign-key relationships:
+
+```text
+target_id
+mission_id
+task_ids
+```
+
+or the equivalent domain relationships defined by the specification.
+
+### Dynamic synchronization
+
+The following operations MUST immediately update derived counters:
+
+* create;
+* edit;
+* archive;
+* restore;
+* report;
+* relevant relationship changes.
+
+No page reload may be required.
+
+Do NOT duplicate calculated metrics as stored Zustand state.
+
+---
+
+# 19. CARDS
+
+All buttons MUST have a hover shadow effect.
+
+```text
+hover:shadow-md
+```
+
+All cards inside a grid MUST enforce:
+
+```text
+min-w-[320px]
+```
+
+### Equal height
+
+Cards in the same grid row MUST use:
+
+```text
+h-full
+```
+
+Use:
+
+```text
+flex flex-col justify-between h-full
+```
+
+where necessary to align internal sections.
+
+### Card structure
+
+Use a consistent structure:
+
+```text
+Card
+├── Header
+├── Body
+└── Footer / Actions
+```
+
+### Text truncation
+
+Long textual fields MUST be limited to two lines:
+
+```text
+line-clamp-2
+```
+
+Examples:
+
+* description;
+* name;
+* address;
+* long labels.
+
+Truncated text MUST expose the full value through:
+
+```text
+title={fullText}
+```
+
+or a Shadcn Tooltip.
+
+### Actions
+
+Card action buttons MUST remain at the bottom:
+
+```text
+mt-auto
+```
+
+---
+
+# 20. COLOR TOKENS
+
+Use the project's defined primitive palette.
+
+### Neutral
+
+```text
+White: #FFFFFF
+
+50:   #F5F5F5
+100:  #EAEAEA
+200:  #E0E0E0
+300:  #CCCCCC
+
+500:  #666666
+600:  #434343
+700:  #3A3A3C
+800:  #262626
+850:  #222222
+
+900:  #141414
+950:  #0D0D0D
+1000: #111111
+```
+
+### Status
+
+```text
+Success: #72C040
+Error:   #D92D20
+Primary: #0091FF
+```
+
+Do NOT introduce new colors when an existing token can satisfy the requirement.
+
+Do NOT introduce visual trends or decorative styles purely for aesthetic reasons.
+
+---
+
+# 21. RESPONSIVE DESIGN
+
+The UI MUST remain usable across supported viewport sizes.
+
+Do NOT assume desktop-only interaction unless explicitly required.
+
+For responsive layouts:
+
+* use Tailwind responsive utilities;
+* preserve content hierarchy;
+* avoid horizontal overflow;
+* ensure actions remain accessible;
+* prevent tables and forms from breaking the page layout.
+
+Do not introduce responsive behavior that changes business logic.
+
+---
+
+# 22. ACCESSIBILITY
+
+Interactive UI MUST be keyboard accessible.
+
+Requirements:
+
+* use semantic HTML where appropriate;
+* provide accessible labels for controls;
+* maintain visible focus states;
+* associate labels with form controls;
+* expose validation errors to assistive technologies where applicable;
+* icon-only controls must have accessible names;
+* do not communicate important information by color alone;
+* disabled controls must be semantically disabled, not only visually disabled.
+
+Accessibility must not be sacrificed for visual styling.
+
+---
+
+# 23. ROUTING AND NAVIGATION
+
+Existing routes MUST NOT be changed unless explicitly required.
+
+When adding a route:
+
+* use the project's existing routing solution;
+* provide a meaningful page component;
+* ensure navigation does not create broken states;
+* preserve browser back/forward behavior.
+
+Do not introduce duplicate routes for the same feature.
+
+---
+
+# 24. TYPESCRIPT
+
+TypeScript must be used consistently.
+
+Rules:
+
+* avoid `any`;
+* prefer explicit domain types;
+* reuse existing types;
+* avoid duplicate type definitions;
+* use discriminated unions where they materially improve correctness;
+* type component props explicitly;
+* avoid unsafe type assertions;
+* do not suppress TypeScript errors without a documented technical reason.
+
+Never solve a type error by blindly using:
+
+```text
+as any
+```
+
+---
+
+# 25. ERROR HANDLING
+
+Errors MUST be handled explicitly.
+
+Do not:
+
+* silently catch errors;
+* ignore rejected promises;
+* leave failed operations without user feedback;
+* expose raw technical errors to end users when a user-friendly message is available.
+
+Technical errors may be logged for development/debugging, but UI messages must be localized through `DICTIONARY`.
+
+---
+
+# 26. PERFORMANCE
+
+Prefer simple and predictable implementations.
+
+Avoid:
+
+* unnecessary re-renders;
+* duplicated derived state;
+* excessive `useEffect`;
+* unnecessary memoization;
+* premature optimization;
+* large dependency additions for trivial functionality.
+
+Use memoization only when there is a measurable or obvious rendering/data-calculation benefit.
+
+---
+
+# 27. DEPENDENCY MANAGEMENT
+
+Before adding a dependency:
+
+1. Check `package.json`.
+2. Check whether the required functionality already exists.
+3. Prefer existing dependencies.
+4. Add a new dependency only when it provides meaningful value.
+
+Do NOT introduce a dependency for a simple utility that can be implemented safely with existing project capabilities.
+
+---
+
+# 28. DATA AND API BOUNDARIES
+
+If the MVP currently uses local/mock data:
+
+* keep mock data isolated from UI components;
+* do not scatter mock objects throughout the application;
+* keep data-access logic replaceable.
+
+Do not invent backend endpoints.
+
+Do not create fake API contracts unless explicitly required.
+
+When an API is introduced later, UI components should not require a complete rewrite merely because the data source changed.
+
+---
+
+# 29. BUSINESS LOGIC
+
+Business rules MUST be explicit.
+
+Do not encode business rules indirectly through visual behavior.
+
+Examples:
+
+* status transitions;
+* archive/restore rules;
+* permissions;
+* validation;
+* entity relationships;
+* counter calculations.
+
+If a business rule is not defined by the specification:
+
+* do not invent it;
+* preserve current behavior where possible;
+* identify the missing requirement.
+
+---
+
+# 30. TESTING AND QUALITY GATES
+
+Before considering a feature complete, verify the project using the scripts actually defined in `package.json`.
+
+At minimum, where corresponding scripts exist:
+
+```text
+npm run build
+npm run typecheck
+npm run lint
+```
+
+Also verify:
+
+* no TypeScript errors;
+* no unused imports;
+* no broken routes;
+* no missing dictionary keys;
+* no invalid component imports;
+* no obvious runtime errors;
+* no console errors caused by the implemented feature;
+* required states are handled;
+* required validation works;
+* existing functionality remains intact.
+
+Do NOT claim that tests passed if they were not actually executed.
+
+---
+
+# 31. CODE COMPLETION STANDARD
+
+A task is considered complete only when:
+
+* the requested functionality is implemented;
+* existing functionality is preserved;
+* UI text follows localization rules;
+* validation works;
+* loading/empty/error states are handled where applicable;
+* interactive states are implemented;
+* accessibility requirements are satisfied;
+* TypeScript is valid;
+* project build succeeds when the build command is available;
+* no known implementation placeholders remain.
+
+---
+
+# 32. MVP SCOPE CONTROL
+
+The MVP must remain focused.
+
+Do NOT add:
+
+* unnecessary dashboards;
+* speculative features;
+* extra filters;
+* additional permissions;
+* unnecessary animations;
+* unnecessary settings;
+* unrelated refactoring;
+* premature microservices;
+* unnecessary abstractions;
+* functionality not present in the specification.
+
+"Better UX" is NOT sufficient justification for changing business behavior.
+
+Implement the specified MVP first.
+
+---
+
+# 33. PRIORITY OF RULES
+
+When rules appear to conflict, use the following priority:
+
+1. Explicit feature/business requirements
+2. Existing business behavior that must be preserved
+3. Data integrity and validation
+4. Security and accessibility
+5. Architecture and maintainability
+6. UI consistency
+7. Visual/aesthetic preferences
+
+Never sacrifice business correctness for visual consistency.
+
+---
+
+# 34. FINAL IMPLEMENTATION PRINCIPLE
+
+Before writing code, determine:
+
+1. What requirement is being implemented?
+2. Which existing components/state/types are affected?
+3. What business behavior must remain unchanged?
+4. What validation is required?
+5. What UI states are required?
+6. What dictionary keys are required?
+7. What existing functionality could be affected?
+8. What is the smallest correct implementation?
+
+Then implement only what is required.
+
+The goal is:
+
+```text
+Correctness > Business Integrity > Maintainability > Accessibility > Consistency > Aesthetics
+```
+
+Do not optimize for code volume.
+
+Do not optimize for architectural complexity.
+
+Optimize for a small, correct, maintainable, testable MVP.
