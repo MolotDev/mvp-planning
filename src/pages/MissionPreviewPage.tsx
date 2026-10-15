@@ -211,7 +211,7 @@ export function MissionPreviewPage() {
           ) : null} */}
         </div>
       </header>
-      <div className="max-w-4xl mx-auto flex-1 gap-4 overflow-hidden"> {/* lg:grid-cols-2 */}
+      <div className="w-full max-w-4xl mx-auto flex-1 gap-4 overflow-hidden"> {/* lg:grid-cols-2 */}
         <div className="h-full flex flex-col overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
           <MissionForm
             scheduledAt={scheduledAt}
@@ -228,7 +228,7 @@ export function MissionPreviewPage() {
             onDescriptionChange={setDescription}
             onTargetDraftsChange={setTargetDrafts}
           />
-          <div className="mt-4 flex justify-end gap-3">
+          <div className="mt-4 flex justify-end gap-3 mt-auto">
             <Button variant="ghost" onClick={handleCancel}>
               {DICTIONARY.common.actions.cancel}
             </Button>

@@ -170,6 +170,16 @@ describe("Stage 2 catalog UI", () => {
   });
 });
 
+describe("Stage 2 create redirect", () => {
+  it("opens the create target modal from the action query and drops the parameter", async () => {
+    renderApp("/catalogs/targets?action=create");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: new RegExp(DICTIONARY.targets_catalog.modals.target.title_create) }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("Stage 2 preview UI", () => {
   it("opens preview, disables edit when archived, and creates an aiming point at list end", async () => {
     const user = userEvent.setup();

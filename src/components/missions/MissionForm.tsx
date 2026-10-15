@@ -4,6 +4,7 @@ import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/button";
 import { AppDatePicker } from "@/components/ui/date-picker";
 import { DeleteIconButton } from "@/components/ui/icon-buttons";
+import { TargetSearchCombobox } from "@/components/missions/TargetSearchCombobox";
 import { NativeFormSelect } from "@/components/ui/form-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,11 +48,12 @@ export function MissionForm({
 }: MissionFormProps) {
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="flex flex-col gap-3 md:flex-row">
         <FormField
           id="scheduled_at"
           label={DICTIONARY.missions.fields.scheduled_at}
           // error={readOnly ? undefined : dateError}
+          wrapperClassName="min-w-fit"
         >
           <AppDatePicker
             id="scheduled_at"
@@ -62,29 +64,33 @@ export function MissionForm({
             isError={!!dateError}
           />
         </FormField>
-        <FormField id="mission_name" label={DICTIONARY.missions.fields.name}>
+        <FormField id="mission_name" label={DICTIONARY.missions.fields.name}
+          wrapperClassName="min-w-fit">
           <Input
             id="mission_name"
             value={name}
             disabled={readOnly}
             onChange={(event) => onNameChange(event.target.value)}
+            className="min-h-[38px]"
+          />
+        </FormField>
+        <FormField
+          id="description"
+          label={DICTIONARY.missions.fields.description}
+          // error={readOnly ? undefined : descriptionError}
+          wrapperClassName="w-full"
+        >
+          <Textarea
+            id="description"
+            value={description}
+            disabled={readOnly}
+            onChange={(event) => onDescriptionChange(event.target.value)}
+            rows={1}
+            data-error={!!descriptionError}
+            className="min-h-[38px]"
           />
         </FormField>
       </div>
-      <FormField
-        id="description"
-        label={DICTIONARY.missions.fields.description}
-        // error={readOnly ? undefined : descriptionError}
-      >
-        <Textarea
-          id="description"
-          value={description}
-          disabled={readOnly}
-          onChange={(event) => onDescriptionChange(event.target.value)}
-          rows={1}
-          data-error={!!descriptionError}
-        />
-      </FormField>
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.tasks_title}</h3>
@@ -161,16 +167,12 @@ function TargetAssignmentBlock({
   return (
     <article className="rounded-lg border border-primitive-neutral-800 p-3">
       <div className="mb-3 flex items-start justify-between gap-2">
-        <FormField id={`target-${block.key}`} label={DICTIONARY.missions.fields.target}>
-          <NativeFormSelect
+        <FormField id={`target-${block.key}`} label={DICTIONARY.missions.fields.target} wrapperClassName="w-full">
+          <TargetSearchCombobox
             id={`target-${block.key}`}
             value={block.target_id}
             disabled={readOnly}
-            placeholder={DICTIONARY.missions.select_target}
-            options={catalogTargets.map((target) => ({
-              value: target.id,
-              label: `${target.displayed_id || target.label || "—"} — ${target.name} — ${target.address} — ${target.mgrs}`,
-            }))}
+            targets={catalogTargets}
             onChange={(targetId) =>
               onChange({
                 ...block,
@@ -179,7 +181,6 @@ function TargetAssignmentBlock({
                 detachments: block.detachments.map((row) => ({ ...row, aiming_point_id: "" })),
               })
             }
-            className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm text-primitive-neutral-0 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
           />
         </FormField>
         {readOnly ? null : <DeleteIconButton onClick={onRemove} />}
@@ -233,13 +234,13 @@ function TargetAssignmentBlock({
                         .filter((point) => point.archived_at === null || point.id === row.aiming_point_id)
                         .map((point) => ({
                           value: point.id,
-                          label: `${point.displayed_id || point.label || "—"} — ${point.name} — ${point.mgrs}`,
+                          label: `${point.mgrs} - ${point.name}`,
                         }))}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <FormField id={`${row.key}-org`} label={index === 0 ? DICTIONARY.missions.fields.detachment : ""} wrapperClassName="w-full max-w-24">
+                  <FormField id={`${row.key}-org`} label={index === 0 ? DICTIONARY.missions.fields.detachment : ""} wrapperClassName="w-28 lg:w-40">
                     <NativeFormSelect
                       id={`${row.key}-org`}
                       value={row.organization_id}
@@ -257,7 +258,7 @@ function TargetAssignmentBlock({
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <FormField id={`${row.key}-uav`} label={index === 0 ? DICTIONARY.missions.fields.assets : ""} wrapperClassName="">
+                  <FormField id={`${row.key}-uav`} label={index === 0 ? DICTIONARY.missions.fields.assets : ""} wrapperClassName="w-28 lg:w-40">
                     <NativeFormSelect
                       id={`${row.key}-uav`}
                       value={row.asset_id}

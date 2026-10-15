@@ -35,7 +35,7 @@ export function AppDatePicker({
       dateFormat="dd.MM.yyyy"
       placeholderText={placeholder}
       disabled={disabled}
-      className={cn(pickerClassName, " hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50", isError ? "border-primitive-red-500" : "")}
+      className={cn(pickerClassName, "min-h-[38px] hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50", isError ? "border-primitive-red-500" : "")}
       calendarClassName="crm-datepicker"
       popperClassName="crm-datepicker-popper"
       wrapperClassName="w-full"

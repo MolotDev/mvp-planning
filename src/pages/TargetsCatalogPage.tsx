@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 // import { MetricCards } from "@/components/targets/MetricCards";
 import { TargetCard } from "@/components/targets/TargetCard";
 import { TargetModal } from "@/components/targets/TargetModal";
@@ -26,7 +26,25 @@ export function TargetsCatalogPage() {
   const query = useTargetFilterStore((state) => state.filters.query);
   const status = useTargetFilterStore((state) => state.filters.status);
   const setFilters = useTargetFilterStore((state) => state.setFilters);
+  const [searchParams] = useSearchParams();
   const [modalTarget, setModalTarget] = useState<Target | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (searchParams.get("action") !== "create") {
+      return;
+    }
+    setModalTarget(null);
+    const hash = window.location.hash;
+    if (!hash.includes("action=create")) {
+      return;
+    }
+    const cleanHash = hash.replace("?action=create", "").replace("&action=create", "");
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}${cleanHash}`,
+    );
+  }, [searchParams]);
 
   // const metrics = useMemo(() => getTargetMetrics(filterTargets(targets, query, "all")), [targets, query]);
   const visibleTargets = useMemo(
