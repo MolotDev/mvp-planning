@@ -118,13 +118,15 @@ export function MissionPreviewPage() {
   const actionsEnabled =
     Boolean(scheduledIso) && !dateError && !descriptionError && !hasIncompleteAssignment(targetDrafts);
 
+  const [didChange, setDidChange] = useState(false);
+
   const handleCancel = () => {
     setScheduledAt(startOfDay(new Date(mission.scheduled_at)));
     setName(mission.name ?? "");
     setDescription(mission.description);
     setTargetDrafts(draftsFromMission(mission, useTaskStore.getState().tasks));
     // setIsEditMode(false);
-    // navigate("/planning/missions");
+    navigate("/planning/missions");
   };
 
   const handleSave = () => {
@@ -214,6 +216,7 @@ export function MissionPreviewPage() {
       <div className="w-full max-w-4xl mx-auto flex-1 gap-4 overflow-hidden"> {/* lg:grid-cols-2 */}
         <div className="h-full flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
           <MissionForm
+            setDidChange={setDidChange}
             scheduledAt={scheduledAt}
             name={name}
             description={description}
@@ -232,7 +235,7 @@ export function MissionPreviewPage() {
             <Button variant="ghost" onClick={handleCancel}>
               {DICTIONARY.common.actions.cancel}
             </Button>
-            <Button disabled={!actionsEnabled} onClick={handleSave}>
+            <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
               {DICTIONARY.missions.buttons.save_mission}
             </Button>
           </div>

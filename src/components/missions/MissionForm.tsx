@@ -29,6 +29,7 @@ interface MissionFormProps {
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onTargetDraftsChange: (drafts: TargetDraft[]) => void;
+  setDidChange: (didChange: boolean) => void;
 }
 
 export function MissionForm({
@@ -45,6 +46,7 @@ export function MissionForm({
   onNameChange,
   onDescriptionChange,
   onTargetDraftsChange,
+  setDidChange,
 }: MissionFormProps) {
   return (
     <div className="flex flex-col gap-4">
@@ -58,7 +60,10 @@ export function MissionForm({
           <AppDatePicker
             id="scheduled_at"
             selected={scheduledAt}
-            onChange={onScheduledAtChange}
+            onChange={(date) => {
+              onScheduledAtChange(date);
+              setDidChange(true);
+            }}
             placeholder={DICTIONARY.missions.fields.scheduled_at}
             disabled={readOnly}
             isError={!!dateError}
@@ -70,7 +75,10 @@ export function MissionForm({
             id="mission_name"
             value={name}
             disabled={readOnly}
-            onChange={(event) => onNameChange(event.target.value)}
+            onChange={(event) => {
+              onNameChange(event.target.value);
+              setDidChange(true);
+            }}
             className="min-h-[38px]"
           />
         </FormField>
@@ -84,7 +92,10 @@ export function MissionForm({
             id="description"
             value={description}
             disabled={readOnly}
-            onChange={(event) => onDescriptionChange(event.target.value)}
+            onChange={(event) => {
+              onDescriptionChange(event.target.value);
+              setDidChange(true);
+            }}
             rows={1}
             data-error={!!descriptionError}
             className="min-h-[38px]"
@@ -108,9 +119,10 @@ export function MissionForm({
             catalogTargets={catalogTargets}
             aimingPoints={aimingPoints}
             readOnly={readOnly}
-            onChange={(next) =>
-              onTargetDraftsChange(targetDrafts.map((item) => (item.key === next.key ? next : item)))
-            }
+              onChange={(next) => {
+                onTargetDraftsChange(targetDrafts.map((item) => (item.key === next.key ? next : item)));
+                setDidChange(true);
+              }}
             onRemove={() =>
               onTargetDraftsChange(targetDrafts.filter((item) => item.key !== block.key))
             }

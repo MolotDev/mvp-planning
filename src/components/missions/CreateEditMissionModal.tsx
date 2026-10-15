@@ -86,9 +86,10 @@ export function CreateEditMissionModal({ mission, onClose }: CreateEditMissionMo
       confirmDisabled={confirmDisabled}
       onClose={onClose}
       onConfirm={handleSave}
-      className="max-w-3xl"
+      className="max-w-3xl min-h-[400px]"
     >
       <MissionForm
+        setDidChange={() => {}}
         scheduledAt={scheduledAt}
         name={name}
         description={description}

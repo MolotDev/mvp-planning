@@ -172,7 +172,10 @@ export function MissionsPlanningPage() {
         )}
       </div>
       {modalMission !== undefined ? (
-        <CreateEditMissionModal mission={modalMission} onClose={() => setModalMission(undefined)} />
+        <CreateEditMissionModal mission={modalMission} onClose={() => {
+          navigate(`/planning/missions`);
+          setModalMission(undefined);
+        }} />
       ) : null}
     </section>
   );
