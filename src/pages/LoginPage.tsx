@@ -53,10 +53,10 @@ export function LoginPage() {
             }
             if (option.role === "DETACHMENT") {
               return (
-                <Button
+                <div
                   key={option.role}
-                  variant="ghost"
-                  className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2"
+                  // variant="ghost"
+                  className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2 flex items-center justify-center gap-1 rounded-md bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md"
                   // onClick={() => chooseRole(option.role)}
                 >
                   {option.label}
@@ -68,15 +68,15 @@ export function LoginPage() {
                     onChange={(value) => login(option.role, value)
                     }
                   />
-                </Button>
+                </div>
               )
             }
 
             return (
-              <Button
+              <div
                 key={option.role}
-                variant="ghost"
-                className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2"
+                // variant="ghost"
+                className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2 flex items-center justify-center gap-1 rounded-md bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md"
                 // onClick={() => chooseRole(option.role)}
               >
                 {option.label}
@@ -88,7 +88,7 @@ export function LoginPage() {
                     onChange={(value) => login(option.role, value)
                     }
                   />
-              </Button>
+              </div>
             )
           })}
         </div>

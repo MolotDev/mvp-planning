@@ -162,3 +162,19 @@ textarea[data-error="true"],
 textarea[data-error="true"]:hover {
   border-color: var(--color-primitive-red-500);
 }
+
+.progress-badge {
+  @apply w-fit text-primitive-neutral-0;
+}
+.progress-badge[data-status="success"] {
+  color: #64ff00;
+  background-color: #64ff0033;
+}
+.progress-badge[data-status="error"] {
+  color: #ff3d3d;
+  background-color: #ff3d3d33;
+}
+.progress-badge[data-status="warning"] {
+  color: #fde047;
+  background-color: #fde04733;
+}

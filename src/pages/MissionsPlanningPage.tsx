@@ -99,7 +99,7 @@ export function MissionsPlanningPage() {
               placeholder={DICTIONARY.missions.date_range}
             />
           </div>
-          <div className="relative min-w-0 flex-1 max-w-60">
+          <div className="relative min-w-0 flex-1 lg:max-w-60">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primitive-neutral-500"
               aria-hidden="true"
@@ -149,7 +149,7 @@ export function MissionsPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {visibleMissions.map((mission) => (
               <MissionCard
                 key={mission.id}

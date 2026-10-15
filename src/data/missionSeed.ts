@@ -1,4 +1,4 @@
-import { AP_1_ID, AP_2_ID, AP_3_ID, TARGET_1_ID, TARGET_2_ID } from "@/data/targetSeed";
+import { AP_1_ID, AP_3_ID, TARGET_1_ID, TARGET_2_ID } from "@/data/targetSeed";
 import type { Mission, Task } from "@/types/mission";
 
 export const MISSION_1_ID = "c1111111-1111-4111-8111-111111111111";
@@ -30,7 +30,7 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       label: "TK-1",
       mission_id: MISSION_1_ID,
       target_ids: [TARGET_1_ID],
-      aiming_point_ids: [AP_1_ID, AP_2_ID],
+      aiming_point_ids: [AP_1_ID],
       organization_id: "detachment_1",
       battle_groups_ids: [BATTLE_GROUP_1_ID],
       assets: [{ asset_id: "uav_1", quantity: 4 }],
@@ -59,9 +59,9 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
     {
       id: MISSION_1_ID,
       label: "MN-1",
-      name: "Операція Заграва-1",
+      name: "Заграва",
       scheduled_at: tomorrow,
-      description: "Ураження КСП та складу БК для зниження управління противника.",
+      description: "Зниження спроможностей противника",
       task_ids: [TASK_1_ID, TASK_2_ID],
       created_at: today,
       updated_at: today,

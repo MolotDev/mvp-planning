@@ -108,11 +108,12 @@ export function toTaskDrafts(targets: TargetDraft[]): TaskDraft[] {
         return;
       }
       const key = assignmentKey(block.target_id, row.organization_id);
-      const rowPoints = row.aiming_point_id
-        ? [row.aiming_point_id]
-        : block.detachments.some((item) => Boolean(item.aiming_point_id))
-          ? []
-          : [...block.aiming_point_ids];
+      const rowPoints = [row.aiming_point_id ?? ""];
+      // row.aiming_point_id
+      //   ? [row.aiming_point_id]
+      //   : block.detachments.some((item) => Boolean(item.aiming_point_id))
+      //     ? []
+      //     : [...block.aiming_point_ids];
       const existing = grouped.get(key);
       if (!existing) {
         grouped.set(key, {

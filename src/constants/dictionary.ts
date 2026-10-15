@@ -175,7 +175,7 @@ export const DICTIONARY = {
     asset_quantity: "Кількість засобів",
     preview_tasks: "Політні заявки",
     no_tasks_assigned: "Політні заявки не додані",
-    no_detachments_assigned: "Політні заявки не розподілені",
+    no_detachments_assigned: "Ціль не розподілено між загонами!",
     empty_state: "У базі відсутні вогневі завдання, які відповідають заданим параметрам.",
     assignment_title: "Розподіл засобів між загонами",
     fields: {
@@ -197,7 +197,7 @@ export const DICTIONARY = {
       unlocked: "Дозвіл на редагування звітів надано!",
     },
     buttons: {
-      save_mission: "Зберегти ВЗ",
+      save_mission: "Зберегти зміни",
       reset_filters: "Скинути фільтри",
     },
     modals: {
@@ -226,6 +226,7 @@ export const DICTIONARY = {
     scheduled_badge: "Дата виконання",
     select_target: "Оберіть ціль",
     select_aiming_points: "Оберіть точку прицілювання",
+    main_target: "Точка прицілювання - Основна ціль",
     assigned_aiming_points: "Точки прицілювання:",
     quantity: "Кількість",
     remove_target: "Видалити ціль",
@@ -242,7 +243,7 @@ export const DICTIONARY = {
     not_found: "Політні заявки не знайдено.",
     edit_toggle: "Розподілити ПЗ",
     no_crews_assigned: "Заявка не розподілена між бойовими групами!",
-    unallocated_assets: "Нерозподілених засобів: {quantity} од.",
+    unallocated_assets: "Засоби: {processed} / {total} розподілено.",
     discrepancy_error: "Увага! Планова кількість ({planned}) не збігається з фактичною ({actual})",
     confirm_delete: "Видалити бойову групу із політної заявки?",
     date_range: "Період виконання",

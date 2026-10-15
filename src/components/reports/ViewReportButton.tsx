@@ -7,7 +7,7 @@ import { useMissionStore } from "@/store/useMissionStore";
 import { useReportStore } from "@/store/useReportStore";
 import { detachmentName } from "@/lib/detachments";
 
-export function ViewReportButton({ reportId, detachmentName }: { reportId: string, detachmentName: string }) {
+export function ViewReportButton({ reportId, detachmentName = "" }: { reportId: string, detachmentName?: string }) {
   const navigate = useNavigate();
 
   return (
@@ -20,7 +20,7 @@ export function ViewReportButton({ reportId, detachmentName }: { reportId: strin
       }}
     >
       <Eye className="h-4 w-4" aria-hidden="true" />
-      {`${DICTIONARY.common.report} - ${detachmentName}`}
+      {`${DICTIONARY.common.report}${detachmentName ? ` - ${detachmentName}` : ""}`}
     </Button>
   );
 }

@@ -31,3 +31,12 @@ export function AimingPointIdBadge({ className, ...props }: HTMLAttributes<HTMLS
     <Badge className={cn("font-semibold bg-sky-950", className || "text-[12px]")} {...props} />
   );
 }
+
+export function ProgressBadge({label, processed, total }: { label: string, processed: number, total: number }) {
+  const status = processed === 0 ? "error" : processed === total ? "success" : "warning";
+  return (
+    <Badge className="progress-badge" data-status={status}>
+      {label}
+    </Badge>
+  );
+}

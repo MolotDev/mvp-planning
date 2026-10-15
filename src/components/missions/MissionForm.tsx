@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/button";
@@ -153,10 +153,10 @@ function TargetAssignmentBlock({
   //     .filter((point): point is AimingPoint => Boolean(point));
   // }, [block.aiming_point_ids, block.detachments, points]);
 
-  const [assignedPoints, setAssignedPoints] = useState<AimingPoint[]>([]);
-  useEffect(() => {
-    setAssignedPoints(points.filter((point) => block.aiming_point_ids.includes(point.id)) ?? []);
-  }, [block.aiming_point_ids, points]);
+  // const [assignedPoints, setAssignedPoints] = useState<AimingPoint[]>([]);
+  // useEffect(() => {
+  //   setAssignedPoints(points.filter((point) => block.aiming_point_ids.includes(point.id)) ?? []);
+  // }, [block.aiming_point_ids, points]);
 
   return (
     <article className="rounded-lg border border-primitive-neutral-800 p-3">
@@ -184,7 +184,7 @@ function TargetAssignmentBlock({
         </FormField>
         {readOnly ? null : <DeleteIconButton onClick={onRemove} />}
       </div>
-      {selectedTarget ? (
+      {/* {selectedTarget ? (
         <div className="mb-3 flex items-center gap-1.5 min-h-7">
           <span className="text-sm text-primitive-neutral-300">{DICTIONARY.missions.assigned_aiming_points}</span>
           <div className="flex flex-wrap gap-1">
@@ -203,7 +203,7 @@ function TargetAssignmentBlock({
             )}
           </div>
         </div>
-      ) : null}
+      ) : null} */}
       {selectedTarget ? (
       <div className="flex flex-col gap-2 mt-8">
         <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.assignment_title}</h3>
@@ -217,17 +217,18 @@ function TargetAssignmentBlock({
                     : "border-b border-primitive-neutral-800 py-2"
                 }
               >
-                <div className="flex flex-col gap-3 xl:flex-row">
+                <div className="flex gap-2">
                   <FormField
                     id={`${row.key}-aiming`}
                     label={index === 0 ? DICTIONARY.tasks.aiming_points : ""}
+                    wrapperClassName="flex-1"
                   >
                     <NativeFormSelect
                       autoSelect={false}
                       id={`${row.key}-aiming`}
                       value={row.aiming_point_id ?? ""}
                       disabled={readOnly}
-                      placeholder={DICTIONARY.missions.select_aiming_points}
+                      placeholder={DICTIONARY.missions.main_target}
                       options={points
                         .filter((point) => point.archived_at === null || point.id === row.aiming_point_id)
                         .map((point) => ({
@@ -235,7 +236,7 @@ function TargetAssignmentBlock({
                           label: `${point.displayed_id || point.label || "—"} — ${point.name} — ${point.mgrs}`,
                         }))}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
-                      className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-9 flex-1 rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField id={`${row.key}-org`} label={index === 0 ? DICTIONARY.missions.fields.detachment : ""} wrapperClassName="w-full max-w-24">
