@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from "react";
-import { FoldHorizontal, FoldVertical, UnfoldHorizontal, UnfoldVertical, Upload, X } from "lucide-react";
+import { FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { crewName } from "@/lib/battleGroup";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import {
   crewRate,
+  dayTargetRoles,
   summarizeLaunchesByCrew,
   type DaySlice,
   type PlanningSnapshot,
@@ -35,6 +36,8 @@ import { cn } from "@/lib/utils";
 import { useAssetStore } from "@/store/useAssetStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useReportStore } from "@/store/useReportStore";
+import type { Asset } from "@/types/asset";
+import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Report, Trajectory } from "@/types/report";
 import type { Target } from "@/types/target";
@@ -71,8 +74,8 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
   const clearLaunchTracker = useLaunchStore((state) => state.clearLaunchTrackerFromReport);
   const slice = sliceForReport(report, snapshot);
   const text = DICTIONARY.reports;
-  const mainTarget = slice.targets[0];
-  const additionalTargets = slice.targets.slice(1);
+  const { primary: mainTarget, additional: additionalTargets } = dayTargetRoles(slice);
+  const orderedLaunches = chronologicalLaunches(slice, report);
   const tableIds = report.trajectories.reduce<string[]>((ids, trajectory) => {
     if (trajectory.archived_at === null && !ids.includes(trajectory.table_id)) {
       ids.push(trajectory.table_id);
@@ -121,16 +124,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
 
   const [isLaunchAssetFolded, setIsLaunchAssetFolded] = useState(false);
   const [isLaunchProblemsFolded, setIsLaunchProblemsFolded] = useState(false);
-  const [groupedByAssetIds, setGroupedByAssetIds] = useState<string[]>([]);
-
-  const toggleGroupedByAssetId = (assetId: string) => {
-    setGroupedByAssetIds((prev) => {
-      if (prev.includes(assetId)) {
-        return prev.filter((id) => id !== assetId);
-      }
-      return [...prev, assetId];
-    });
-  };
 
   const eventCrewOptions = slice.battleGroups.map((group) => ({
     value: crewName(group.lead_crew_id),
@@ -231,7 +224,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
           </div>
         </header>)}
       
-        {readOnly  && (
           <>
             {/* What was planned section */}
             <section className="flex flex-col gap-3 w-full">
@@ -545,34 +537,28 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                     </tr>
                   </thead>
                   <tbody>
-                    {slice.launches.map((launch) => {
-                      const group = slice.battleGroups.find((item) => item.id === launch.battle_group_id);
-                      const asset = assets.find((item) => item.id === launch.asset_id);
+                    {slice.battleGroups.map((group) => {
+                      const task = slice.tasks.find((item) => item.id === group.task_id);
+                      const target = slice.targets.find((item) => task?.target_ids.includes(item.id));
+                      const groupLaunches = slice.launches.filter((launch) => launch.battle_group_id === group.id);
                       return (
-                        <tr key={launch.id}>
-                          <td className={cell}>{group ? crewName(group.lead_crew_id) : ""}</td>
-                          <td className={cell}>
-                            {launch.trajectory_name?.trim()
-                              ? launch.trajectory_name
-                              : (<span className="text-sm text-primitive-red-500">-</span>)}
-                          </td>
-                          <td className={cell}>
-                              {!!launch.aiming_point_mgrs ? (
-                                <span className="text-sm text-primitive-neutral-0">
-                                  {formattingMGRS.spacing(launch.aiming_point_mgrs)}
-                                </span>
-                              ) : (<span className="text-sm text-primitive-red-500">-</span>)}
-                          </td>
-                          <td className={cell}>{assetName(launch.asset_id)}</td>
-                          <td className={cell}>
-                              {!!launch.asset_serial_number
-                                ? (launch.asset_serial_number)
-                                : (<span className="text-sm text-primitive-red-500">-</span>)
-                              }
-                            </td>
-                          <td className={cell}>{launch.tracker_model_serial_number ?? ""}</td>
-                          <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
-                        </tr>
+                        <LaunchGroupRows
+                          key={group.id}
+                          groupLabel={[task?.label, crewName(group.lead_crew_id), target?.name].filter(Boolean).join(" / ")}
+                          launches={groupLaunches}
+                          group={group}
+                          readOnly={readOnly}
+                          assets={assets}
+                          onSerial={(launchId, assetSerialNumber) => updateLaunch(launchId, { asset_serial_number: assetSerialNumber })}
+                          onTrackerSerial={(launch, value) => {
+                            if (value.trim() === "") {
+                              clearTracker(launch);
+                              return;
+                            }
+                            updateLaunch(launch.id, { tracker_model_serial_number: value });
+                          }}
+                          onClearTracker={clearTracker}
+                        />
                       );
                     })}
                   </tbody>
@@ -633,7 +619,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
               </table>
             </section>
           </>
-        )}
 
       {/* Events log & Launches order sections */}
       <section className="flex flex-col gap-3">
@@ -777,10 +762,8 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
         )}
         
         {/* Launches order section */}
-        {[...groupLaunches(slice).entries()].map(([assetLabel, launches]) => (
-          <div key={assetLabel}>
+          <div>
             <h3 className="text-lg font-bold text-primitive-neutral-0">{text.sections.launches_order}</h3>
-            {/* <p className="text-sm font-semibold text-primitive-neutral-0">{assetLabel}</p> */}
             <div className="overflow-x-auto p-4 w-full">
               <table className="w-full border-collapse">
                 <thead>
@@ -839,25 +822,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border border-primitive-neutral-700 relative">
-                    <td colSpan={10} className="px-4 text-md text-primitive-neutral-0 ">
-                      <div className="absolute bottom-[-17px] z-10 left-[-16px]">
-                        <Button variant="icon" size="icon"
-                          tabIndex={-1}
-                          title={groupedByAssetIds.includes(assetLabel) ? DICTIONARY.common.actions.unfold : DICTIONARY.common.actions.fold}
-                          aria-label={groupedByAssetIds.includes(assetLabel) ? DICTIONARY.common.actions.unfold : DICTIONARY.common.actions.fold}
-                          className="h-6 w-5 p-0.5"
-                          onClick={() => toggleGroupedByAssetId(assetLabel)}>
-                            {groupedByAssetIds.includes(assetLabel)
-                              ? <UnfoldVertical className="h-full w-full" aria-hidden="true" />
-                              : <FoldVertical className="h-full w-full" aria-hidden="true" />
-                            }
-                        </Button>
-                      </div>
-                      {assetLabel}
-                    </td>
-                  </tr>
-                  {!groupedByAssetIds.includes(assetLabel) &&launches.map((launch) => {
+                  {orderedLaunches.map((launch) => {
                     const group = slice.battleGroups.find((item) => item.id === launch.battle_group_id);
                     const link = report.launches_by_trajectory.find((item) => item.launch_id === launch.id);
                     const launchedAt = link?.launched_at ?? "";
@@ -1059,7 +1024,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
               </table>
             </div>
           </div>
-        ))}
 
         {readOnly  && (<>
           {/* Summary by crews section */}
@@ -1129,12 +1093,16 @@ function TargetFacts({ target }: { target: Target }) {
   return (
     <table className="w-full border-collapse">
       <tbody>
-        {rows.map(([label, value]) => (
+        {rows.map(([label, value, asBadge]) => (
           <tr key={label}>
             <th className={labelCell}>{label}</th>
             <td className={cell}>
               <div className="flex items-center gap-1">
-                {value}
+                {asBadge ? (
+                  <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{value}</Badge>
+                ) : (
+                  value
+                )}
               </div>
             </td>
           </tr>
@@ -1232,15 +1200,115 @@ function isLaunchNumberValid(value: number | undefined): boolean {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-function groupLaunches(slice: DaySlice): Map<string, Launch[]> {
-  const groups = new Map<string, Launch[]>();
-  slice.launches.forEach((launch) => {
-    const label = assetName(launch.asset_id);
-    const list = groups.get(label) ?? [];
-    list.push(launch);
-    groups.set(label, list);
+function LaunchGroupRows({
+  groupLabel,
+  launches,
+  group,
+  readOnly,
+  assets,
+  onSerial,
+  onTrackerSerial,
+  onClearTracker,
+}: {
+  groupLabel: string;
+  launches: Launch[];
+  group: BattleGroup;
+  readOnly: boolean;
+  assets: Asset[];
+  onSerial: (launchId: string, serial: string) => void;
+  onTrackerSerial: (launch: Launch, value: string) => void;
+  onClearTracker: (launch: Launch) => void;
+}) {
+  const text = DICTIONARY.reports;
+  return (
+    <>
+      <tr>
+        <td className={cell} colSpan={7}>
+          <span className="font-semibold">{groupLabel}</span>
+        </td>
+      </tr>
+      {launches.map((launch) => {
+        const asset = assets.find((item) => item.id === launch.asset_id);
+        const trackerName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
+        return (
+          <tr key={launch.id}>
+            <td className={cell}>{crewName(group.lead_crew_id)}</td>
+            <td className={cell}>
+              {launch.trajectory_name?.trim() ? (
+                launch.trajectory_name
+              ) : (
+                <span className="text-sm text-primitive-red-500">-</span>
+              )}
+            </td>
+            <td className={cell}>
+              {launch.aiming_point_mgrs ? (
+                <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">
+                  {formattingMGRS.spacing(launch.aiming_point_mgrs)}
+                </Badge>
+              ) : (
+                <span className="text-sm text-primitive-red-500">-</span>
+              )}
+            </td>
+            <td className={cell}>{assetName(launch.asset_id)}</td>
+            <td className={cell}>
+              {readOnly ? (
+                launch.asset_serial_number ? (
+                  launch.asset_serial_number
+                ) : (
+                  <span className="text-sm text-primitive-red-500">-</span>
+                )
+              ) : (
+                <Input
+                  value={launch.asset_serial_number}
+                  aria-label={text.tables.launches_grouped.asset_sn}
+                  onChange={(event) => onSerial(launch.id, event.target.value)}
+                  className="h-7 px-2 min-w-28 max-w-[200px]"
+                />
+              )}
+            </td>
+            <td className={cn(cell, "group/tracker")}>
+              {readOnly ? (
+                launch.tracker_model_serial_number ?? ""
+              ) : (
+                <div className="flex items-center gap-1">
+                  {trackerName ? <span className="text-sm">{trackerName}</span> : null}
+                  <Input
+                    value={launch.tracker_model_serial_number ?? ""}
+                    aria-label={text.tables.launches_grouped.tracker_sn}
+                    onChange={(event) => onTrackerSerial(launch, event.target.value)}
+                    className="h-7 px-2 min-w-28 max-w-[200px]"
+                  />
+                  {trackerName ? (
+                    <Button
+                      variant="icon"
+                      size="icon"
+                      title={text.tracker.delete_tooltip}
+                      aria-label={text.tracker.delete_tooltip}
+                      className="h-6 min-w-6 w-6 opacity-0 group-hover/tracker:opacity-100 focus-visible:opacity-100"
+                      onClick={() => onClearTracker(launch)}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            </td>
+            <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
+          </tr>
+        );
+      })}
+    </>
+  );
+}
+
+function chronologicalLaunches(slice: DaySlice, report: Report): Launch[] {
+  return [...slice.launches].sort((left, right) => {
+    const leftAt =
+      report.launches_by_trajectory.find((link) => link.launch_id === left.id)?.launched_at || left.created_at;
+    const rightAt =
+      report.launches_by_trajectory.find((link) => link.launch_id === right.id)?.launched_at || right.created_at;
+    return leftAt.localeCompare(rightAt) || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
   });
-  return groups;
 }
 
 function statusOptions(current: string) {

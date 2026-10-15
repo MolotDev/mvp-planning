@@ -29,51 +29,91 @@ export interface CrewLaunchSummary {
   total: number;
 }
 
+function compareTasks(left: Task, right: Task, missions: Mission[]): number {
+  const leftMission = missions.find((mission) => mission.id === left.mission_id);
+  const rightMission = missions.find((mission) => mission.id === right.mission_id);
+  const bySchedule = (leftMission?.scheduled_at ?? left.created_at).localeCompare(
+    rightMission?.scheduled_at ?? right.created_at,
+  );
+  if (bySchedule !== 0) {
+    return bySchedule;
+  }
+  const byCreated = left.created_at.localeCompare(right.created_at);
+  if (byCreated !== 0) {
+    return byCreated;
+  }
+  return left.id.localeCompare(right.id);
+}
+
 export function aggregateDay(
   organizationId: string,
   reportDate: string,
   snapshot: PlanningSnapshot,
 ): DaySlice {
-  const tasks = snapshot.tasks.filter((task) => {
-    if (task.archived_at !== null || task.organization_id !== organizationId) {
-      return false;
-    }
-    const mission = snapshot.missions.find((item) => item.id === task.mission_id);
-    if (!mission || mission.archived_at !== null) {
-      return false;
-    }
-    return toReportDate(mission.scheduled_at) === reportDate;
-  });
+  const tasks = snapshot.tasks
+    .filter((task) => {
+      if (task.archived_at !== null || task.organization_id !== organizationId) {
+        return false;
+      }
+      const mission = snapshot.missions.find((item) => item.id === task.mission_id);
+      if (!mission || mission.archived_at !== null) {
+        return false;
+      }
+      return toReportDate(mission.scheduled_at) === reportDate;
+    })
+    .sort((left, right) => compareTasks(left, right, snapshot.missions));
   const taskIds = new Set(tasks.map((task) => task.id));
   const missionIds = new Set(tasks.map((task) => task.mission_id));
-  const missions = snapshot.missions.filter(
-    (mission) => mission.archived_at === null && missionIds.has(mission.id),
-  );
-  const targetIds = new Set(tasks.flatMap((task) => task.target_ids));
-  const targets = snapshot.targets.filter((target) => targetIds.has(target.id));
-  const battleGroups = snapshot.battleGroups.filter(
-    (group) => group.archived_at === null && taskIds.has(group.task_id),
-  );
+  const missions = snapshot.missions
+    .filter((mission) => mission.archived_at === null && missionIds.has(mission.id))
+    .sort((left, right) => left.scheduled_at.localeCompare(right.scheduled_at) || left.id.localeCompare(right.id));
+  const targetIds: string[] = [];
+  tasks.forEach((task) => {
+    task.target_ids.forEach((targetId) => {
+      if (targetId && !targetIds.includes(targetId)) {
+        targetIds.push(targetId);
+      }
+    });
+  });
+  const targets = targetIds.flatMap((targetId) => {
+    const target = snapshot.targets.find((item) => item.id === targetId);
+    return target ? [target] : [];
+  });
+  const taskOrder = new Map(tasks.map((task, index) => [task.id, index]));
+  const battleGroups = snapshot.battleGroups
+    .filter((group) => group.archived_at === null && taskIds.has(group.task_id))
+    .sort((left, right) => {
+      const byTask = (taskOrder.get(left.task_id) ?? 0) - (taskOrder.get(right.task_id) ?? 0);
+      if (byTask !== 0) {
+        return byTask;
+      }
+      return left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
+    });
   const launches = snapshot.launches
     .filter((launch) => launch.archived_at === null && taskIds.has(launch.task_id))
     .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id));
   return { missions, tasks, targets, battleGroups, launches };
 }
 
+export function dayTargetRoles(slice: DaySlice): { primary: Target | null; additional: Target[] } {
+  const [primary = null, ...additional] = slice.targets;
+  return { primary, additional };
+}
+
 export function deriveReportMetrics(slice: DaySlice): ReportMetrics {
   const successful = slice.launches.filter((launch) => launch.launch_status_id === "success").length;
   const failed = slice.launches.filter((launch) => launch.launch_status_id === "problem").length;
   const cancelled = slice.launches.filter((launch) => launch.launch_status_id === "abort").length;
-  const total = successful + failed;
+  const rated = successful + failed;
   return {
     total_missions_count: slice.missions.length,
     total_tasks_count: slice.tasks.length,
-    total_launches_count: total,
+    total_launches_count: slice.launches.length,
     successful_launches_count: successful,
     cancelled_launches_count: cancelled,
     failed_launches_count: failed,
-    success_rate: total > 0 ? Math.round((successful / total) * 100) : 0,
-    fail_rate: total > 0 ? Math.round((failed / total) * 100) : 0,
+    success_rate: rated > 0 ? Math.round((successful / rated) * 100) : 0,
+    fail_rate: rated > 0 ? Math.round((failed / rated) * 100) : 0,
   };
 }
 

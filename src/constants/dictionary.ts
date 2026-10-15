@@ -16,7 +16,7 @@ export const DICTIONARY = {
       preview_launches: "Пуски",
       go_back: "Повернутися назад",
       close: "Закрити",
-      view_report: "Переглянути звіт",
+      view_report: "Звіт",
       confirm_execution: "Підтвердити виконання",
       allow_report_edit: "Дозволити редагування звіту",
       unfold: "Розгорнути",

@@ -131,7 +131,7 @@ export function MissionCard({
                               <ProgressBadge key={assetId} label={`${uavName(assetId)} × ${numbers.quantity}`} processed={numbers.processed} total={numbers.quantity} />
                             ))}
                           </div>
-                          <ViewReportButton reportId={detachment.reportId} />
+                          {detachment.reportId ? <ViewReportButton reportId={detachment.reportId} /> : null}
                         </div>
                       </div>
                       {/* <div className="pl-6">
@@ -216,7 +216,7 @@ export function MissionCard({
               navigate(`/planning/tasks?missionId=${mission.id}`);
             }}
           >
-            <Eye className="h-4 w-4" aria-hidden="true" />
+            <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
             {DICTIONARY.missions.preview_tasks}
           </Button>
         </div>

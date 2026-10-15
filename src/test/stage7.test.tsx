@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "@/App";
 import { DICTIONARY } from "@/constants/dictionary";
 import { BATTLE_GROUP_1_ID, MISSION_1_ID, TASK_1_ID, TASK_2_ID } from "@/data/missionSeed";
+import { AP_3_ID, TARGET_1_ID, TARGET_2_ID } from "@/data/targetSeed";
+import { aggregateDay, dayTargetRoles, deriveReportMetrics, matchingReports } from "@/lib/reportAggregation";
 import { toReportDate } from "@/lib/reportFormat";
 import { isReportSubmittable } from "@/lib/reportValidation";
 import { syncReportForTask } from "@/store/storeBridge";
@@ -17,7 +19,7 @@ import { resetMissionStore, useMissionStore } from "@/store/useMissionStore";
 import { resetReportFilterStore } from "@/store/useReportFilterStore";
 import { reconcileAllocatedReports, resetReportStore, useReportStore } from "@/store/useReportStore";
 import { resetTaskStore, useTaskStore } from "@/store/useTaskStore";
-import { resetTargetStore } from "@/store/useTargetStore";
+import { resetTargetStore, useTargetStore } from "@/store/useTargetStore";
 import type { Report } from "@/types/report";
 
 function renderApp(initialEntry: string) {
@@ -154,8 +156,12 @@ describe("Stage 7 daily detachment reports", () => {
     reconcileAllocatedReports();
     renderApp("/planning/tasks");
     const firstCard = cardFor("TK-1");
-    expect(await within(firstCard).findByRole("button", { name: DICTIONARY.common.actions.view_report })).toBeInTheDocument();
-    expect(within(cardFor("TK-2")).getByRole("button", { name: DICTIONARY.common.actions.view_report })).toBeInTheDocument();
+    expect(
+      await within(firstCard).findByRole("button", { name: new RegExp(DICTIONARY.common.actions.view_report) }),
+    ).toBeInTheDocument();
+    expect(
+      within(cardFor("TK-2")).getByRole("button", { name: new RegExp(DICTIONARY.common.actions.view_report) }),
+    ).toBeInTheDocument();
   });
 
   it("edits launch serials from the report and clears the tracker", async () => {
@@ -181,5 +187,74 @@ describe("Stage 7 daily detachment reports", () => {
     expect(launch.tracker_model_id).toBeNull();
     expect(launch.tracker_model_serial_number).toBeNull();
     expect(await screen.findByText(DICTIONARY.reports.toasts.tracker_cleared)).toBeInTheDocument();
+  });
+
+  it("pools every mission task and target of the detachment into one daily report", () => {
+    reconcileAllocatedReports();
+    const mission = useMissionStore.getState().missions.find((item) => item.id === MISSION_1_ID);
+    const created = useMissionStore.getState().createMission(
+      {
+        name: "Друга доба",
+        scheduled_at: mission!.scheduled_at,
+        description: "Додаткова ціль того самого дня",
+      },
+      [
+        {
+          target_ids: [TARGET_2_ID],
+          aiming_point_id: AP_3_ID,
+          organization_id: "detachment_1",
+          asset_id: "uav_1",
+          quantity: 1,
+          battle_groups_ids: [],
+        },
+      ],
+    );
+    const extraTask = useTaskStore.getState().tasks.find((task) => task.mission_id === created.id);
+    expect(extraTask).toBeTruthy();
+    expect(
+      useBattleGroupStore.getState().createBattleGroup({
+        task_id: extraTask!.id,
+        lead_crew_id: "1.1.3",
+        support_crew_ids: [],
+        asset_id: "uav_1",
+        uav_quantity: 1,
+      }),
+    ).not.toBeNull();
+
+    const reportDate = toReportDate(mission!.scheduled_at);
+    const reports = useReportStore
+      .getState()
+      .reports.filter(
+        (report) =>
+          report.organization_id === "detachment_1" &&
+          report.report_date === reportDate &&
+          report.archived_at === null,
+      );
+    expect(reports).toHaveLength(1);
+    expect(matchingReports(reports, ["detachment_1"], mission!.scheduled_at).map((report) => report.id)).toEqual([
+      reports[0].id,
+    ]);
+    expect(matchingReports(useReportStore.getState().reports, [extraTask!.organization_id], created.scheduled_at)[0].id).toBe(
+      reports[0].id,
+    );
+
+    const snapshot = {
+      missions: useMissionStore.getState().missions,
+      tasks: useTaskStore.getState().tasks,
+      targets: [...useTargetStore.getState().targets].reverse(),
+      battleGroups: useBattleGroupStore.getState().battleGroups,
+      launches: useLaunchStore.getState().launches,
+    };
+    const slice = aggregateDay("detachment_1", reportDate, snapshot);
+    expect(slice.missions).toHaveLength(2);
+    expect(slice.tasks.map((task) => task.id)).toEqual([TASK_1_ID, extraTask!.id]);
+    expect(dayTargetRoles(slice).primary?.id).toBe(TARGET_1_ID);
+    expect(dayTargetRoles(slice).additional.map((target) => target.id)).toEqual([TARGET_2_ID]);
+    expect(slice.launches.filter((launch) => launch.task_id === extraTask!.id)).toHaveLength(1);
+    const metrics = deriveReportMetrics(slice);
+    expect(metrics.total_missions_count).toBe(2);
+    expect(metrics.total_tasks_count).toBe(2);
+    expect(metrics.total_launches_count).toBe(slice.launches.length);
+    expect(metrics.success_rate).toBe(0);
   });
 });

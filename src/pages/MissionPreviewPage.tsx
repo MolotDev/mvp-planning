@@ -212,7 +212,7 @@ export function MissionPreviewPage() {
         </div>
       </header>
       <div className="w-full max-w-4xl mx-auto flex-1 gap-4 overflow-hidden"> {/* lg:grid-cols-2 */}
-        <div className="h-full flex flex-col overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
+        <div className="h-full flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
           <MissionForm
             scheduledAt={scheduledAt}
             name={name}

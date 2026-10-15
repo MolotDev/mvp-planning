@@ -19,8 +19,8 @@ export function ViewReportButton({ reportId, detachmentName = "" }: { reportId: 
         navigate(`/reports/${reportId}`);
       }}
     >
-      <Eye className="h-4 w-4" aria-hidden="true" />
-      {`${DICTIONARY.common.report}${detachmentName ? ` - ${detachmentName}` : ""}`}
+      <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
+      {`${DICTIONARY.common.actions.view_report}${detachmentName ? ` - ${detachmentName}` : ""}`}
     </Button>
   );
 }
