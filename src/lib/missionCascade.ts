@@ -1,9 +1,8 @@
-import { createLaunchRecord } from "@/data/launchSeed";
 import { resolveDefaultAimingMgrs } from "@/lib/launchAiming";
 import { isPlannedUnprocessed, withProcessedAt } from "@/lib/launches";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
-import type { Task, UavAsset } from "@/types/mission";
+import type { Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 
 interface AssetRef {
@@ -27,56 +26,12 @@ interface CascadeInput {
   assets: AssetRef[];
 }
 
-function sameIdList(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) {
-    return false;
-  }
-  const sortedLeft = [...left].sort();
-  const sortedRight = [...right].sort();
-  return sortedLeft.every((id, index) => id === sortedRight[index]);
-}
-
-function pairAssets(before: UavAsset[], after: UavAsset[]): {
-  updates: { from: UavAsset; to: UavAsset }[];
-  removed: UavAsset[];
-  added: UavAsset[];
-} {
-  const used = new Set<number>();
-  const updates: { from: UavAsset; to: UavAsset }[] = [];
-  const removed: UavAsset[] = [];
-  before.forEach((asset) => {
-    const index = after.findIndex(
-      (item, itemIndex) => !used.has(itemIndex) && item.asset_id === asset.asset_id,
-    );
-    if (index === -1) {
-      removed.push(asset);
-      return;
-    }
-    used.add(index);
-    updates.push({ from: asset, to: after[index] });
-  });
-  const leftoverAfter = after.filter((_, index) => !used.has(index));
-  const swaps = Math.min(removed.length, leftoverAfter.length);
-  for (let index = 0; index < swaps; index += 1) {
-    updates.push({ from: removed[index], to: leftoverAfter[index] });
-  }
-  return {
-    updates,
-    removed: removed.slice(swaps),
-    added: leftoverAfter.slice(swaps),
-  };
-}
-
 function defaultAmmo(assets: AssetRef[], assetId: string): string {
   return assets.find((asset) => asset.id === assetId)?.ammo_ids[0] ?? "";
 }
 
-function activeLaunches(launches: Launch[], taskId: string, assetId: string): Launch[] {
-  return launches
-    .filter(
-      (launch) => launch.task_id === taskId && launch.asset_id === assetId && launch.archived_at === null,
-    )
-    .sort((left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id));
+function byCreatedAt(left: { created_at: string; id: string }, right: { created_at: string; id: string }): number {
+  return left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
 }
 
 export function cascadeMissionAllocation(input: CascadeInput): { launches: Launch[]; groups: BattleGroup[] } {
@@ -87,55 +42,55 @@ export function cascadeMissionAllocation(input: CascadeInput): { launches: Launc
   }));
   const archived = new Set(input.archivedTaskIds);
 
-  const syncGroupQuantities = (taskId: string, assetId: string) => {
-    groups = groups.map((group) => {
-      if (group.task_id !== taskId || group.asset_id !== assetId || group.archived_at !== null) {
-        return group;
-      }
-      const count = launches.filter(
-        (launch) => launch.battle_group_id === group.id && launch.archived_at === null,
-      ).length;
-      return count === group.uav_quantity ? group : { ...group, uav_quantity: count, updated_at: input.now };
-    });
-  };
-
-  const scaleQuantity = (taskId: string, assetId: string, quantity: number, mgrs: string) => {
-    const active = activeLaunches(launches, taskId, assetId);
-    if (active.length > quantity) {
-      const excess = active.length - quantity;
-      const victims = [...active]
-        .reverse()
-        .filter((launch) => isPlannedUnprocessed(launch))
-        .slice(0, excess);
-      const drop = new Set(victims.map((launch) => launch.id));
-      launches = launches.map((launch) =>
-        drop.has(launch.id) ? { ...launch, archived_at: input.now, updated_at: input.now } : launch,
-      );
-      syncGroupQuantities(taskId, assetId);
+  const trimGroupLaunches = (groupId: string, keep: number) => {
+    const active = launches
+      .filter((launch) => launch.battle_group_id === groupId && launch.archived_at === null)
+      .sort(byCreatedAt);
+    if (active.length <= keep) {
       return;
     }
-    if (active.length < quantity) {
-      const missing = quantity - active.length;
-      const group = groups
-        .filter((item) => item.task_id === taskId && item.asset_id === assetId && item.archived_at === null)
-        .sort((left, right) => left.created_at.localeCompare(right.created_at))
-        .at(-1);
-      if (!group) {
-        return;
-      }
-      const ammo = defaultAmmo(input.assets, assetId);
-      const created = Array.from({ length: missing }, (_, index) => {
-        const record = createLaunchRecord(
-          group,
-          new Date(Date.parse(input.now) + index + 1).toISOString(),
-          crypto.randomUUID(),
-          mgrs,
-        );
-        return { ...record, ammo_model_id: ammo };
-      });
-      launches = [...created, ...launches];
-      syncGroupQuantities(taskId, assetId);
+    const victims = [...active]
+      .reverse()
+      .filter((launch) => isPlannedUnprocessed(launch))
+      .slice(0, active.length - keep);
+    const drop = new Set(victims.map((launch) => launch.id));
+    launches = launches.map((launch) =>
+      drop.has(launch.id) ? { ...launch, archived_at: input.now, updated_at: input.now } : launch,
+    );
+  };
+
+  const fitGroupsToQuantity = (taskId: string, quantity: number) => {
+    const active = groups
+      .filter((group) => group.task_id === taskId && group.archived_at === null)
+      .sort(byCreatedAt);
+    let sum = active.reduce((total, group) => total + group.uav_quantity, 0);
+    if (sum <= quantity) {
+      return;
     }
+    const updates = new Map<string, { quantity: number; archived: boolean }>();
+    for (let index = active.length - 1; index >= 0 && sum > quantity; index -= 1) {
+      const group = active[index];
+      const excess = sum - quantity;
+      if (group.uav_quantity <= excess) {
+        updates.set(group.id, { quantity: 0, archived: true });
+        sum -= group.uav_quantity;
+      } else {
+        updates.set(group.id, { quantity: group.uav_quantity - excess, archived: false });
+        sum = quantity;
+      }
+    }
+    groups = groups.map((group) => {
+      const update = updates.get(group.id);
+      if (!update) {
+        return group;
+      }
+      return update.archived
+        ? { ...group, uav_quantity: 0, archived_at: input.now, updated_at: input.now }
+        : { ...group, uav_quantity: update.quantity, updated_at: input.now };
+    });
+    updates.forEach((update, groupId) => {
+      trimGroupLaunches(groupId, update.archived ? 0 : update.quantity);
+    });
   };
 
   if (archived.size > 0) {
@@ -147,70 +102,44 @@ export function cascadeMissionAllocation(input: CascadeInput): { launches: Launc
   }
 
   input.pairs.forEach((pair) => {
-    const diff = pairAssets(pair.before.assets, pair.after.assets);
+    const assetChanged = pair.before.asset_id !== pair.after.asset_id;
     const targetChanged = (pair.before.target_ids[0] ?? "") !== (pair.after.target_ids[0] ?? "");
-    const pointsChanged = !sameIdList(pair.before.aiming_point_ids, pair.after.aiming_point_ids);
+    const pointsChanged = pair.before.aiming_point_id !== pair.after.aiming_point_id;
     const mgrs = resolveDefaultAimingMgrs(pair.after, input.aimingPoints, input.targets) ?? "";
 
-    diff.updates.forEach(({ from, to }) => {
-      if (from.asset_id !== to.asset_id) {
-        const ammo = defaultAmmo(input.assets, to.asset_id);
-        launches = launches.map((launch) => {
-          if (
-            launch.task_id !== pair.after.id ||
-            launch.asset_id !== from.asset_id ||
-            launch.archived_at !== null ||
-            launch.reported_at !== null
-          ) {
-            return launch;
-          }
-          return withProcessedAt(
-            {
-              ...launch,
-              asset_id: to.asset_id,
-              ammo_model_id: ammo,
-              asset_serial_number: "",
-              tracker_model_id: null,
-              tracker_model_serial_number: null,
-              updated_at: input.now,
-            },
-            input.now,
-          );
-        });
-        groups = groups.map((group) =>
-          group.task_id === pair.after.id && group.asset_id === from.asset_id && group.archived_at === null
-            ? { ...group, asset_id: to.asset_id, updated_at: input.now }
-            : group,
+    if (assetChanged) {
+      const ammo = defaultAmmo(input.assets, pair.after.asset_id);
+      launches = launches.map((launch) => {
+        if (
+          launch.task_id !== pair.after.id ||
+          launch.archived_at !== null ||
+          launch.reported_at !== null
+        ) {
+          return launch;
+        }
+        return withProcessedAt(
+          {
+            ...launch,
+            asset_id: pair.after.asset_id,
+            ammo_model_id: ammo,
+            asset_serial_number: "",
+            tracker_model_id: null,
+            tracker_model_serial_number: null,
+            updated_at: input.now,
+          },
+          input.now,
         );
-      }
-      scaleQuantity(pair.after.id, to.asset_id, to.quantity, mgrs);
-    });
-
-    diff.removed.forEach((asset) => {
-      const groupIds = new Set(
-        groups
-          .filter(
-            (group) =>
-              group.task_id === pair.after.id && group.asset_id === asset.asset_id && group.archived_at === null,
-          )
-          .map((group) => group.id),
-      );
+      });
       groups = groups.map((group) =>
-        groupIds.has(group.id) ? { ...group, archived_at: input.now, updated_at: input.now } : group,
+        group.task_id === pair.after.id && group.archived_at === null
+          ? { ...group, asset_id: pair.after.asset_id, updated_at: input.now }
+          : group,
       );
-      launches = launches.map((launch) =>
-        launch.task_id === pair.after.id &&
-        launch.asset_id === asset.asset_id &&
-        launch.archived_at === null &&
-        launch.reported_at === null
-          ? { ...launch, archived_at: input.now, updated_at: input.now }
-          : launch,
-      );
-    });
+    }
 
-    diff.added.forEach((asset) => {
-      scaleQuantity(pair.after.id, asset.asset_id, asset.quantity, mgrs);
-    });
+    if (pair.after.quantity < pair.before.quantity) {
+      fitGroupsToQuantity(pair.after.id, pair.after.quantity);
+    }
 
     if ((targetChanged || pointsChanged) && mgrs) {
       launches = launches.map((launch) =>

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { CREWS } from "@/data/crews";
 import { createBattleGroupSeed } from "@/data/battleGroupSeed";
-import { taskIdsOnOperationalDay, validateBattleGroupInput, type BattleGroupRules } from "@/lib/battleGroup";
+import { taskAllocation, taskIdsOnOperationalDay, validateBattleGroupInput, type BattleGroupRules } from "@/lib/battleGroup";
 import { registerBattleGroupSource, syncAllocatedReports, syncLaunchForGroup, syncReportForTask, reconcileLaunchesWithBattleGroups } from "@/store/storeBridge";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -45,7 +45,7 @@ function validationRules(taskId: string, exceptGroupId?: string): BattleGroupRul
   const task = tasks.find((item) => item.id === taskId);
   return {
     exceptGroupId,
-    taskAssets: task?.assets ?? [],
+    taskAssets: task ? taskAllocation(task) : [],
     sameDayTaskIds: taskIdsOnOperationalDay(taskId, tasks, useMissionStore.getState().missions),
   };
 }
@@ -71,7 +71,9 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
     (set, get) => ({
       ...cloneSeed(),
       createBattleGroup: (input) => {
-        const error = validateBattleGroupInput(input, get().battleGroups, validationRules(input.task_id));
+        const task = useTaskStore.getState().tasks.find((item) => item.id === input.task_id);
+        const scoped = task?.asset_id ? { ...input, asset_id: task.asset_id } : input;
+        const error = validateBattleGroupInput(scoped, get().battleGroups, validationRules(scoped.task_id));
         if (error) {
           return null;
         }
@@ -81,16 +83,16 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
           task_id: input.task_id,
           lead_crew_id: input.lead_crew_id,
           support_crew_ids: [...input.support_crew_ids],
-          asset_id: input.asset_id,
-          uav_quantity: input.uav_quantity,
+          asset_id: scoped.asset_id,
+          uav_quantity: scoped.uav_quantity,
           created_at: now,
           updated_at: now,
           archived_at: null,
         };
         set((state) => ({ battleGroups: [group, ...state.battleGroups] }));
-        linkTaskBattleGroup(input.task_id, group.id, now);
+        linkTaskBattleGroup(scoped.task_id, group.id, now);
         syncLaunches([group.id]);
-        syncReportForTask(input.task_id);
+        syncReportForTask(scoped.task_id);
         return group;
       },
       updateBattleGroup: (id, input) => {
@@ -98,24 +100,26 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
         if (!existing) {
           return null;
         }
-        const error = validateBattleGroupInput(input, get().battleGroups, validationRules(input.task_id, id));
+        const task = useTaskStore.getState().tasks.find((item) => item.id === input.task_id);
+        const scoped = task?.asset_id ? { ...input, asset_id: task.asset_id } : input;
+        const error = validateBattleGroupInput(scoped, get().battleGroups, validationRules(scoped.task_id, id));
         if (error) {
           return null;
         }
         const now = new Date().toISOString();
         const updated: BattleGroup = {
           ...existing,
-          lead_crew_id: input.lead_crew_id,
-          support_crew_ids: [...input.support_crew_ids],
-          asset_id: input.asset_id,
-          uav_quantity: input.uav_quantity,
+          lead_crew_id: scoped.lead_crew_id,
+          support_crew_ids: [...scoped.support_crew_ids],
+          asset_id: scoped.asset_id,
+          uav_quantity: scoped.uav_quantity,
           updated_at: now,
         };
         set((state) => ({
           battleGroups: state.battleGroups.map((group) => (group.id === id ? updated : group)),
         }));
         syncLaunches([id]);
-        syncReportForTask(input.task_id);
+        syncReportForTask(scoped.task_id);
         return updated;
       },
       archiveBattleGroup: (id) => {

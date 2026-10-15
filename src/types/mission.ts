@@ -24,10 +24,11 @@ export interface Task {
   label: string;
   mission_id: string;
   target_ids: string[];
-  aiming_point_ids: string[];
+  aiming_point_id: string | null;
   organization_id: string;
+  asset_id: string;
+  quantity: number;
   battle_groups_ids: string[];
-  assets: UavAsset[];
   created_at: string;
   updated_at: string;
   reported_at: string | null;

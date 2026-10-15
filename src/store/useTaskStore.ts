@@ -13,10 +13,15 @@ import type { Mission, MissionMetrics, MissionStatusFilter, Task, UavAsset } fro
 
 export const TASK_STORE_KEY = "military_crm_task_store";
 
+type StoredTask = Task & {
+  aiming_point_ids?: string[];
+  assets?: UavAsset[];
+};
+
 export type TaskDraft = Omit<
   Task,
   "id" | "label" | "created_at" | "updated_at" | "archived_at" | "reported_at" | "mission_id"
->;
+> & { id?: string };
 
 export interface TaskStoreState {
   tasks: Task[];
@@ -29,13 +34,29 @@ export interface TaskStoreState {
   markTasksReported: (ids: string[], reportedAt: string) => void;
 }
 
-export function normalizeTask(task: Task): Task {
+export function normalizeTask(task: StoredTask): Task {
+  const legacyAssets = Array.isArray(task.assets) ? task.assets : [];
+  const legacyPoints = Array.isArray(task.aiming_point_ids) ? task.aiming_point_ids : [];
+  const aimingPointId =
+    task.aiming_point_id !== undefined
+      ? task.aiming_point_id || null
+      : legacyPoints.length === 1
+        ? legacyPoints[0]
+        : null;
   return {
-    ...task,
+    id: task.id,
+    label: task.label,
+    mission_id: task.mission_id,
     target_ids: Array.isArray(task.target_ids) ? [...task.target_ids] : [],
-    aiming_point_ids: Array.isArray(task.aiming_point_ids) ? [...task.aiming_point_ids] : [],
+    aiming_point_id: aimingPointId,
+    organization_id: task.organization_id ?? "",
+    asset_id: task.asset_id || legacyAssets[0]?.asset_id || "",
+    quantity: typeof task.quantity === "number" ? task.quantity : (legacyAssets[0]?.quantity ?? 0),
     battle_groups_ids: Array.isArray(task.battle_groups_ids) ? [...task.battle_groups_ids] : [],
-    assets: Array.isArray(task.assets) ? cloneAssets(task.assets) : [],
+    created_at: task.created_at,
+    updated_at: task.updated_at,
+    reported_at: task.reported_at ?? null,
+    archived_at: task.archived_at ?? null,
   };
 }
 
@@ -49,13 +70,6 @@ function cloneSeed(): { tasks: Task[]; taskSeq: number } {
 
 function createId(): string {
   return crypto.randomUUID();
-}
-
-function cloneAssets(assets: Array<UavAsset & { uav_model_id?: string }>): UavAsset[] {
-  return assets.map((asset) => ({
-    asset_id: asset.asset_id || asset.uav_model_id || "",
-    quantity: asset.quantity,
-  }));
 }
 
 function cascadeBattleGroups(taskIds: string[], archivedAt: string) {
@@ -139,14 +153,15 @@ export const useTaskStore = create<TaskStoreState>()(
         const created = drafts.map((draft) => {
           seq += 1;
           const task: Task = {
-            ...draft,
             id: createId(),
             label: `TK-${seq}`,
             mission_id: missionId,
             target_ids: [...(draft.target_ids ?? [])],
-            aiming_point_ids: [...(draft.aiming_point_ids ?? [])],
+            aiming_point_id: draft.aiming_point_id || null,
+            organization_id: draft.organization_id,
+            asset_id: draft.asset_id,
+            quantity: draft.quantity,
             battle_groups_ids: [...(draft.battle_groups_ids ?? [])],
-            assets: cloneAssets(draft.assets ?? []),
             created_at: now,
             updated_at: now,
             reported_at: null,
@@ -167,43 +182,28 @@ export const useTaskStore = create<TaskStoreState>()(
           .map((task) => normalizeTask(task));
         const kept: Task[] = [];
         const pairs: AllocationPair[] = [];
-        const pending: TaskDraft[] = [];
         const take = (existing: Task, draft: TaskDraft) => {
           const after: Task = {
             ...existing,
             target_ids: [...(draft.target_ids ?? [])],
-            aiming_point_ids: [...(draft.aiming_point_ids ?? [])],
+            aiming_point_id: draft.aiming_point_id || null,
             organization_id: draft.organization_id,
-            assets: cloneAssets(draft.assets ?? []),
+            asset_id: draft.asset_id,
+            quantity: draft.quantity,
             updated_at: now,
           };
           kept.push(after);
           pairs.push({ before: existing, after });
         };
+        const toCreate: TaskDraft[] = [];
         drafts.forEach((draft) => {
-          const draftTargetId = draft.target_ids[0] ?? "";
-          const index = unmatched.findIndex(
-            (task) =>
-              (task.target_ids[0] ?? "") === draftTargetId && task.organization_id === draft.organization_id,
-          );
+          const index = draft.id ? unmatched.findIndex((task) => task.id === draft.id) : -1;
           if (index === -1) {
-            pending.push(draft);
+            toCreate.push(draft);
             return;
           }
           const [existing] = unmatched.splice(index, 1);
           take(existing, draft);
-        });
-        const toCreate: TaskDraft[] = [];
-        pending.forEach((draft) => {
-          const orgMatches = unmatched.filter((task) => task.organization_id === draft.organization_id);
-          const draftsForOrg = pending.filter((item) => item.organization_id === draft.organization_id);
-          if (orgMatches.length === 1 && draftsForOrg.length === 1) {
-            const index = unmatched.findIndex((task) => task.id === orgMatches[0].id);
-            const [existing] = unmatched.splice(index, 1);
-            take(existing, draft);
-            return;
-          }
-          toCreate.push(draft);
         });
         const archivedIds = unmatched.map((task) => task.id);
         set((state) => ({

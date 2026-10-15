@@ -83,7 +83,7 @@ export function missionMatchesQuery(
   const linkedTasks = tasks.filter((task) => mission.task_ids.includes(task.id));
   return linkedTasks.some((task) => {
     const taskTargets = targets.filter((target) => task.target_ids.includes(target.id));
-    const taskPoints = aimingPoints.filter((point) => task.aiming_point_ids.includes(point.id));
+    const taskPoints = aimingPoints.filter((point) => point.id === task.aiming_point_id);
     return (
       taskTargets.some(
         (target) =>

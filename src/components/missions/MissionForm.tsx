@@ -236,7 +236,7 @@ function TargetAssignmentBlock({
                           label: `${point.displayed_id || point.label || "—"} — ${point.name} — ${point.mgrs}`,
                         }))}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
-                      className="h-9 flex-1 rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField id={`${row.key}-org`} label={index === 0 ? DICTIONARY.missions.fields.detachment : ""} wrapperClassName="w-full max-w-24">
@@ -257,7 +257,7 @@ function TargetAssignmentBlock({
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <FormField id={`${row.key}-uav`} label={index === 0 ? DICTIONARY.missions.fields.assets : ""} wrapperClassName="w-full max-w-36">
+                  <FormField id={`${row.key}-uav`} label={index === 0 ? DICTIONARY.missions.fields.assets : ""} wrapperClassName="">
                     <NativeFormSelect
                       id={`${row.key}-uav`}
                       value={row.asset_id}
@@ -277,7 +277,7 @@ function TargetAssignmentBlock({
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <div className="flex items-end gap-1 w-full xl:w-auto">
+                  <div className="flex items-end gap-1">
                     <FormField id={`${row.key}-qty`} label={index === 0 ? DICTIONARY.missions.quantity : ""} wrapperClassName="w-full">
                       <Input
                         id={`${row.key}-qty`}

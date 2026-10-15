@@ -185,10 +185,11 @@ describe("Stage 4 tasks UI", () => {
       [
         {
           target_ids: [],
-          aiming_point_ids: [],
+          aiming_point_id: null,
           organization_id: "detachment_1",
           battle_groups_ids: [],
-          assets: [{ asset_id: "uav_1", quantity: 2 }],
+          asset_id: "uav_1",
+          quantity: 2,
         },
       ],
     );

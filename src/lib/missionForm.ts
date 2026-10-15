@@ -6,6 +6,7 @@ import type { Mission, Task } from "@/types/mission";
 
 export interface DetachmentDraft {
   key: string;
+  task_id?: string;
   organization_id: string;
   asset_id: string;
   quantity: string;
@@ -55,49 +56,34 @@ export function draftsFromMission(mission: Mission, tasks: Task[]): TargetDraft[
   const related = linkedTasksForMission(mission, tasks);
   const byTarget = new Map<string, TargetDraft>();
   related.forEach((task) => {
+    if (!task.organization_id && !task.asset_id) {
+      return;
+    }
     const targetId = task.target_ids[0] ?? "";
     const existing = byTarget.get(targetId) ?? {
       key: createFormKey(),
       target_id: targetId,
-      aiming_point_ids: [...(task.aiming_point_ids ?? [])],
+      aiming_point_ids: [],
       detachments: [],
     };
-    const assets = (task.organization_id || task.assets.length > 0)
-      ? (task.assets.length > 0 ? task.assets : [{ asset_id: "", quantity: 0 }])
-      : [];
-    const solePoint = task.aiming_point_ids.length === 1 ? task.aiming_point_ids[0] : "";
-    assets.forEach((asset) => {
-      existing.detachments.push({
-        key: createFormKey(),
-        organization_id: task.organization_id,
-        asset_id: asset.asset_id,
-        quantity: asset.quantity ? String(asset.quantity) : "",
-        aiming_point_id: solePoint,
-      });
+    existing.detachments.push({
+      key: createFormKey(),
+      task_id: task.id,
+      organization_id: task.organization_id,
+      asset_id: task.asset_id,
+      quantity: task.quantity ? String(task.quantity) : "",
+      aiming_point_id: task.aiming_point_id ?? "",
     });
-    const mergedPoints = new Set([...(existing.aiming_point_ids ?? []), ...(task.aiming_point_ids ?? [])]);
-    existing.aiming_point_ids = [...mergedPoints];
+    if (task.aiming_point_id) {
+      existing.aiming_point_ids = [...new Set([...existing.aiming_point_ids, task.aiming_point_id])];
+    }
     byTarget.set(targetId, existing);
   });
   return [...byTarget.values()];
 }
 
-function assignmentKey(targetId: string, organizationId: string): string {
-  return `${targetId}::${organizationId}`;
-}
-
-function rowAimingPointIds(block: TargetDraft): string[] {
-  const fromRows = block.detachments
-    .map((row) => row.aiming_point_id)
-    .filter((id): id is string => Boolean(id));
-  if (fromRows.length > 0) {
-    return [...new Set(fromRows)];
-  }
-  return [...block.aiming_point_ids];
-}
-
 export function toTaskDrafts(targets: TargetDraft[]): TaskDraft[] {
-  const grouped = new Map<string, TaskDraft>();
+  const drafts: TaskDraft[] = [];
   targets.forEach((block) => {
     if (!block.target_id) {
       return;
@@ -107,49 +93,18 @@ export function toTaskDrafts(targets: TargetDraft[]): TaskDraft[] {
       if (!row.organization_id || !row.asset_id || quantity === null || quantity <= 0) {
         return;
       }
-      const key = assignmentKey(block.target_id, row.organization_id);
-      const rowPoints = [row.aiming_point_id ?? ""];
-      // row.aiming_point_id
-      //   ? [row.aiming_point_id]
-      //   : block.detachments.some((item) => Boolean(item.aiming_point_id))
-      //     ? []
-      //     : [...block.aiming_point_ids];
-      const existing = grouped.get(key);
-      if (!existing) {
-        grouped.set(key, {
-          target_ids: [block.target_id],
-          aiming_point_ids: rowPoints,
-          organization_id: row.organization_id,
-          battle_groups_ids: [],
-          assets: [{ asset_id: row.asset_id, quantity }],
-        });
-        return;
-      }
-      const sameModel = existing.assets.find((asset) => asset.asset_id === row.asset_id);
-      if (sameModel) {
-        sameModel.quantity += quantity;
-      } else {
-        existing.assets.push({ asset_id: row.asset_id, quantity });
-      }
-      existing.aiming_point_ids = [...new Set([...existing.aiming_point_ids, ...rowPoints])];
+      drafts.push({
+        id: row.task_id,
+        target_ids: [block.target_id],
+        aiming_point_id: row.aiming_point_id || null,
+        organization_id: row.organization_id,
+        battle_groups_ids: [],
+        asset_id: row.asset_id,
+        quantity,
+      });
     });
   });
-  const targetsWithDetachments = new Set(
-    [...grouped.values()].map((draft) => draft.target_ids[0] ?? ""),
-  );
-  targets.forEach((block) => {
-    if (!block.target_id || targetsWithDetachments.has(block.target_id)) {
-      return;
-    }
-    grouped.set(assignmentKey(block.target_id, ""), {
-      target_ids: [block.target_id],
-      aiming_point_ids: rowAimingPointIds(block),
-      organization_id: "",
-      battle_groups_ids: [],
-      assets: [],
-    });
-  });
-  return [...grouped.values()];
+  return drafts;
 }
 
 export function hasIncompleteAssignment(targets: TargetDraft[]): boolean {

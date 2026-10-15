@@ -98,10 +98,11 @@ describe("Stage 3 stores", () => {
       [
         {
           target_ids: [],
-          aiming_point_ids: [],
+          aiming_point_id: null,
           organization_id: "detachment_3",
           battle_groups_ids: [],
-          assets: [{ asset_id: "uav_3", quantity: 1 }],
+          asset_id: "uav_3",
+          quantity: 1,
         },
       ],
     );
@@ -111,48 +112,52 @@ describe("Stage 3 stores", () => {
     expect(useTaskStore.getState().tasks.some((task) => task.label === "TK-3")).toBe(true);
   });
 
-  it("groups assignment rows into one task per target and detachment", () => {
+  it("creates one task per allocation row", () => {
     const drafts = toTaskDrafts([
       {
         key: "target-a",
         target_id: TARGET_1_ID,
-        aiming_point_ids: [AP_1_ID, AP_2_ID],
+        aiming_point_ids: [],
         detachments: [
-          { key: "d1", organization_id: "detachment_1", asset_id: "uav_1", quantity: "4" },
-          { key: "d2", organization_id: "detachment_1", asset_id: "uav_2", quantity: "2" },
+          { key: "d1", organization_id: "detachment_1", asset_id: "uav_1", quantity: "4", aiming_point_id: AP_1_ID },
+          { key: "d2", organization_id: "detachment_1", asset_id: "uav_2", quantity: "2", aiming_point_id: AP_2_ID },
           { key: "d3", organization_id: "detachment_2", asset_id: "uav_3", quantity: "1" },
         ],
       },
     ]);
-    expect(drafts).toHaveLength(2);
-    const firstDetachment = drafts.find((item) => item.organization_id === "detachment_1");
-    expect(firstDetachment?.target_ids).toEqual([TARGET_1_ID]);
-    expect(firstDetachment?.aiming_point_ids).toEqual([AP_1_ID, AP_2_ID]);
-    expect(firstDetachment?.assets).toEqual([
-      { asset_id: "uav_1", quantity: 4 },
-      { asset_id: "uav_2", quantity: 2 },
-    ]);
-    expect(drafts.find((item) => item.organization_id === "detachment_2")?.assets).toEqual([
-      { asset_id: "uav_3", quantity: 1 },
-    ]);
-  });
-
-  it("creates a task when a mission is saved with a target and no detachment", () => {
-    const drafts = toTaskDrafts([
-      {
-        key: "target-only",
-        target_id: TARGET_1_ID,
-        aiming_point_ids: [AP_1_ID, AP_2_ID],
-        detachments: [],
-      },
-    ]);
-    expect(drafts).toHaveLength(1);
+    expect(drafts).toHaveLength(3);
     expect(drafts[0]).toMatchObject({
       target_ids: [TARGET_1_ID],
-      aiming_point_ids: [AP_1_ID, AP_2_ID],
-      organization_id: "",
-      assets: [],
+      aiming_point_id: AP_1_ID,
+      organization_id: "detachment_1",
+      asset_id: "uav_1",
+      quantity: 4,
     });
+    expect(drafts[1]).toMatchObject({
+      aiming_point_id: AP_2_ID,
+      organization_id: "detachment_1",
+      asset_id: "uav_2",
+      quantity: 2,
+    });
+    expect(drafts[2]).toMatchObject({
+      aiming_point_id: null,
+      organization_id: "detachment_2",
+      asset_id: "uav_3",
+      quantity: 1,
+    });
+  });
+
+  it("does not create a task for a target without an allocation row", () => {
+    expect(
+      toTaskDrafts([
+        {
+          key: "target-only",
+          target_id: TARGET_1_ID,
+          aiming_point_ids: [AP_1_ID, AP_2_ID],
+          detachments: [],
+        },
+      ]),
+    ).toHaveLength(0);
 
     const created = useMissionStore.getState().createMission(
       {
@@ -160,28 +165,36 @@ describe("Stage 3 stores", () => {
         scheduled_at: new Date().toISOString(),
         description: "Опис",
       },
-      [],
+      [
+        {
+          target_ids: [TARGET_1_ID],
+          aiming_point_id: AP_1_ID,
+          organization_id: "detachment_1",
+          battle_groups_ids: [],
+          asset_id: "uav_1",
+          quantity: 2,
+        },
+      ],
     );
-    const updated = useMissionStore.getState().updateMission(
-      created.id,
-      {
-        name: created.name,
-        scheduled_at: created.scheduled_at,
-        description: created.description,
-      },
-      drafts,
-    );
-    expect(updated?.task_ids).toHaveLength(1);
-    const task = useTaskStore.getState().tasks.find((item) => item.id === updated?.task_ids[0]);
-    expect(task?.target_ids).toEqual([TARGET_1_ID]);
-    expect(task?.aiming_point_ids).toEqual([AP_1_ID, AP_2_ID]);
-    expect(task?.organization_id).toBe("");
-    expect(task?.assets).toEqual([]);
-    const formDrafts = draftsFromMission(updated!, useTaskStore.getState().tasks);
+    expect(created.task_ids).toHaveLength(1);
+    const task = useTaskStore.getState().tasks.find((item) => item.id === created.task_ids[0]);
+    expect(task).toMatchObject({
+      target_ids: [TARGET_1_ID],
+      aiming_point_id: AP_1_ID,
+      organization_id: "detachment_1",
+      asset_id: "uav_1",
+      quantity: 2,
+    });
+    const formDrafts = draftsFromMission(created, useTaskStore.getState().tasks);
     expect(formDrafts).toHaveLength(1);
     expect(formDrafts[0]?.target_id).toBe(TARGET_1_ID);
-    expect(formDrafts[0]?.aiming_point_ids).toEqual([AP_1_ID, AP_2_ID]);
-    expect(formDrafts[0]?.detachments).toEqual([]);
+    expect(formDrafts[0]?.aiming_point_ids).toEqual([AP_1_ID]);
+    expect(formDrafts[0]?.detachments[0]).toMatchObject({
+      task_id: task?.id,
+      aiming_point_id: AP_1_ID,
+      asset_id: "uav_1",
+      quantity: "2",
+    });
   });
 
   it("updates existing tasks on mission edit and archives removed pairs", () => {
@@ -198,28 +211,36 @@ describe("Stage 3 stores", () => {
       },
       [
         {
+          id: TASK_1_ID,
           target_ids: [...original!.target_ids],
-          aiming_point_ids: [...original!.aiming_point_ids],
+          aiming_point_id: original!.aiming_point_id,
           organization_id: original!.organization_id,
           battle_groups_ids: [],
-          assets: [
-            { asset_id: "uav_1", quantity: 8 },
-            { asset_id: "uav_2", quantity: 3 },
-          ],
+          asset_id: "uav_1",
+          quantity: 8,
+        },
+        {
+          target_ids: [...original!.target_ids],
+          aiming_point_id: null,
+          organization_id: original!.organization_id,
+          battle_groups_ids: [],
+          asset_id: "uav_2",
+          quantity: 3,
         },
       ],
     );
     const updated = useTaskStore.getState().tasks.find((item) => item.id === TASK_1_ID);
     expect(updated?.archived_at).toBeNull();
     expect(updated?.label).toBe("TK-1");
-    expect(updated?.assets).toEqual([
-      { asset_id: "uav_1", quantity: 8 },
-      { asset_id: "uav_2", quantity: 3 },
-    ]);
+    expect(updated?.asset_id).toBe("uav_1");
+    expect(updated?.quantity).toBe(8);
     expect(useTaskStore.getState().tasks.find((item) => item.id === TASK_2_ID)?.archived_at).not.toBeNull();
-    expect(useMissionStore.getState().missions.find((item) => item.id === MISSION_1_ID)?.task_ids).toEqual([
-      TASK_1_ID,
-    ]);
+    const missionTaskIds = useMissionStore.getState().missions.find((item) => item.id === MISSION_1_ID)?.task_ids ?? [];
+    expect(missionTaskIds).toHaveLength(2);
+    expect(missionTaskIds).toContain(TASK_1_ID);
+    expect(
+      useTaskStore.getState().tasks.some((item) => item.mission_id === MISSION_1_ID && item.asset_id === "uav_2" && item.quantity === 3 && item.archived_at === null),
+    ).toBe(true);
   });
 
   it("rejects a scheduled date earlier than created_at", () => {

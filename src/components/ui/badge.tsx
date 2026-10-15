@@ -34,8 +34,9 @@ export function AimingPointIdBadge({ className, ...props }: HTMLAttributes<HTMLS
 
 export function ProgressBadge({label, processed, total }: { label: string, processed: number, total: number }) {
   const status = processed === 0 ? "error" : processed === total ? "success" : "warning";
+  const title = processed === 0 ? "Не розподілено між екіпажами" : processed === total ? "Розподілено повністю" : `Розподілено ${processed} / ${total}`;
   return (
-    <Badge className="progress-badge" data-status={status}>
+    <Badge className="progress-badge" data-status={status} title={title}>
       {label}
     </Badge>
   );

@@ -59,7 +59,7 @@ export function buildLaunchContext(
   const mission = missions.find((item) => item.id === task?.mission_id);
   const target = targets.find((item) => task?.target_ids.includes(item.id));
   const aimingPoint = aimingPoints.find(
-    (point) => task?.aiming_point_ids.includes(point.id) && point.mgrs === launch.aiming_point_mgrs.trim(),
+    (point) => point.id === task?.aiming_point_id && point.mgrs === launch.aiming_point_mgrs.trim(),
   );
   const battleGroup = battleGroups.find((group) => group.id === launch.battle_group_id);
   return { launch, task, mission, target, aimingPoint, battleGroup };

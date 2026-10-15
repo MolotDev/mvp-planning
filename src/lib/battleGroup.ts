@@ -11,6 +11,13 @@ import {
 import type { BattleGroup, BattleGroupInput } from "@/types/battleGroup";
 import type { UavAsset } from "@/types/mission";
 
+export function taskAllocation(task: { asset_id: string; quantity: number }): UavAsset[] {
+  if (!task.asset_id || task.quantity <= 0) {
+    return [];
+  }
+  return [{ asset_id: task.asset_id, quantity: task.quantity }];
+}
+
 export { TASK_UAV_CAPACITY };
 
 export function evenDistribution(

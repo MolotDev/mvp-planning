@@ -11,7 +11,8 @@ import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAdminister, homePath, taskInScope } from "@/lib/access";
-import { visibleBattleGroups } from "@/lib/battleGroup";
+import { taskAllocatedQuantity, taskAllocation, visibleBattleGroups } from "@/lib/battleGroup";
+import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export function TaskPreviewPage() {
     task ? state.missions.find((item) => item.id === task.mission_id) : undefined,
   );
   const targets = useTargetStore((state) => state.targets);
+  const aimingPoints = useTargetStore((state) => state.aimingPoints);
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const launches = useLaunchStore((state) => state.launches);
   const role = useAuthStore((state) => state.role);
@@ -76,6 +78,11 @@ export function TaskPreviewPage() {
   const groups = visibleBattleGroups(task, linkedGroups);
   const scheduledAt = mission?.scheduled_at ?? task.created_at;
   const headingName = mission?.name?.trim() ? mission.name : (target?.name ?? "");
+  const allocation = taskAllocation(task);
+  const aimingPoint = aimingPoints.find((point) => point.id === task.aiming_point_id && point.archived_at === null);
+  const aimingMgrs = aimingPoint?.mgrs ?? target?.mgrs ?? "";
+  const allocated = taskAllocatedQuantity(battleGroups, task.id);
+  const quotaMet = allocated === task.quantity;
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
@@ -144,10 +151,23 @@ export function TaskPreviewPage() {
               </Badge>
             </div>
           ) : null}
-          <p className="text-sm font-medium text-primitive-neutral-200">{DICTIONARY.tasks.aiming_points}</p>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-medium text-primitive-neutral-200">{DICTIONARY.tasks.aiming_points}</span>
+            {aimingPoint ? (
+              <span className="font-medium text-primitive-neutral-0">{aimingPoint.name}</span>
+            ) : null}
+            {aimingMgrs ? (
+              <Badge className="bg-primitive-neutral-800 font-semibold tracking-wide text-primitive-neutral-0">
+                {formattingMGRS.spacing(aimingMgrs)}
+              </Badge>
+            ) : null}
+          </div>
           <AimingPointWarnings tasks={[task]} />
           <hr className="border-primitive-neutral-800" />
-          <DetachmentAssets organizationId={task.organization_id} assets={task.assets} />
+          <DetachmentAssets organizationId={task.organization_id} assets={allocation} />
+          <p className={cn("text-sm font-medium", quotaMet ? "text-primitive-green-500" : "text-primitive-red-500")}>
+            {fillTemplate(DICTIONARY.tasks.allocated_quota, { allocated, total: task.quantity })}
+          </p>
           <BattleGroupSummaryList groups={groups} showProgress />
           {canGotoMission && (
             <div className="mt-auto flex justify-end">
@@ -160,7 +180,7 @@ export function TaskPreviewPage() {
         </div>
         <BattleGroupPanel
           groups={groups}
-          taskAssets={task.assets}
+          taskAssets={allocation}
           canEdit={editMode}
           onAdd={() => setModalGroup(null)}
           onEdit={setModalGroup}
@@ -170,7 +190,7 @@ export function TaskPreviewPage() {
         <BattleGroupModal
           taskId={task.id}
           organizationId={task.organization_id}
-          taskAssets={task.assets}
+          taskAssets={allocation}
           battleGroup={modalGroup}
           onClose={() => setModalGroup(undefined)}
         />

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ViewReportButtons } from "@/components/reports/ViewReportButton";
 import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
-import { uavName } from "@/lib/battleGroup";
+import { taskAllocation, uavName } from "@/lib/battleGroup";
 import { cn } from "@/lib/utils";
 import type { Task } from "@/types/mission";
 import type { EntityStatus, Target } from "@/types/target";
@@ -32,7 +32,7 @@ interface MissionProgressPanelProps {
 
 function assetBadges(tasks: Task[]) {
   return tasks.flatMap((task) =>
-    task.assets.map((asset, index) => {
+    taskAllocation(task).map((asset, index) => {
       return {
         key: `${task.id}-${asset.asset_id}-${index}`,
         label: `${uavName(asset.asset_id)} × ${asset.quantity}`,
@@ -101,10 +101,11 @@ export function MissionProgressPanel({
                 </div>
                 <div className="mt-auto flex flex-col gap-4">
                   {group.tasks.map((task) => {
-                    const remaining = remainingTaskAssets(task.assets, battleGroups.filter((group) => group.task_id === task.id));
+                    const allocation = taskAllocation(task);
+                    const remaining = remainingTaskAssets(allocation, battleGroups.filter((group) => group.task_id === task.id));
                     return (
                       <div key={task.id} className="flex flex-col gap-2">
-                        {isTargetMode ? <DetachmentAssetsBadge organizationId={task.organization_id} assets={task.assets} /> : null}
+                        {isTargetMode ? <DetachmentAssetsBadge organizationId={task.organization_id} assets={allocation} /> : null}
                         <p className={cn("ml-2 text-xs", !remaining ? "text-primitive-green-500" : "text-primitive-red-500")}>
                           {fillTemplate(DICTIONARY.tasks.unallocated_assets, { quantity: remaining })}
                         </p>

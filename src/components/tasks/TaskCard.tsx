@@ -9,7 +9,7 @@ import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
 import { PreviewIconButton, ResetIconButton } from "@/components/ui/icon-buttons";
 import { canAdminister } from "@/lib/access";
-import { visibleBattleGroups } from "@/lib/battleGroup";
+import { taskAllocation, visibleBattleGroups } from "@/lib/battleGroup";
 import { quantityDiscrepancy } from "@/lib/launches";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
@@ -75,7 +75,7 @@ export function TaskCard({ task, mission, target, battleGroups, onPreview, onRes
           </>
         ) : null}
         <AimingPointWarnings tasks={[task]} />
-        <DetachmentAssets organizationId={task.organization_id} assets={task.assets} />
+        <DetachmentAssets organizationId={task.organization_id} assets={taskAllocation(task)} />
         <BattleGroupSummaryList groups={assignedGroups} />
         {assignedGroups.map((group) => {
           const discrepancy = quantityDiscrepancy(group.uav_quantity, launches, group.id);

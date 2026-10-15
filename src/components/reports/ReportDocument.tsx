@@ -1204,12 +1204,10 @@ function FieldRow({
 function assetQuantities(slice: DaySlice): { assetId: string; quantity: number }[] {
   const totals = new Map<string, number>();
   slice.tasks.forEach((task) => {
-    task.assets.forEach((asset) => {
-      if (!asset.asset_id) {
-        return;
-      }
-      totals.set(asset.asset_id, (totals.get(asset.asset_id) ?? 0) + asset.quantity);
-    });
+    if (!task.asset_id || task.quantity <= 0) {
+      return;
+    }
+    totals.set(task.asset_id, (totals.get(task.asset_id) ?? 0) + task.quantity);
   });
   return [...totals.entries()].map(([assetId, quantity]) => ({ assetId, quantity }));
 }

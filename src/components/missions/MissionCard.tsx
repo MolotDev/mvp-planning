@@ -18,10 +18,22 @@ import { detachmentName } from "@/lib/detachments";
 import { useReportStore } from "@/store/useReportStore";
 import { matchingReports } from "@/lib/reportAggregation";
 import { uavName } from "@/lib/battleGroup";
-import { LaunchProgressBadge } from "../tasks/LaunchProgressBadge";
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
+import { Launch } from "@/types/launch";
+
+type TargetData = {
+  targetLabel: string;
+  targetMgrs: string;
+  targetName: string;
+  detachmentData: {[detachmentId: string]: {
+    detachmentName: string,
+    reportId: string
+    assetsQuantity: {[assetId: string]: {quantity: number, processed: number}}
+    launches: Launch[]
+  }};
+}
 
 interface MissionCardProps {
   mission: Mission;
@@ -56,96 +68,86 @@ export function MissionCard({
   const missionDate = mission.scheduled_at;
   const currentMissionReports = matchingReports(reports, detachments, missionDate);
 
-  const assetBadgesByDetachment = linkedTasks.reduce((acc, task) => {
-    return {
-      ...acc,
-      [task.organization_id]: [...(acc[task.organization_id] || []), ...task.assets.map((asset) => ({
-        taskId: task.id,
-        key: asset.asset_id,
-        label: `${uavName(asset.asset_id)} × ${asset.quantity}`,
-      }))],
-    };
-  }, {} as Record<string, { taskId: string; key: string; label: string; }[]>);
-
   const groupedTargets = useMemo(() => {
-    const map = new Map<string, Task[]>();
+    const dataByTarget = new Map<string, TargetData>();
     linkedTasks.forEach((task) => {
       const targetId = task.target_ids[0] ?? "unknown";
-      const list = map.get(targetId) ?? [];
-      list.push(task);
-      map.set(targetId, list);
+      const target = linkedTargets.find((item) => item.id === targetId);
+      if (!target) return;
+      const detachmentId = task.organization_id;
+      const detachmentData = dataByTarget.get(targetId)?.detachmentData ?? {};
+      if (!detachmentData[detachmentId]) {
+        const reportId = currentMissionReports.find((report) => report.organization_id === detachmentId)?.id ?? ""
+        detachmentData[detachmentId] = {
+          detachmentName: detachmentName(detachmentId),
+          reportId,
+          assetsQuantity: {[task.asset_id]: {
+            quantity: task.quantity,
+            processed: linkedBattleGroups.reduce((sum, battleGroup) => (
+              sum + (battleGroup.task_id === task.id ? battleGroup.uav_quantity : 0)
+            ), 0)}},
+          launches: launches.filter((launch) => launch.task_id === task.id),
+        };
+      } else {
+          detachmentData[detachmentId].assetsQuantity[task.asset_id] ??= {
+            quantity: 0,
+            processed: 0
+          };
+          detachmentData[detachmentId].assetsQuantity[task.asset_id].quantity += task.quantity;
+          detachmentData[detachmentId].assetsQuantity[task.asset_id].processed += linkedBattleGroups.reduce((sum, battleGroup) => sum + (battleGroup.task_id === task.id ? battleGroup.uav_quantity : 0), 0);
+      }
+      dataByTarget.set(targetId, {
+        targetLabel: target?.label ?? "",
+        targetMgrs: target?.mgrs ?? "",
+        targetName: target?.name ?? "",
+        detachmentData,
+      });
     });
-    return [...map.entries()].map(([targetId, groupTasks]) => {
-      const target = targets.find((item) => item.id === targetId);
-      return {
-        targetId,
-        section: (
-          <div key={targetId} className="flex flex-col gap-2 rounded-lg border border-primitive-neutral-800 p-2">
-            <div className="flex items-start gap-2">
-              <div className="h-6 flex items-center justify-center">
-                <Crosshair className="h-4 w-4 shrink-0" aria-hidden="true" />
+    if (dataByTarget.size > 0) {
+      return [...dataByTarget.entries()].map(([targetId, targetData]) => {
+        return {
+          section: (
+            <div key={targetId} className="flex flex-col gap-2 rounded-lg border border-primitive-neutral-800 p-2">
+              <div className="flex items-start gap-2">
+                <div className="h-6 flex items-center justify-center">
+                  <Crosshair className="h-4 w-4 shrink-0" aria-hidden="true" />
+                </div>
+                <div className="flex items-center gap-2 text-sm flex-wrap">
+                  <TargetIdBadgeLink className="text-md" id={targetId}>{targetData.targetLabel}</TargetIdBadgeLink>
+                  <Badge className="text-md bg-primitive-neutral-800 min-w-fit">{formattingMGRS.spacing(targetData.targetMgrs)}</Badge>
+                  <p className="font-medium text-primitive-neutral-0">{targetData.targetName}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-sm flex-wrap">
-                <TargetIdBadgeLink className="text-md" id={target?.id ?? "-"}>{target?.displayed_id || target?.label || "—"}</TargetIdBadgeLink>
-                <Badge className="text-md bg-primitive-neutral-800 min-w-fit">{formattingMGRS.spacing(target?.mgrs ?? "—")}</Badge>
-                <p className="font-medium text-primitive-neutral-0">{target?.name ?? "—"}</p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1 pl-3">
-              {groupTasks.map(task => {
-                if (!task.target_ids.includes(target?.id ?? "")) return null;
-                const assetsQuantity = task.assets.reduce((prev, asset) => {
-                  return {
-                    ...prev,
-                    total: (prev.total ?? 0) + asset.quantity,
-                    [asset.asset_id]: (prev[asset.asset_id] ?? 0) + asset.quantity,
-                  }
-                }, {} as {total: number, [key: string]: number});
-                const assetsProcessed = linkedBattleGroups.reduce((prev, battleGroup) => {
-                  if (battleGroup.task_id !== task.id) return prev;
-                  return {
-                    ...prev,
-                    total: (prev.total ?? 0) + battleGroup.uav_quantity,
-                    [battleGroup.asset_id]: battleGroup.uav_quantity,
-                  }
-                }, {} as {total: number, [key: string]: number});
-                const detachmentId = task.organization_id;
-                if (detachments.length === 0) {
+              <div className="flex flex-col gap-1 pl-3">
+                {Object.entries(targetData.detachmentData).map(([detachmentId, detachment]) => {
                   return (
-                    <Fragment key={task.id}>
-                      <Badge className="w-fit tracking-wide bg-primitive-red-500/20 font-medium text-primitive-red-500">
-                        {DICTIONARY.missions.no_detachments_assigned}
-                      </Badge>
-                    </Fragment>
-                  )
-                }
-                return (
-                  <div key={task.id} className="flex flex-col gap-0.5 mb-4 last:mb-0">
-                    <div className="flex flex-col gap-1 text-sm text-primitive-neutral-200">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
-                          <p className="font-medium text-primitive-neutral-0">{detachmentName(detachmentId)}</p>
-                          {assetBadgesByDetachment[detachmentId].map((item) => item.taskId === task.id ? (
-                            <ProgressBadge key={`${item.taskId}-${item.key}`} label={item.label} processed={assetsProcessed[item.key] ?? 0} total={assetsQuantity[item.key]} />
-                          ) : null)}
+                    <div key={detachmentId} className="flex flex-col gap-0.5 mb-4 last:mb-0">
+                      <div className="flex flex-col gap-1 text-sm text-primitive-neutral-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center flex-wrap gap-2">
+                            <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
+                            <p className="font-medium text-primitive-neutral-0">{detachment.detachmentName}</p>
+                            {Object.entries(detachment.assetsQuantity).map(([assetId, numbers]) => (
+                              <ProgressBadge key={assetId} label={`${uavName(assetId)} × ${numbers.quantity}`} processed={numbers.processed} total={numbers.quantity} />
+                            ))}
+                          </div>
+                          <ViewReportButton reportId={detachment.reportId} />
                         </div>
-                        <ViewReportButton reportId={currentMissionReports.find((report) => report.organization_id === detachmentId)?.id ?? ""} />
                       </div>
+                      {/* <div className="pl-6">
+                        <LaunchProgressBadge
+                          launches={detachment.launches}
+                        />
+                      </div> */}
                     </div>
-                    <div className="pl-6">
-                      <LaunchProgressBadge
-                        launches={launches.filter((launch) => task.id === launch.task_id)}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ),
-      };
-    });
+          )
+        };
+      })
+    }
   }, [linkedTasks, linkedTargets, linkedBattleGroups]);
 
   return (
@@ -194,7 +196,7 @@ export function MissionCard({
             <Badge className="w-fit bg-primitive-red-500/20 font-medium text-primitive-red-500">
               {DICTIONARY.missions.no_tasks_assigned}
             </Badge>
-          ) : groupedTargets.map((target) => target.section)}
+          ) : groupedTargets?.map((target) => target.section)}
         </div>
       </CardBody>
       <CardFooter className="flex-col items-stretch gap-2">

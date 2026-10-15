@@ -3,28 +3,27 @@ import type { Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 
 export function taskAimingPoints(
-  task: Pick<Task, "aiming_point_ids">,
+  task: Pick<Task, "aiming_point_id">,
   aimingPoints: AimingPoint[],
 ): AimingPoint[] {
-  return task.aiming_point_ids
-    .map((id) => aimingPoints.find((point) => point.id === id))
-    .filter((point): point is AimingPoint => Boolean(point && point.archived_at === null));
+  if (!task.aiming_point_id) {
+    return [];
+  }
+  const point = aimingPoints.find((item) => item.id === task.aiming_point_id && item.archived_at === null);
+  return point ? [point] : [];
 }
 
 export function resolveDefaultAimingMgrs(
-  task: Pick<Task, "aiming_point_ids" | "target_ids"> | undefined,
+  task: Pick<Task, "aiming_point_id" | "target_ids"> | undefined,
   aimingPoints: AimingPoint[],
   targets: Target[],
 ): string | null {
   if (!task) {
     return null;
   }
-  const points = taskAimingPoints(task, aimingPoints);
-  if (points.length > 1) {
-    return null;
-  }
-  if (points.length === 1) {
-    return points[0].mgrs;
+  const [point] = taskAimingPoints(task, aimingPoints);
+  if (point) {
+    return point.mgrs;
   }
   const target = targets.find((item) => task.target_ids.includes(item.id));
   return target?.mgrs ?? null;

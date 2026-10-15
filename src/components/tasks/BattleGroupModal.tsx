@@ -14,13 +14,14 @@ import {
   evenDistribution,
   inspectBattleGroup,
   occupiedCrewIds,
+  taskAllocatedQuantity,
   taskIdsOnOperationalDay,
+  uavName,
   validateBattleGroupInput,
 } from "@/lib/battleGroup";
 import { remainingModelQuantity } from "@/lib/battleGroupCapacity";
 import { parseRequiredNumber } from "@/lib/validation";
 import { notifyError, notifySuccess } from "@/lib/toasts";
-import { useAssetStore } from "@/store/useAssetStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -59,9 +60,11 @@ export function BattleGroupModal({
 
   const [leadCrewId, setLeadCrewId] = useState(battleGroup?.lead_crew_id ?? "");
   const [supportCrewIds, setSupportCrewIds] = useState<string[]>(battleGroup?.support_crew_ids ?? []);
-  const [uavModelId, setUavModelId] = useState(battleGroup?.asset_id ?? "");
   const [quantity, setQuantity] = useState(battleGroup ? String(battleGroup.uav_quantity) : "");
   const [quantityTouched, setQuantityTouched] = useState(isEdit);
+  const taskRecord = tasks.find((item) => item.id === taskId);
+  const fixedAssetId = taskRecord?.asset_id ?? "";
+  const remainingQuota = Math.max(0, (taskRecord?.quantity ?? 0) - taskAllocatedQuantity(battleGroups, taskId));
 
   const roster = crewsForOrganization(organizationId);
   const eligibleCrews = roster.filter((crew) => !occupied.has(crew.id));
@@ -74,7 +77,7 @@ export function BattleGroupModal({
     task_id: taskId,
     lead_crew_id: leadCrewId,
     support_crew_ids: supportCrewIds,
-    asset_id: uavModelId,
+    asset_id: fixedAssetId,
     uav_quantity: quantityValue ?? 0,
   };
   const inspection = inspectBattleGroup(input, battleGroups, {
@@ -88,9 +91,9 @@ export function BattleGroupModal({
   const quantityError = inspection.capacityError ?? undefined;
   const assetError = inspection.assetError;
   const remaining =
-    uavModelId === ""
+    fixedAssetId === ""
       ? null
-      : remainingModelQuantity(taskAssets, battleGroups, taskId, uavModelId, battleGroup?.id);
+      : remainingModelQuantity(taskAssets, battleGroups, taskId, fixedAssetId, battleGroup?.id);
 
   useEffect(() => {
     if (isEdit || quantityTouched || remaining === null) {
@@ -99,40 +102,20 @@ export function BattleGroupModal({
     setQuantity(String(remaining));
   }, [isEdit, quantityTouched, remaining]);
 
-  const allocatedModelIds = new Set(
-    taskAssets.filter((asset) => asset.quantity > 0).map((asset) => asset.asset_id),
-  );
-  if (uavModelId) {
-    allocatedModelIds.add(uavModelId);
-  }
-  const catalogAssets = useAssetStore((state) => state.assets);
-  const modelOptions = catalogAssets.filter(
-    (asset) => allocatedModelIds.has(asset.id) && (asset.archived_at === null || asset.id === uavModelId),
-  );
-  useEffect(() => {
-    if (modelOptions.length === 1 && !isEdit) {
-      setUavModelId(modelOptions[0].id);
-    }
-  }, [modelOptions, isEdit]);
-  // const linkedAntennas = antennasForAsset(uavModelId);
-  // const linkedAmmos = ammosForAsset(uavModelId);
-
   const toggleSupport = (crewId: string, checked: boolean) => {
     setSupportCrewIds((current) =>
       checked ? [...current, crewId] : current.filter((id) => id !== crewId),
     );
   };
 
-  const distributionQuantity =
-    quantityValue !== null && Number.isInteger(quantityValue) && quantityValue > 0 ? quantityValue : 0;
-  const distributeDisabled = distributionQuantity === 0 || eligibleCrews.length === 0 || uavModelId === "";
+  const distributeDisabled = remainingQuota === 0 || eligibleCrews.length === 0 || fixedAssetId === "";
 
   const handleDistribute = () => {
     if (distributeDisabled) {
       return;
     }
     const shares = evenDistribution(
-      distributionQuantity,
+      remainingQuota,
       eligibleCrews.map((crew) => crew.id),
     );
     if (shares.length === 0) {
@@ -142,7 +125,7 @@ export function BattleGroupModal({
       task_id: taskId,
       lead_crew_id: share.crewId,
       support_crew_ids: [],
-      asset_id: uavModelId,
+      asset_id: fixedAssetId,
       uav_quantity: share.quantity,
     }));
     let preview = battleGroups;
@@ -232,13 +215,9 @@ export function BattleGroupModal({
           ))}
         </div>
         <FormField id="uav_model" label={DICTIONARY.common.asset}>
-          <FormSelect
-            id="uav_model"
-            value={modelOptions.length === 1 ? modelOptions[0].id : uavModelId}
-            placeholder={DICTIONARY.tasks.select_uav}
-            options={modelOptions.map((asset) => ({ value: asset.id, label: asset.label }))}
-            onChange={setUavModelId}
-          />
+          <p id="uav_model" className="text-sm text-primitive-neutral-0">
+            {uavName(fixedAssetId)}
+          </p>
         </FormField>
         {/* {uavModelId ? (
           <>
