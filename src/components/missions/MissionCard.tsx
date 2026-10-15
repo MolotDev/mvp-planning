@@ -59,7 +59,7 @@ export function MissionCard({
   const assetBadgesByDetachment = linkedTasks.reduce((acc, task) => {
     return {
       ...acc,
-      [task.organization_id]: [...(acc[task.organization_id] || []), ...task.assets.map((asset, index) => ({
+      [task.organization_id]: [...(acc[task.organization_id] || []), ...task.assets.map((asset) => ({
         taskId: task.id,
         key: asset.asset_id,
         label: `${uavName(asset.asset_id)} × ${asset.quantity}`,
