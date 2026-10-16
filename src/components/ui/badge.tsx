@@ -25,7 +25,7 @@ export function TargetBadgeLink({ className, id: targetId, ...props }: HTMLAttri
   return (
     <a href={`#/catalogs/targets/${targetId}`} title="Перглянути ціль">
       <Badge 
-        className={cn("min-w-fit tracking-widest text-sky-300 underline font-semibold bg-sky-950 hover:shadow-[0_0_10px_rgba(2,132,199,0.5)] hover:bg-primitive-neutral-800",
+        className={cn("min-w-fit tracking-widest text-sky-300 underline underline-offset-2 font-semibold bg-sky-950 hover:shadow-[0_0_10px_rgba(2,132,199,0.5)] hover:bg-primitive-neutral-800",
           className || "text-md")}
         {...props}
       />
@@ -46,7 +46,7 @@ export function AimingPointIdBadge({ className, ...props }: HTMLAttributes<HTMLS
 
 export function ProgressBadge({label, processed, total, className = "" }: { label: string, processed: number, total: number, className?: string }) {
   const status = processed === 0 ? "error" : processed === total ? "success" : "warning";
-  const title = processed === 0 ? "Не розподілено між екіпажами" : processed === total ? "Розподілено повністю" : `Розподілено ${processed} / ${total}`;
+  const title = processed === 0 ? "Не опрацьовано" : processed === total ? "Опрацьовано повністю" : `Опрацьовано ${processed} / ${total}`;
   return (
     <Badge className={cn("progress-badge", className)} data-status={status} title={title}>
       {label}
@@ -56,13 +56,13 @@ export function ProgressBadge({label, processed, total, className = "" }: { labe
 
 export function AimingPointBadge({label, mgrs, className = "" }: { label: string, mgrs: string, className?: string }) {
   return (
-    <div className="flex items-center gap-2" title="Точка прицілювання">
+    <div className="flex items-center flex-wrap gap-2" title="Точка прицілювання">
       <CrosshairIcon className="h-4 w-4" />
-      <span className="text-sm text-primitive-neutral-300">{label}</span>
-      <span className="text-sm text-primitive-neutral-300">{`•`}</span>
-      <Badge className={cn("font-semibold bg-sky-950 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
+      <Badge className={cn("font-semibold bg-sky-200/5 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
         {mgrs}
       </Badge>
+      {/* <span className="text-sm text-primitive-neutral-300">{`•`}</span> */}
+      <span className="text-sm text-primitive-neutral-300">{label}</span>
     </div>
   );
 }

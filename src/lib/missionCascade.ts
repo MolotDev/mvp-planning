@@ -1,4 +1,4 @@
-import { resolveDefaultAimingMgrs } from "@/lib/launchAiming";
+import { allocationAimingMgrs } from "@/lib/launchAiming";
 import { isPlannedUnprocessed, withProcessedAt } from "@/lib/launches";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
@@ -102,51 +102,46 @@ export function cascadeMissionAllocation(input: CascadeInput): { launches: Launc
   }
 
   input.pairs.forEach((pair) => {
-    const assetChanged = pair.before.asset_id !== pair.after.asset_id;
-    const targetChanged = (pair.before.target_ids[0] ?? "") !== (pair.after.target_ids[0] ?? "");
-    const pointsChanged = pair.before.aiming_point_id !== pair.after.aiming_point_id;
-    const mgrs = resolveDefaultAimingMgrs(pair.after, input.aimingPoints, input.targets) ?? "";
-
-    if (assetChanged) {
-      const ammo = defaultAmmo(input.assets, pair.after.asset_id);
-      launches = launches.map((launch) => {
-        if (
-          launch.task_id !== pair.after.id ||
-          launch.archived_at !== null ||
-          launch.reported_at !== null
-        ) {
-          return launch;
-        }
-        return withProcessedAt(
-          {
-            ...launch,
-            asset_id: pair.after.asset_id,
-            ammo_model_id: ammo,
-            asset_serial_number: "",
-            tracker_model_id: null,
-            tracker_model_serial_number: null,
-            updated_at: input.now,
-          },
-          input.now,
+    const before = new Map(pair.before.allocations.map((line) => [line.id, line]));
+    pair.after.allocations.forEach((line) => {
+      const previous = before.get(line.id);
+      if (!previous) {
+        return;
+      }
+      if (previous.asset_id !== line.asset_id) {
+        const ammo = defaultAmmo(input.assets, line.asset_id);
+        launches = launches.map((launch) => {
+          if (launch.allocation_line_id !== line.id || launch.archived_at !== null || launch.reported_at !== null) {
+            return launch;
+          }
+          return withProcessedAt(
+            {
+              ...launch,
+              asset_id: line.asset_id,
+              ammo_model_id: ammo,
+              asset_serial_number: "",
+              tracker_model_id: null,
+              tracker_model_serial_number: null,
+              updated_at: input.now,
+            },
+            input.now,
+          );
+        });
+      }
+      const aimingChanged = previous.aiming_point_id !== line.aiming_point_id || previous.target_id !== line.target_id;
+      const mgrs = allocationAimingMgrs(line, input.aimingPoints, input.targets);
+      if (aimingChanged && mgrs) {
+        launches = launches.map((launch) =>
+          launch.allocation_line_id === line.id && launch.archived_at === null && launch.reported_at === null
+            ? { ...launch, aiming_point_mgrs: mgrs, updated_at: input.now }
+            : launch,
         );
-      });
-      groups = groups.map((group) =>
-        group.task_id === pair.after.id && group.archived_at === null
-          ? { ...group, asset_id: pair.after.asset_id, updated_at: input.now }
-          : group,
-      );
-    }
-
-    if (pair.after.quantity < pair.before.quantity) {
-      fitGroupsToQuantity(pair.after.id, pair.after.quantity);
-    }
-
-    if ((targetChanged || pointsChanged) && mgrs) {
-      launches = launches.map((launch) =>
-        launch.task_id === pair.after.id && launch.archived_at === null && launch.reported_at === null
-          ? { ...launch, aiming_point_mgrs: mgrs, updated_at: input.now }
-          : launch,
-      );
+      }
+    });
+    const beforeQuantity = pair.before.allocations.reduce((sum, line) => sum + line.quantity, 0);
+    const afterQuantity = pair.after.allocations.reduce((sum, line) => sum + line.quantity, 0);
+    if (afterQuantity < beforeQuantity) {
+      fitGroupsToQuantity(pair.after.id, afterQuantity);
     }
   });
 

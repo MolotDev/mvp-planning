@@ -34,6 +34,10 @@ select {
   color-scheme: dark;
 }
 
+select:disabled, button:disabled, button:disabled:hover, select:disabled:hover {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
 select option {
   background-color: var(--color-primitive-neutral-900);
   color: var(--color-primitive-neutral-0);
@@ -164,7 +168,7 @@ textarea[data-error="true"]:hover {
 }
 
 .progress-badge {
-  @apply w-fit text-primitive-neutral-0;
+  @apply w-fit text-primitive-neutral-0 text-xs;
 }
 .progress-badge[data-status="success"] {
   color: #64ff00;

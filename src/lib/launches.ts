@@ -90,7 +90,8 @@ export function resolveLaunchMgrs(launch: Launch, tasks: Task[], targets: Target
     return aiming;
   }
   const task = tasks.find((item) => item.id === launch.task_id);
-  const target = targets.find((item) => task?.target_ids.includes(item.id));
+  const line = task?.allocations.find((item) => item.id === launch.allocation_line_id) ?? task?.allocations[0];
+  const target = targets.find((item) => item.id === line?.target_id);
   return target?.mgrs ?? "";
 }
 
@@ -265,10 +266,11 @@ export function filterLaunches(
 export function syncLaunchesWithGroup(
   launches: Launch[],
   group: BattleGroup,
-  options: { now?: string; defaultMgrs?: string | null } = {},
+  options: { now?: string; defaultMgrs?: string | null; allocationLineId?: string | null } = {},
 ): Launch[] {
   const now = options.now ?? new Date().toISOString();
   const defaultMgrs = options.defaultMgrs ?? null;
+  const allocationLineId = options.allocationLineId ?? null;
   let next = launches.map((launch) => ({ ...launch }));
   if (group.archived_at !== null) {
     return next.map((launch) =>
@@ -292,7 +294,7 @@ export function syncLaunchesWithGroup(
     const missing = group.uav_quantity - active.length;
     const created = Array.from({ length: missing }, (_, index) => {
       const createdAt = new Date(Date.now() + index).toISOString();
-      return createLaunchRecord(group, createdAt, crypto.randomUUID(), defaultMgrs ?? "");
+      return createLaunchRecord(group, createdAt, crypto.randomUUID(), defaultMgrs ?? "", allocationLineId);
     });
     return applyDefaultAimingMgrs([...created.reverse(), ...next], group.id, defaultMgrs);
   }

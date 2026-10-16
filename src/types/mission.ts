@@ -19,16 +19,24 @@ export interface Mission {
   archived_at: string | null;
 }
 
+export interface TaskAllocation {
+  id: string;
+  mission_id: string;
+  target_id: string;
+  aiming_point_id: string | null;
+  asset_id: string;
+  quantity: number;
+}
+
 export interface Task {
   id: string;
   label: string;
-  mission_id: string;
-  target_ids: string[];
-  aiming_point_id: string | null;
   organization_id: string;
-  asset_id: string;
-  quantity: number;
+  scheduled_at: string;
+  allocations: TaskAllocation[];
   battle_groups_ids: string[];
+  fact_submitted_at: string | null;
+  fact_notes: string | null;
   created_at: string;
   updated_at: string;
   reported_at: string | null;

@@ -206,9 +206,10 @@ export function LaunchEditor({
   const liveLaunch = (launch: Launch) => storedLaunches.find((item) => item.id === launch.id) ?? launch;
   const rowLocked = (launch: Launch) => locked || isLaunchReadOnly(liveLaunch(launch), task, mission ?? null);
   const fieldsEnabled = editing && !locked;
-  const points = aimingPoints.filter((point) => point.id === task.aiming_point_id && point.archived_at === null);
+  const pointIds = new Set(task.allocations.map((line) => line.aiming_point_id).filter(Boolean));
+  const points = aimingPoints.filter((point) => pointIds.has(point.id) && point.archived_at === null);
   const headingName = mission?.name?.trim() ? mission.name : (target?.name ?? "");
-  const scheduledAt = mission?.scheduled_at ?? task.created_at;
+  const scheduledAt = task.scheduled_at || mission?.scheduled_at || task.created_at;
   const columns = DICTIONARY.tasks.launch_board.columns;
 
   const inheritedAiming = (draft: RowDraft) =>

@@ -67,7 +67,7 @@ export function ReportPreviewPage() {
     return (
       <section className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/reports")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           <h1 className="text-xl font-semibold">{DICTIONARY.reports.not_found}</h1>
         </div>
       </section>
@@ -110,7 +110,7 @@ export function ReportPreviewPage() {
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/reports")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           <h1 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
             {title}
           </h1>

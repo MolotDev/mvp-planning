@@ -116,7 +116,7 @@ export function TargetPreviewPage() {
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/catalogs/targets")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           <EntityStatusBadge status={entityState} />
           <TargetIdBadge>{target.displayed_id || target.label || "—"}</TargetIdBadge>
           <h4 className="truncate text-lg font-semibold text-primitive-neutral-0" title={target.name}>

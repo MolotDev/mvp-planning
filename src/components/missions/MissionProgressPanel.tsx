@@ -110,7 +110,13 @@ export function MissionProgressPanel({
                           {fillTemplate(DICTIONARY.tasks.unallocated_assets, { quantity: remaining })}
                         </p>
                         <LaunchProgressBadge
-                          launches={launches.filter((launch) => task.id === launch.task_id)}
+                          launches={launches.filter((launch) => {
+                            if (launch.task_id !== task.id || launch.archived_at !== null) {
+                              return false;
+                            }
+                            const line = task.allocations.find((item) => item.id === launch.allocation_line_id);
+                            return line != null;
+                          })}
                         />
                         <div className="flex justify-end gap-1">
                           <PreviewActionButton
@@ -120,7 +126,7 @@ export function MissionProgressPanel({
                         </div>
                         <ViewReportButtons
                           organizationIds={[task.organization_id]}
-                          missionId={task.mission_id}
+                          scheduledAt={task.scheduled_at}
                         />
                       </div>
                     );
@@ -165,11 +171,15 @@ function groupByTarget(tasks: Task[], targets: Target[]) {
   const map = new Map<string, Task[]>();
   const entityStates = new Map<string, string>();
   tasks.forEach((task) => {
-    const targetId = task.target_ids[0] ?? "unknown";
-    const list = map.get(targetId) ?? [];
-    entityStates.set(targetId, getEntityState(task));
-    list.push(task);
-    map.set(targetId, list);
+    const targetIds = [...new Set(task.allocations.map((line) => line.target_id).filter(Boolean))];
+    (targetIds.length > 0 ? targetIds : ["unknown"]).forEach((targetId) => {
+      const list = map.get(targetId) ?? [];
+      entityStates.set(targetId, getEntityState(task));
+      if (!list.some((item) => item.id === task.id)) {
+        list.push(task);
+      }
+      map.set(targetId, list);
+    });
   });
   return [...map.entries()].map(([targetId, groupTasks]) => {
     const target = targets.find((item) => item.id === targetId);
@@ -207,7 +217,7 @@ function groupByDetachment(tasks: Task[], targets: Target[]) {
 
   return [...map.entries()].map(([organizationId, groupTasks]) => {
     const groupTargets = targets.filter((target) =>
-      groupTasks.some((task) => task.target_ids.includes(target.id)),
+      groupTasks.some((task) => task.allocations.some((line) => line.target_id === target.id)),
     );
     return {
       id: `detachment-${organizationId}`,

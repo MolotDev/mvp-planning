@@ -56,10 +56,11 @@ export function buildLaunchContext(
   battleGroups: BattleGroup[],
 ): LaunchRowContext {
   const task = tasks.find((item) => item.id === launch.task_id);
-  const mission = missions.find((item) => item.id === task?.mission_id);
-  const target = targets.find((item) => task?.target_ids.includes(item.id));
+  const line = task?.allocations.find((item) => item.id === launch.allocation_line_id) ?? task?.allocations[0];
+  const mission = missions.find((item) => item.id === line?.mission_id);
+  const target = targets.find((item) => item.id === line?.target_id);
   const aimingPoint = aimingPoints.find(
-    (point) => point.id === task?.aiming_point_id && point.mgrs === launch.aiming_point_mgrs.trim(),
+    (point) => point.id === line?.aiming_point_id && point.mgrs === launch.aiming_point_mgrs.trim(),
   );
   const battleGroup = battleGroups.find((group) => group.id === launch.battle_group_id);
   return { launch, task, mission, target, aimingPoint, battleGroup };

@@ -18,9 +18,9 @@ import { detachmentName } from "@/lib/detachments";
 import { useReportStore } from "@/store/useReportStore";
 import { matchingReports } from "@/lib/reportAggregation";
 import { uavName } from "@/lib/battleGroup";
+import { countProcessedLaunches } from "@/lib/launches";
 import { useMemo } from "react";
 import { useLaunchStore } from "@/store/useLaunchStore";
-import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { Launch } from "@/types/launch";
 
 type TargetData = {
@@ -56,12 +56,12 @@ export function MissionCard({
   const navigate = useNavigate();
   const reports = useReportStore((state) => state.reports);
   const launches = useLaunchStore((state) => state.launches);
-  const battleGroups = useBattleGroupStore((state) => state.battleGroups);
-  const linkedTasks = tasks.filter((task) => (mission.task_ids ?? []).includes(task.id));
-  const linkedTargets = targets.filter((target) =>
-    linkedTasks.some((task) => (task.target_ids ?? []).includes(target.id)),
+  const linkedTasks = tasks.filter((task) =>
+    task.allocations.some((line) => line.mission_id === mission.id),
   );
-  const linkedBattleGroups = battleGroups.filter((group) => linkedTasks.some((task) => task.id === group.task_id));
+  const linkedTargets = targets.filter((target) =>
+    linkedTasks.some((task) => task.allocations.some((line) => line.mission_id === mission.id && line.target_id === target.id)),
+  );
   const detachments = [...new Set(linkedTasks.map((task) => task.organization_id).filter(Boolean))] as string[];
   const isArchived = mission.archived_at !== null;
   const title = mission.name ?? mission.label;
@@ -71,30 +71,37 @@ export function MissionCard({
   const groupedTargets = useMemo(() => {
     const dataByTarget = new Map<string, TargetData>();
     linkedTasks.forEach((task) => {
-      const targetId = task.target_ids[0] ?? "unknown";
+      task.allocations
+        .filter((line) => line.mission_id === mission.id)
+        .forEach((line) => {
+      const targetId = line.target_id || "unknown";
       const target = linkedTargets.find((item) => item.id === targetId);
       if (!target) return;
       const detachmentId = task.organization_id;
+      const lineLaunches = launches.filter(
+        (launch) => launch.archived_at === null && launch.allocation_line_id === line.id,
+      );
+      const processed = countProcessedLaunches(lineLaunches).processed;
       const detachmentData = dataByTarget.get(targetId)?.detachmentData ?? {};
       if (!detachmentData[detachmentId]) {
         const reportId = currentMissionReports.find((report) => report.organization_id === detachmentId)?.id ?? ""
         detachmentData[detachmentId] = {
           detachmentName: detachmentName(detachmentId),
           reportId,
-          assetsQuantity: {[task.asset_id]: {
-            quantity: task.quantity,
-            processed: linkedBattleGroups.reduce((sum, battleGroup) => (
-              sum + (battleGroup.task_id === task.id ? battleGroup.uav_quantity : 0)
-            ), 0)}},
-          launches: launches.filter((launch) => launch.task_id === task.id),
+          assetsQuantity: {[line.asset_id]: {
+            quantity: line.quantity,
+            processed,
+          }},
+          launches: lineLaunches,
         };
       } else {
-          detachmentData[detachmentId].assetsQuantity[task.asset_id] ??= {
+          detachmentData[detachmentId].assetsQuantity[line.asset_id] ??= {
             quantity: 0,
             processed: 0
           };
-          detachmentData[detachmentId].assetsQuantity[task.asset_id].quantity += task.quantity;
-          detachmentData[detachmentId].assetsQuantity[task.asset_id].processed += linkedBattleGroups.reduce((sum, battleGroup) => sum + (battleGroup.task_id === task.id ? battleGroup.uav_quantity : 0), 0);
+          detachmentData[detachmentId].assetsQuantity[line.asset_id].quantity += line.quantity;
+          detachmentData[detachmentId].assetsQuantity[line.asset_id].processed += processed;
+          detachmentData[detachmentId].launches = [...detachmentData[detachmentId].launches, ...lineLaunches];
       }
       dataByTarget.set(targetId, {
         targetLabel: target?.label ?? "",
@@ -102,6 +109,7 @@ export function MissionCard({
         targetName: target?.name ?? "",
         detachmentData,
       });
+        });
     });
     if (dataByTarget.size > 0) {
       return [...dataByTarget.entries()].map(([targetId, targetData]) => {
@@ -149,7 +157,7 @@ export function MissionCard({
         };
       })
     }
-  }, [linkedTasks, linkedTargets, linkedBattleGroups]);
+  }, [linkedTasks, linkedTargets, launches, mission.id, currentMissionReports]);
 
   return (
     <Card

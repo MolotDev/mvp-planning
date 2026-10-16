@@ -32,8 +32,9 @@ export function LaunchPreviewPage() {
 
   const group = battleGroups.find((item) => item.id === battleGroupId);
   const task = tasks.find((item) => item.id === (group?.task_id ?? taskId));
-  const mission = task ? missions.find((item) => item.id === task.mission_id) : undefined;
-  const target = task ? targets.find((item) => task.target_ids.includes(item.id)) : undefined;
+  const line = task?.allocations[0];
+  const mission = line ? missions.find((item) => item.id === line.mission_id) : undefined;
+  const target = line ? targets.find((item) => item.id === line.target_id) : undefined;
 
   if (!task) {
     return (
@@ -71,7 +72,7 @@ export function LaunchPreviewPage() {
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/planning/launches")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           <EntityStatusBadge status={entityState} />
           {locked ? (
             <p className="text-sm text-primitive-neutral-300">{DICTIONARY.launches.labels.read_only_locked}</p>

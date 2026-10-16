@@ -1,12 +1,13 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createMissionSeed } from "@/data/missionSeed";
+import { taskTargetIds } from "@/lib/taskAllocations";
 import { allMissionReportsSubmitted, missionHasSubmittedReport } from "@/lib/missionConfirmation";
-import { readAllocatedReports } from "@/store/storeBridge";
+import { readAllocatedReports, registerMissionSchedule } from "@/store/storeBridge";
 import { isDateInRange } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import type { TaskDraft } from "@/store/useTaskStore";
-import { useTaskStore } from "@/store/useTaskStore";
+import { normalizeTask, useTaskStore } from "@/store/useTaskStore";
 import type { AimingPoint, Target } from "@/types/target";
 import type { Mission, MissionMetrics, MissionStatusFilter, Task } from "@/types/mission";
 
@@ -80,10 +81,12 @@ export function missionMatchesQuery(
   if ((mission.name ?? "").toLowerCase().includes(q) || mission.label.toLowerCase().includes(q)) {
     return true;
   }
-  const linkedTasks = tasks.filter((task) => mission.task_ids.includes(task.id));
+  const linkedTasks = tasks.filter((task) => task.allocations.some((line) => line.mission_id === mission.id));
   return linkedTasks.some((task) => {
-    const taskTargets = targets.filter((target) => task.target_ids.includes(target.id));
-    const taskPoints = aimingPoints.filter((point) => point.id === task.aiming_point_id);
+    const targetIds = new Set(taskTargetIds(task));
+    const pointIds = new Set(task.allocations.map((line) => line.aiming_point_id).filter(Boolean));
+    const taskTargets = targets.filter((target) => targetIds.has(target.id));
+    const taskPoints = aimingPoints.filter((point) => pointIds.has(point.id));
     return (
       taskTargets.some(
         (target) =>
@@ -126,7 +129,7 @@ export const useMissionStore = create<MissionStoreState>()(
       createMission: (input, taskDrafts) => {
         const now = new Date().toISOString();
         const id = createId();
-        const createdTasks = useTaskStore.getState().createTasksForMission(id, taskDrafts);
+        const createdTasks = useTaskStore.getState().createTasksForMission(id, input.scheduled_at, taskDrafts);
         const mission: Mission = {
           id,
           label: `MN-${get().missionSeq + 1}`,
@@ -155,7 +158,7 @@ export const useMissionStore = create<MissionStoreState>()(
           return null;
         }
         const now = new Date().toISOString();
-        const syncedTasks = useTaskStore.getState().syncTasksForMission(id, taskDrafts);
+        const syncedTasks = useTaskStore.getState().syncTasksForMission(id, input.scheduled_at, taskDrafts);
         const updated: Mission = {
           ...existing,
           name: input.name?.trim() ? input.name.trim() : null,
@@ -245,9 +248,20 @@ export const useMissionStore = create<MissionStoreState>()(
           missionSeq: persisted?.missionSeq ?? currentState.missionSeq,
         };
       },
+      onRehydrateStorage: () => () => {
+        queueMicrotask(() => {
+          useTaskStore.setState({
+            tasks: useTaskStore.getState().tasks.map((task) => normalizeTask(task)),
+          });
+        });
+      },
     },
   ),
 );
+
+registerMissionSchedule((missionId) => {
+  return useMissionStore.getState().missions.find((mission) => mission.id === missionId)?.scheduled_at ?? null;
+});
 
 export function resetMissionStore() {
   useMissionStore.persist.clearStorage();

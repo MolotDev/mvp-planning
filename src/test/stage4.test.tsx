@@ -79,7 +79,7 @@ describe("Stage 4 stores", () => {
   });
 
   it("cascades mission archive to tasks and battle groups", () => {
-    const missionId = useTaskStore.getState().tasks.find((item) => item.id === TASK_1_ID)?.mission_id;
+    const missionId = useTaskStore.getState().tasks.find((item) => item.id === TASK_1_ID)?.allocations[0]?.mission_id;
     expect(missionId).toBeTruthy();
     useMissionStore.getState().archiveMission(missionId!);
     expect(useTaskStore.getState().tasks.find((item) => item.id === TASK_1_ID)?.archived_at).not.toBeNull();
@@ -184,16 +184,17 @@ describe("Stage 4 tasks UI", () => {
       },
       [
         {
-          target_ids: [],
+          target_id: "",
           aiming_point_id: null,
           organization_id: "detachment_1",
-          battle_groups_ids: [],
           asset_id: "uav_1",
           quantity: 2,
         },
       ],
     );
-    const otherTask = useTaskStore.getState().tasks.find((task) => task.mission_id === created.id);
+    const otherTask = useTaskStore.getState().tasks.find((task) =>
+      task.allocations.some((line) => line.mission_id === created.id),
+    );
     expect(otherTask).toBeTruthy();
 
     signInAs("DETACHMENT", "detachment_1");

@@ -64,7 +64,7 @@ export function BattleGroupSummaryList({ groups, assetData, showProgress = false
   return (
     <div className="flex flex-col gap-2">
       {groups.map((group) => (
-        <div key={group.id} className="flex flex-col gap-3">
+        <div key={group.id} className="flex gap-3">
           <BattleGroupSummary group={group} />
           {showProgress ? (
             <LaunchProgressBadge

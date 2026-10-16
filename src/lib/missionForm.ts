@@ -43,9 +43,7 @@ export function emptyTarget(): TargetDraft {
 }
 
 export function linkedTasksForMission(mission: Mission, tasks: Task[]): Task[] {
-  const related = tasks.filter(
-    (task) => task.mission_id === mission.id || mission.task_ids.includes(task.id),
-  );
+  const related = tasks.filter((task) => task.allocations.some((line) => line.mission_id === mission.id));
   if (mission.archived_at !== null) {
     return related;
   }
@@ -56,28 +54,31 @@ export function draftsFromMission(mission: Mission, tasks: Task[]): TargetDraft[
   const related = linkedTasksForMission(mission, tasks);
   const byTarget = new Map<string, TargetDraft>();
   related.forEach((task) => {
-    if (!task.organization_id && !task.asset_id) {
-      return;
-    }
-    const targetId = task.target_ids[0] ?? "";
-    const existing = byTarget.get(targetId) ?? {
-      key: createFormKey(),
-      target_id: targetId,
-      aiming_point_ids: [],
-      detachments: [],
-    };
-    existing.detachments.push({
-      key: createFormKey(),
-      task_id: task.id,
-      organization_id: task.organization_id,
-      asset_id: task.asset_id,
-      quantity: task.quantity ? String(task.quantity) : "",
-      aiming_point_id: task.aiming_point_id ?? "",
-    });
-    if (task.aiming_point_id) {
-      existing.aiming_point_ids = [...new Set([...existing.aiming_point_ids, task.aiming_point_id])];
-    }
-    byTarget.set(targetId, existing);
+    task.allocations
+      .filter((line) => line.mission_id === mission.id)
+      .forEach((line) => {
+        if (!task.organization_id && !line.asset_id) {
+          return;
+        }
+        const existing = byTarget.get(line.target_id) ?? {
+          key: createFormKey(),
+          target_id: line.target_id,
+          aiming_point_ids: [],
+          detachments: [],
+        };
+        existing.detachments.push({
+          key: createFormKey(),
+          task_id: line.id,
+          organization_id: task.organization_id,
+          asset_id: line.asset_id,
+          quantity: line.quantity ? String(line.quantity) : "",
+          aiming_point_id: line.aiming_point_id ?? "",
+        });
+        if (line.aiming_point_id) {
+          existing.aiming_point_ids = [...new Set([...existing.aiming_point_ids, line.aiming_point_id])];
+        }
+        byTarget.set(line.target_id, existing);
+      });
   });
   return [...byTarget.values()];
 }
@@ -95,10 +96,9 @@ export function toTaskDrafts(targets: TargetDraft[]): TaskDraft[] {
       }
       drafts.push({
         id: row.task_id,
-        target_ids: [block.target_id],
+        target_id: block.target_id,
         aiming_point_id: row.aiming_point_id || null,
         organization_id: row.organization_id,
-        battle_groups_ids: [],
         asset_id: row.asset_id,
         quantity,
       });

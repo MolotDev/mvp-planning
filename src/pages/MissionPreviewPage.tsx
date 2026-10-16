@@ -159,7 +159,7 @@ export function MissionPreviewPage() {
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/planning/missions")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           {isConfirmed ? (
             <Badge style={entityStatusBadgeStyle("reported")}>
               {`${DICTIONARY.common.states.reported} + ${DICTIONARY.common.statuses.confirmed}`}

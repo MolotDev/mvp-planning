@@ -5,6 +5,8 @@ export const MISSION_1_ID = "c1111111-1111-4111-8111-111111111111";
 export const MISSION_2_ID = "c2222222-2222-4222-8222-222222222222";
 export const TASK_1_ID = "d1111111-1111-4111-8111-111111111111";
 export const TASK_2_ID = "d2222222-2222-4222-8222-222222222222";
+export const ALLOCATION_1_ID = "aa111111-1111-4111-8111-111111111111";
+export const ALLOCATION_2_ID = "aa222222-2222-4222-8222-222222222222";
 export const BATTLE_GROUP_1_ID = "e1111111-1111-4111-8111-111111111111";
 export const BATTLE_GROUP_2_ID = "e2222222-2222-4222-8222-222222222222";
 
@@ -28,13 +30,21 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
     {
       id: TASK_1_ID,
       label: "TK-1",
-      mission_id: MISSION_1_ID,
-      target_ids: [TARGET_1_ID],
-      aiming_point_id: AP_1_ID,
       organization_id: "detachment_1",
-      asset_id: "uav_1",
-      quantity: 4,
+      scheduled_at: tomorrow,
+      allocations: [
+        {
+          id: ALLOCATION_1_ID,
+          mission_id: MISSION_1_ID,
+          target_id: TARGET_1_ID,
+          aiming_point_id: AP_1_ID,
+          asset_id: "uav_1",
+          quantity: 4,
+        },
+      ],
       battle_groups_ids: [BATTLE_GROUP_1_ID],
+      fact_submitted_at: null,
+      fact_notes: null,
       created_at: today,
       updated_at: today,
       reported_at: null,
@@ -43,13 +53,21 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
     {
       id: TASK_2_ID,
       label: "TK-2",
-      mission_id: MISSION_1_ID,
-      target_ids: [TARGET_2_ID],
-      aiming_point_id: AP_3_ID,
       organization_id: "detachment_2",
-      asset_id: "uav_2",
-      quantity: 2,
+      scheduled_at: tomorrow,
+      allocations: [
+        {
+          id: ALLOCATION_2_ID,
+          mission_id: MISSION_1_ID,
+          target_id: TARGET_2_ID,
+          aiming_point_id: AP_3_ID,
+          asset_id: "uav_2",
+          quantity: 2,
+        },
+      ],
       battle_groups_ids: [BATTLE_GROUP_2_ID],
+      fact_submitted_at: null,
+      fact_notes: null,
       created_at: today,
       updated_at: today,
       reported_at: null,

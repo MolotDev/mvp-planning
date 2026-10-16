@@ -1,10 +1,13 @@
 import { matchingReports } from "@/lib/reportAggregation";
+import { allocationsForMission } from "@/lib/taskAllocations";
 import { toReportDate } from "@/lib/reportFormat";
 import type { Mission, Task } from "@/types/mission";
 import type { Report } from "@/types/report";
 
 export function missionTasks(mission: Mission, tasks: Task[]): Task[] {
-  return tasks.filter((task) => task.mission_id === mission.id && task.archived_at === null);
+  return tasks.filter(
+    (task) => task.archived_at === null && allocationsForMission(task, mission.id).length > 0,
+  );
 }
 
 export function taskReportSubmitted(task: Task, mission: Mission, reports: Report[]): boolean {
@@ -38,9 +41,9 @@ export function missionsCoveredByReport(report: Report, missions: Mission[], tas
     }
     return tasks.some(
       (task) =>
-        task.mission_id === mission.id &&
         task.archived_at === null &&
-        task.organization_id === report.organization_id,
+        task.organization_id === report.organization_id &&
+        allocationsForMission(task, mission.id).length > 0,
     );
   });
 }

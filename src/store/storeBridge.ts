@@ -59,3 +59,13 @@ export function registerReportSource(source: () => Report[]) {
 export function readAllocatedReports(): Report[] {
   return readReports();
 }
+
+let readMissionSchedule: (missionId: string) => string | null = () => null;
+
+export function registerMissionSchedule(source: (missionId: string) => string | null) {
+  readMissionSchedule = source;
+}
+
+export function missionScheduledAt(missionId: string): string | null {
+  return missionId ? readMissionSchedule(missionId) : null;
+}

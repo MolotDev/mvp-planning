@@ -3,7 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { PLANNED_LAUNCH_STATUS_ID, TRACKERS } from "@/data/launchCatalog";
 import { createLaunchSeed } from "@/data/launchSeed";
 import { formatTimeUk } from "@/lib/dates";
-import { resolveDefaultAimingMgrs } from "@/lib/launchAiming";
+import { allocationAimingMgrs, resolveDefaultAimingMgrs } from "@/lib/launchAiming";
 import { isLaunchReadOnly, isLaunchReportStatus, syncLaunchesWithGroup, withProcessedAt } from "@/lib/launches";
 import { reconcileLaunchesWithBattleGroups, registerLaunchSync } from "@/store/storeBridge";
 import { useMissionStore } from "@/store/useMissionStore";
@@ -47,8 +47,9 @@ export interface LaunchStoreState {
 
 function launchMission(launch: Launch) {
   const task = useTaskStore.getState().tasks.find((item) => item.id === launch.task_id) ?? null;
-  const mission = task
-    ? (useMissionStore.getState().missions.find((item) => item.id === task.mission_id) ?? null)
+  const missionId = task?.allocations.find((line) => line.id === launch.allocation_line_id)?.mission_id;
+  const mission = missionId
+    ? (useMissionStore.getState().missions.find((item) => item.id === missionId) ?? null)
     : null;
   return { task, mission };
 }
@@ -132,9 +133,17 @@ export const useLaunchStore = create<LaunchStoreState>()(
       syncBattleGroup: (group) => {
         const task = useTaskStore.getState().tasks.find((item) => item.id === group.task_id);
         const { aimingPoints, targets } = useTargetStore.getState();
-        const defaultMgrs = resolveDefaultAimingMgrs(task, aimingPoints, targets);
+        const line = group.allocation_line_id
+          ? task?.allocations.find((item) => item.id === group.allocation_line_id)
+          : task?.allocations.find((item) => item.asset_id === group.asset_id) ?? task?.allocations[0];
+        const defaultMgrs = line
+          ? allocationAimingMgrs(line, aimingPoints, targets)
+          : resolveDefaultAimingMgrs(task, aimingPoints, targets);
         set((state) => ({
-          launches: syncLaunchesWithGroup(state.launches, group, { defaultMgrs }),
+          launches: syncLaunchesWithGroup(state.launches, group, {
+            defaultMgrs,
+            allocationLineId: line?.id ?? null,
+          }),
         }));
       },
       updateLaunch: (id, patch) => {
@@ -308,6 +317,10 @@ export const useLaunchStore = create<LaunchStoreState>()(
                 asset_serial_number: launch.asset_serial_number || legacy.uav_model_serial_number || "",
                 trajectory_name: launch.trajectory_name?.trim() ? launch.trajectory_name.trim() : null,
                 processed_at: launch.processed_at ?? null,
+                allocation_line_id: launch.allocation_line_id ?? null,
+                actual_launch_time: launch.actual_launch_time ?? null,
+                execution_status: launch.execution_status ?? null,
+                bda_result: launch.bda_result ?? null,
               },
               launch.updated_at,
             );

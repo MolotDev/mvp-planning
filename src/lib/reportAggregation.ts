@@ -29,12 +29,8 @@ export interface CrewLaunchSummary {
   total: number;
 }
 
-function compareTasks(left: Task, right: Task, missions: Mission[]): number {
-  const leftMission = missions.find((mission) => mission.id === left.mission_id);
-  const rightMission = missions.find((mission) => mission.id === right.mission_id);
-  const bySchedule = (leftMission?.scheduled_at ?? left.created_at).localeCompare(
-    rightMission?.scheduled_at ?? right.created_at,
-  );
+function compareTasks(left: Task, right: Task): number {
+  const bySchedule = (left.scheduled_at || left.created_at).localeCompare(right.scheduled_at || right.created_at);
   if (bySchedule !== 0) {
     return bySchedule;
   }
@@ -55,21 +51,24 @@ export function aggregateDay(
       if (task.archived_at !== null || task.organization_id !== organizationId) {
         return false;
       }
-      const mission = snapshot.missions.find((item) => item.id === task.mission_id);
-      if (!mission || mission.archived_at !== null) {
+      if (!task.scheduled_at || toReportDate(task.scheduled_at) !== reportDate) {
         return false;
       }
-      return toReportDate(mission.scheduled_at) === reportDate;
+      return task.allocations.some((line) => {
+        const mission = snapshot.missions.find((item) => item.id === line.mission_id);
+        return mission != null && mission.archived_at === null;
+      });
     })
-    .sort((left, right) => compareTasks(left, right, snapshot.missions));
+    .sort((left, right) => compareTasks(left, right));
   const taskIds = new Set(tasks.map((task) => task.id));
-  const missionIds = new Set(tasks.map((task) => task.mission_id));
+  const missionIds = new Set(tasks.flatMap((task) => task.allocations.map((line) => line.mission_id)));
   const missions = snapshot.missions
     .filter((mission) => mission.archived_at === null && missionIds.has(mission.id))
     .sort((left, right) => left.scheduled_at.localeCompare(right.scheduled_at) || left.id.localeCompare(right.id));
   const targetIds: string[] = [];
   tasks.forEach((task) => {
-    task.target_ids.forEach((targetId) => {
+    task.allocations.forEach((line) => {
+      const targetId = line.target_id;
       if (targetId && !targetIds.includes(targetId)) {
         targetIds.push(targetId);
       }

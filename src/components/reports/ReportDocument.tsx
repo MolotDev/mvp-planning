@@ -539,7 +539,9 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   <tbody>
                     {slice.battleGroups.map((group) => {
                       const task = slice.tasks.find((item) => item.id === group.task_id);
-                      const target = slice.targets.find((item) => task?.target_ids.includes(item.id));
+                      const targetId = task?.allocations.find((line) => line.asset_id === group.asset_id)?.target_id
+                        ?? task?.allocations[0]?.target_id;
+                      const target = slice.targets.find((item) => item.id === targetId);
                       const groupLaunches = slice.launches.filter((launch) => launch.battle_group_id === group.id);
                       return (
                         <LaunchGroupRows
@@ -1172,10 +1174,12 @@ function FieldRow({
 function assetQuantities(slice: DaySlice): { assetId: string; quantity: number }[] {
   const totals = new Map<string, number>();
   slice.tasks.forEach((task) => {
-    if (!task.asset_id || task.quantity <= 0) {
-      return;
-    }
-    totals.set(task.asset_id, (totals.get(task.asset_id) ?? 0) + task.quantity);
+    task.allocations.forEach((line) => {
+      if (!line.asset_id || line.quantity <= 0) {
+        return;
+      }
+      totals.set(line.asset_id, (totals.get(line.asset_id) ?? 0) + line.quantity);
+    });
   });
   return [...totals.entries()].map(([assetId, quantity]) => ({ assetId, quantity }));
 }

@@ -1,4 +1,6 @@
 import {
+  ALLOCATION_1_ID,
+  ALLOCATION_2_ID,
   BATTLE_GROUP_1_ID,
   BATTLE_GROUP_2_ID,
   TASK_1_ID,
@@ -17,6 +19,7 @@ export function createBattleGroupSeed(now = new Date()): BattleGroup[] {
       lead_crew_id: "1.1.1",
       support_crew_ids: [],
       asset_id: "uav_1",
+      allocation_line_id: ALLOCATION_1_ID,
       uav_quantity: 4,
       created_at: iso,
       updated_at: iso,
@@ -28,6 +31,7 @@ export function createBattleGroupSeed(now = new Date()): BattleGroup[] {
       lead_crew_id: "2.1.1",
       support_crew_ids: [],
       asset_id: "uav_2",
+      allocation_line_id: ALLOCATION_2_ID,
       uav_quantity: 2,
       created_at: iso,
       updated_at: iso,

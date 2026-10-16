@@ -201,7 +201,9 @@ function replaceReport(reports: Report[], next: Report): Report[] {
 function missionsReadyToClose(missionIds: string[]): string[] {
   const tasks = useTaskStore.getState().tasks;
   return missionIds.filter((missionId) => {
-    const related = tasks.filter((task) => task.mission_id === missionId && task.archived_at === null);
+    const related = tasks.filter(
+      (task) => task.archived_at === null && task.allocations.some((line) => line.mission_id === missionId),
+    );
     return related.length > 0 && related.every((task) => task.reported_at !== null);
   });
 }
@@ -221,11 +223,17 @@ export const useReportStore = create<ReportStoreState>()(
         if (!hasGroup) {
           return null;
         }
-        const mission = useMissionStore.getState().missions.find((item) => item.id === task.mission_id);
-        if (!mission || mission.archived_at !== null) {
+        if (!task.scheduled_at) {
           return null;
         }
-        const reportDate = toReportDate(mission.scheduled_at);
+        const activeMission = task.allocations.some((line) => {
+          const mission = useMissionStore.getState().missions.find((item) => item.id === line.mission_id);
+          return mission != null && mission.archived_at === null;
+        });
+        if (!activeMission) {
+          return null;
+        }
+        const reportDate = toReportDate(task.scheduled_at);
         const existing = findActiveReport(get().reports, task.organization_id, reportDate);
         if (existing) {
           if (canEditReportContent(existing)) {
@@ -495,7 +503,9 @@ export const useReportStore = create<ReportStoreState>()(
           slice.launches.map((launch) => launch.id),
           now,
         );
-        const missionIds = missionsReadyToClose([...new Set(slice.tasks.map((task) => task.mission_id))]);
+        const missionIds = missionsReadyToClose([
+          ...new Set(slice.tasks.flatMap((task) => task.allocations.map((line) => line.mission_id))),
+        ]);
         if (missionIds.length > 0) {
           useMissionStore.getState().markMissionsReported(missionIds, now);
         }

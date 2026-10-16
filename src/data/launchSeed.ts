@@ -28,11 +28,13 @@ export function createLaunchRecord(
   createdAt: string,
   id: string,
   aimingMgrs = "",
+  allocationLineId: string | null = null,
 ): Launch {
   return {
     id,
     task_id: group.task_id,
     battle_group_id: group.id,
+    allocation_line_id: allocationLineId,
     asset_id: group.asset_id,
     asset_serial_number: "",
     tracker_model_id: "",
@@ -50,6 +52,9 @@ export function createLaunchRecord(
     launch_status_id: PLANNED_LAUNCH_STATUS_ID,
     cause_launch_problem_id: "",
     comments: "",
+    actual_launch_time: null,
+    execution_status: "pending",
+    bda_result: null,
   };
 }
 
@@ -60,13 +65,14 @@ export function createLaunchSeed(now = new Date(), groups = createBattleGroupSee
   const launches: Launch[] = [];
   groups.forEach((group) => {
     const task = tasks.find((item) => item.id === group.task_id);
+    const line = task?.allocations.find((item) => item.asset_id === group.asset_id) ?? task?.allocations[0];
     const aimingMgrs = resolveDefaultAimingMgrs(task, SEED_AIMING_POINTS, SEED_TARGETS) ?? "";
     const ids = SEEDED_IDS[group.id];
     for (let index = 0; index < group.uav_quantity; index += 1) {
       offset += 1;
       const createdAt = new Date(base + offset * 1000).toISOString();
       const id = ids?.[index] ?? crypto.randomUUID();
-      launches.push(createLaunchRecord(group, createdAt, id, aimingMgrs));
+      launches.push(createLaunchRecord(group, createdAt, id, aimingMgrs, line?.id ?? null));
     }
   });
   return launches;

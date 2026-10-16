@@ -1,32 +1,38 @@
 import type { Launch } from "@/types/launch";
-import type { Task } from "@/types/mission";
+import type { Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 
-export function taskAimingPoints(
-  task: Pick<Task, "aiming_point_id">,
-  aimingPoints: AimingPoint[],
-): AimingPoint[] {
-  if (!task.aiming_point_id) {
-    return [];
-  }
-  const point = aimingPoints.find((item) => item.id === task.aiming_point_id && item.archived_at === null);
-  return point ? [point] : [];
-}
-
-export function resolveDefaultAimingMgrs(
-  task: Pick<Task, "aiming_point_id" | "target_ids"> | undefined,
+export function allocationAimingMgrs(
+  line: Pick<TaskAllocation, "aiming_point_id" | "target_id"> | undefined,
   aimingPoints: AimingPoint[],
   targets: Target[],
 ): string | null {
-  if (!task) {
+  if (!line) {
     return null;
   }
-  const [point] = taskAimingPoints(task, aimingPoints);
+  const point = line.aiming_point_id
+    ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
+    : undefined;
   if (point) {
     return point.mgrs;
   }
-  const target = targets.find((item) => task.target_ids.includes(item.id));
-  return target?.mgrs ?? null;
+  return targets.find((item) => item.id === line.target_id)?.mgrs ?? null;
+}
+
+export function taskAimingPoints(
+  task: Pick<Task, "allocations">,
+  aimingPoints: AimingPoint[],
+): AimingPoint[] {
+  const ids = task.allocations.map((line) => line.aiming_point_id).filter((id): id is string => Boolean(id));
+  return aimingPoints.filter((point) => point.archived_at === null && ids.includes(point.id));
+}
+
+export function resolveDefaultAimingMgrs(
+  task: Pick<Task, "allocations"> | undefined,
+  aimingPoints: AimingPoint[],
+  targets: Target[],
+): string | null {
+  return allocationAimingMgrs(task?.allocations[0], aimingPoints, targets);
 }
 
 export function isAimingPointAssigned(point: AimingPoint, taskId: string, launches: Launch[]): boolean {

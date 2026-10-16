@@ -187,20 +187,18 @@ export function TasksPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             {visibleTasks.map((task) => {
-              const mission = missions.find((mission) => mission.id === task.mission_id);
-              const currentMissionReports = matchingReports(reports, [task.organization_id], mission?.scheduled_at ?? "");
+              const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
               const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? ""
-              const aimingPoint = aimingPoints.find((aimingPoint) => aimingPoint.id === task.aiming_point_id);
               return (
                 <TaskCard
                   key={task.id}
                   task={task}
-                  mission={mission}
+                  missions={missions}
                   reportId={reportId}
-                  target={targets.find((target) => task.target_ids.includes(target.id))}
-                  aimingPoint={aimingPoint}
+                  targets={targets}
+                  aimingPoints={aimingPoints}
                   battleGroups={battleGroups.filter(
                     (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
                   )}

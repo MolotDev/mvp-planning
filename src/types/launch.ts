@@ -18,10 +18,19 @@ export interface CauseLaunchProblem {
   name: string;
 }
 
+export type LaunchExecutionStatus =
+  | "pending"
+  | "success"
+  | "target_hit"
+  | "miss"
+  | "ew_suppression"
+  | "technical_failure";
+
 export interface Launch {
   id: string;
   task_id: string;
   battle_group_id: string;
+  allocation_line_id: string | null;
   asset_id: string;
   asset_serial_number: string;
   tracker_model_id: string | null;
@@ -39,6 +48,9 @@ export interface Launch {
   launch_status_id: string;
   cause_launch_problem_id: string;
   comments: string;
+  actual_launch_time: string | null;
+  execution_status: LaunchExecutionStatus | null;
+  bda_result: string | null;
 }
 
 export interface LaunchReportInput {

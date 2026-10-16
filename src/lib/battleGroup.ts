@@ -11,11 +11,15 @@ import {
 import type { BattleGroup, BattleGroupInput } from "@/types/battleGroup";
 import type { UavAsset } from "@/types/mission";
 
-export function taskAllocation(task: { asset_id: string; quantity: number }): UavAsset[] {
-  if (!task.asset_id || task.quantity <= 0) {
-    return [];
-  }
-  return [{ asset_id: task.asset_id, quantity: task.quantity }];
+export function taskAllocation(task: { allocations?: { asset_id: string; quantity: number }[] }): UavAsset[] {
+  const totals = new Map<string, number>();
+  (task.allocations ?? []).forEach((line) => {
+    if (!line.asset_id || line.quantity <= 0) {
+      return;
+    }
+    totals.set(line.asset_id, (totals.get(line.asset_id) ?? 0) + line.quantity);
+  });
+  return [...totals.entries()].map(([asset_id, quantity]) => ({ asset_id, quantity }));
 }
 
 export { TASK_UAV_CAPACITY };
@@ -60,22 +64,15 @@ export function operationalDay(iso: string | null | undefined): string | null {
 
 export function taskIdsOnOperationalDay(
   taskId: string,
-  tasks: { id: string; mission_id: string }[],
-  missions: { id: string; scheduled_at: string }[],
+  tasks: { id: string; scheduled_at: string }[],
+  _missions: { id: string; scheduled_at: string }[],
 ): Set<string> {
   const task = tasks.find((item) => item.id === taskId);
-  if (!task) {
-    return new Set([taskId]);
-  }
-  const mission = missions.find((item) => item.id === task.mission_id);
-  const day = operationalDay(mission?.scheduled_at);
+  const day = operationalDay(task?.scheduled_at);
   if (!day) {
     return new Set([taskId]);
   }
-  const missionIds = new Set(
-    missions.filter((item) => operationalDay(item.scheduled_at) === day).map((item) => item.id),
-  );
-  const ids = tasks.filter((item) => missionIds.has(item.mission_id)).map((item) => item.id);
+  const ids = tasks.filter((item) => operationalDay(item.scheduled_at) === day).map((item) => item.id);
   return new Set(ids.length > 0 ? ids : [taskId]);
 }
 

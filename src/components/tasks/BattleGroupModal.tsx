@@ -15,6 +15,7 @@ import {
   inspectBattleGroup,
   occupiedCrewIds,
   taskAllocatedQuantity,
+  taskAllocation,
   taskIdsOnOperationalDay,
   uavName,
   validateBattleGroupInput,
@@ -63,8 +64,10 @@ export function BattleGroupModal({
   const [quantity, setQuantity] = useState(battleGroup ? String(battleGroup.uav_quantity) : "");
   const [quantityTouched, setQuantityTouched] = useState(isEdit);
   const taskRecord = tasks.find((item) => item.id === taskId);
-  const fixedAssetId = taskRecord?.asset_id ?? "";
-  const remainingQuota = Math.max(0, (taskRecord?.quantity ?? 0) - taskAllocatedQuantity(battleGroups, taskId));
+  const allocationAssets = taskRecord ? taskAllocation(taskRecord) : [];
+  const fixedAssetId = allocationAssets.length === 1 ? allocationAssets[0].asset_id : "";
+  const totalQuantity = taskRecord?.allocations.reduce((sum, line) => sum + line.quantity, 0) ?? 0;
+  const remainingQuota = Math.max(0, totalQuantity - taskAllocatedQuantity(battleGroups, taskId));
 
   const roster = crewsForOrganization(organizationId);
   const eligibleCrews = roster.filter((crew) => !occupied.has(crew.id));
@@ -139,6 +142,7 @@ export function BattleGroupModal({
         {
           id: `pending-${input.lead_crew_id}`,
           ...input,
+          allocation_line_id: null,
           created_at: "",
           updated_at: "",
           archived_at: null,

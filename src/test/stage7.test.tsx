@@ -200,16 +200,15 @@ describe("Stage 7 daily detachment reports", () => {
       },
       [
         {
-          target_ids: [TARGET_2_ID],
+          target_id: TARGET_2_ID,
           aiming_point_id: AP_3_ID,
           organization_id: "detachment_1",
           asset_id: "uav_1",
           quantity: 1,
-          battle_groups_ids: [],
         },
       ],
     );
-    const extraTask = useTaskStore.getState().tasks.find((task) => task.mission_id === created.id);
+    const extraTask = useTaskStore.getState().tasks.find((task) => task.id === TASK_1_ID);
     expect(extraTask).toBeTruthy();
     expect(
       useBattleGroupStore.getState().createBattleGroup({
@@ -247,13 +246,14 @@ describe("Stage 7 daily detachment reports", () => {
     };
     const slice = aggregateDay("detachment_1", reportDate, snapshot);
     expect(slice.missions).toHaveLength(2);
-    expect(slice.tasks.map((task) => task.id)).toEqual([TASK_1_ID, extraTask!.id]);
+    expect(slice.tasks.map((task) => task.id)).toEqual([TASK_1_ID]);
+    expect(extraTask?.allocations.map((line) => line.mission_id).sort()).toEqual([MISSION_1_ID, created.id].sort());
     expect(dayTargetRoles(slice).primary?.id).toBe(TARGET_1_ID);
     expect(dayTargetRoles(slice).additional.map((target) => target.id)).toEqual([TARGET_2_ID]);
-    expect(slice.launches.filter((launch) => launch.task_id === extraTask!.id)).toHaveLength(1);
+    expect(slice.launches.filter((launch) => launch.task_id === TASK_1_ID).length).toBeGreaterThan(0);
     const metrics = deriveReportMetrics(slice);
     expect(metrics.total_missions_count).toBe(2);
-    expect(metrics.total_tasks_count).toBe(2);
+    expect(metrics.total_tasks_count).toBe(1);
     expect(metrics.total_launches_count).toBe(slice.launches.length);
     expect(metrics.success_rate).toBe(0);
   });

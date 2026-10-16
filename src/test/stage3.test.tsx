@@ -5,7 +5,7 @@ import { Toaster } from "react-hot-toast";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "@/App";
 import { DICTIONARY } from "@/constants/dictionary";
-import { MISSION_1_ID, TASK_1_ID, TASK_2_ID } from "@/data/missionSeed";
+import { ALLOCATION_1_ID, MISSION_1_ID, TASK_1_ID, TASK_2_ID } from "@/data/missionSeed";
 import { AP_1_ID, AP_2_ID, TARGET_1_ID } from "@/data/targetSeed";
 import { isScheduledBeforeCreated, formatDateUk } from "@/lib/dates";
 import { toTaskDrafts, draftsFromMission } from "@/lib/missionForm";
@@ -19,7 +19,6 @@ import { resetTaskFilterStore } from "@/store/useTaskFilterStore";
 import { MISSION_STORE_KEY, resetMissionStore, useMissionStore } from "@/store/useMissionStore";
 import { resetTaskStore, TASK_STORE_KEY, useTaskStore, normalizeTask } from "@/store/useTaskStore";
 import { resetTargetStore } from "@/store/useTargetStore";
-import type { Task } from "@/types/mission";
 
 function renderApp(initialEntry = "/planning/missions") {
   return render(
@@ -65,10 +64,33 @@ describe("Stage 3 stores", () => {
     expect(missions.state.missions.find((item) => item.id === MISSION_1_ID)?.archived_at).not.toBeNull();
   });
 
-  it("normalizes persisted tasks that omit target_ids", () => {
-    const incomplete = { ...useTaskStore.getState().tasks[0] } as Task;
-    delete (incomplete as { target_ids?: string[] }).target_ids;
-    expect(normalizeTask(incomplete).target_ids).toEqual([]);
+  it("normalizes persisted tasks that omit allocations", () => {
+    const incomplete = {
+      id: "legacy-task",
+      label: "TK-legacy",
+      organization_id: "detachment_1",
+      mission_id: MISSION_1_ID,
+      target_ids: [TARGET_1_ID],
+      aiming_point_id: AP_1_ID,
+      asset_id: "uav_1",
+      quantity: 4,
+      battle_groups_ids: [],
+      created_at: "2026-10-12T00:00:00.000Z",
+      updated_at: "2026-10-12T00:00:00.000Z",
+      reported_at: null,
+      archived_at: null,
+    };
+    const normalized = normalizeTask(incomplete);
+    expect(normalized.allocations).toEqual([
+      expect.objectContaining({
+        id: "legacy-task:line",
+        mission_id: MISSION_1_ID,
+        target_id: TARGET_1_ID,
+        aiming_point_id: AP_1_ID,
+        asset_id: "uav_1",
+        quantity: 4,
+      }),
+    ]);
   });
 
   it("cascades archive to tasks and does not restore children", () => {
@@ -97,10 +119,9 @@ describe("Stage 3 stores", () => {
       },
       [
         {
-          target_ids: [],
+          target_id: "",
           aiming_point_id: null,
           organization_id: "detachment_3",
-          battle_groups_ids: [],
           asset_id: "uav_3",
           quantity: 1,
         },
@@ -127,7 +148,7 @@ describe("Stage 3 stores", () => {
     ]);
     expect(drafts).toHaveLength(3);
     expect(drafts[0]).toMatchObject({
-      target_ids: [TARGET_1_ID],
+      target_id: TARGET_1_ID,
       aiming_point_id: AP_1_ID,
       organization_id: "detachment_1",
       asset_id: "uav_1",
@@ -167,10 +188,9 @@ describe("Stage 3 stores", () => {
       },
       [
         {
-          target_ids: [TARGET_1_ID],
+          target_id: TARGET_1_ID,
           aiming_point_id: AP_1_ID,
           organization_id: "detachment_1",
-          battle_groups_ids: [],
           asset_id: "uav_1",
           quantity: 2,
         },
@@ -178,19 +198,22 @@ describe("Stage 3 stores", () => {
     );
     expect(created.task_ids).toHaveLength(1);
     const task = useTaskStore.getState().tasks.find((item) => item.id === created.task_ids[0]);
-    expect(task).toMatchObject({
-      target_ids: [TARGET_1_ID],
-      aiming_point_id: AP_1_ID,
-      organization_id: "detachment_1",
-      asset_id: "uav_1",
-      quantity: 2,
-    });
+    expect(task?.organization_id).toBe("detachment_1");
+    expect(task?.allocations).toEqual([
+      expect.objectContaining({
+        mission_id: created.id,
+        target_id: TARGET_1_ID,
+        aiming_point_id: AP_1_ID,
+        asset_id: "uav_1",
+        quantity: 2,
+      }),
+    ]);
     const formDrafts = draftsFromMission(created, useTaskStore.getState().tasks);
     expect(formDrafts).toHaveLength(1);
     expect(formDrafts[0]?.target_id).toBe(TARGET_1_ID);
     expect(formDrafts[0]?.aiming_point_ids).toEqual([AP_1_ID]);
     expect(formDrafts[0]?.detachments[0]).toMatchObject({
-      task_id: task?.id,
+      task_id: task?.allocations[0]?.id,
       aiming_point_id: AP_1_ID,
       asset_id: "uav_1",
       quantity: "2",
@@ -211,19 +234,17 @@ describe("Stage 3 stores", () => {
       },
       [
         {
-          id: TASK_1_ID,
-          target_ids: [...original!.target_ids],
-          aiming_point_id: original!.aiming_point_id,
+          id: ALLOCATION_1_ID,
+          target_id: original!.allocations[0].target_id,
+          aiming_point_id: original!.allocations[0].aiming_point_id,
           organization_id: original!.organization_id,
-          battle_groups_ids: [],
           asset_id: "uav_1",
           quantity: 8,
         },
         {
-          target_ids: [...original!.target_ids],
+          target_id: original!.allocations[0].target_id,
           aiming_point_id: null,
           organization_id: original!.organization_id,
-          battle_groups_ids: [],
           asset_id: "uav_2",
           quantity: 3,
         },
@@ -232,15 +253,13 @@ describe("Stage 3 stores", () => {
     const updated = useTaskStore.getState().tasks.find((item) => item.id === TASK_1_ID);
     expect(updated?.archived_at).toBeNull();
     expect(updated?.label).toBe("TK-1");
-    expect(updated?.asset_id).toBe("uav_1");
-    expect(updated?.quantity).toBe(8);
+    expect(updated?.allocations).toEqual([
+      expect.objectContaining({ id: ALLOCATION_1_ID, asset_id: "uav_1", quantity: 8 }),
+      expect.objectContaining({ asset_id: "uav_2", quantity: 3 }),
+    ]);
     expect(useTaskStore.getState().tasks.find((item) => item.id === TASK_2_ID)?.archived_at).not.toBeNull();
     const missionTaskIds = useMissionStore.getState().missions.find((item) => item.id === MISSION_1_ID)?.task_ids ?? [];
-    expect(missionTaskIds).toHaveLength(2);
-    expect(missionTaskIds).toContain(TASK_1_ID);
-    expect(
-      useTaskStore.getState().tasks.some((item) => item.mission_id === MISSION_1_ID && item.asset_id === "uav_2" && item.quantity === 3 && item.archived_at === null),
-    ).toBe(true);
+    expect(missionTaskIds).toEqual([TASK_1_ID]);
   });
 
   it("rejects a scheduled date earlier than created_at", () => {
@@ -272,10 +291,9 @@ describe("Stage 3 missions UI", () => {
     expect(screen.getByText(DICTIONARY.missions.empty_state)).toBeInTheDocument();
   });
 
-  it("renders the missions catalog when persisted tasks omit target_ids", () => {
+  it("renders the missions catalog when persisted tasks omit allocations", () => {
     const [first, ...rest] = useTaskStore.getState().tasks;
-    const incomplete = { ...first } as Task;
-    delete (incomplete as { target_ids?: string[] }).target_ids;
+    const incomplete = { ...first, allocations: [] };
     useTaskStore.setState({ tasks: [incomplete, ...rest] });
     renderApp();
     expect(screen.getByRole("heading", { level: 1, name: "Місії" })).toBeInTheDocument();
@@ -361,7 +379,9 @@ describe("Stage 3 missions UI", () => {
     );
     const activeTasks = useTaskStore
       .getState()
-      .tasks.filter((task) => task.mission_id === MISSION_1_ID && task.archived_at === null);
+      .tasks.filter(
+        (task) => task.archived_at === null && task.allocations.some((line) => line.mission_id === MISSION_1_ID),
+      );
     expect(activeTasks).toHaveLength(2);
     expect(screen.getAllByText("AT-01 × 4")).toHaveLength(1);
     expect(screen.getAllByText("AT-02 × 2")).toHaveLength(1);
