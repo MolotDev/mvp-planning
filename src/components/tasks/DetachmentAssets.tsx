@@ -14,12 +14,19 @@ export function DetachmentAssets({ organizationId, assets }: DetachmentAssetsPro
   const full = [detachmentName(organizationId), `(${assetsLabel} од.)`].filter(Boolean).join(" ");
 
   return (
-    <p className="flex items-baseline gap-1 text-sm text-primitive-neutral-200">
-      <Users className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      <span className="line-clamp-2 text-lg" title={full}>
-        {full}
-      </span>
-    </p>
+    <div className="flex items-center flex-wrap gap-2">
+      <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <p className="font-medium text-primitive-neutral-0">{detachmentName(organizationId)}</p>
+      {/* {Object.entries(detachment.assetsQuantity).map(([assetId, numbers]) => (
+        <ProgressBadge key={assetId} label={`${uavName(assetId)} × ${numbers.quantity}`} processed={numbers.processed} total={numbers.quantity} />
+      ))} */}
+    </div>
+    // <p className="flex items-baseline gap-1 text-sm text-primitive-neutral-200">
+    //   <Users className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+    //   <span className="line-clamp-2 text-lg" title={full}>
+    //     {full}
+    //   </span>
+    // </p>
   );
 }
 

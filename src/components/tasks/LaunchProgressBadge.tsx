@@ -8,7 +8,7 @@ export function LaunchProgressBadge({ launches }: { launches: Launch[] }) {
   const { processed, total } = countProcessedLaunches(launches);
   const status = !processed || !total ? "error" : processed === total ? "success" : "warning";
   return (
-    <Badge className="progress-badge" data-status={status}>
+    <Badge className="progress-badge min-h-7" data-status={status}>
       {fillTemplate(DICTIONARY.tasks.launches_processed, { processed, total })}
     </Badge>
   );

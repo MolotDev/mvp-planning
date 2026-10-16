@@ -1,7 +1,7 @@
-import { Calendar, Crosshair, Eye, Users } from "lucide-react";
+import { Calendar, MapPinned, Eye, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
-import { Badge, ProgressBadge, TargetIdBadgeLink } from "@/components/ui/badge";
+import { Badge, ProgressBadge, TargetBadgeLink } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
@@ -107,18 +107,19 @@ export function MissionCard({
       return [...dataByTarget.entries()].map(([targetId, targetData]) => {
         return {
           section: (
-            <div key={targetId} className="flex flex-col gap-2 rounded-lg border border-primitive-neutral-800 p-2">
+            <div key={targetId} className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 p-2">
               <div className="flex items-start gap-2">
                 <div className="h-6 flex items-center justify-center">
-                  <Crosshair className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
                 </div>
                 <div className="flex items-center gap-2 text-sm flex-wrap">
-                  <TargetIdBadgeLink className="text-md" id={targetId}>{targetData.targetLabel}</TargetIdBadgeLink>
-                  <Badge className="text-md bg-primitive-neutral-800 min-w-fit">{formattingMGRS.spacing(targetData.targetMgrs)}</Badge>
+                  <TargetBadgeLink id={targetId}>{formattingMGRS.spacing(targetData.targetMgrs)}</TargetBadgeLink>
+                  {/* <TargetIdBadgeLink className="text-md" id={targetId}>{targetData.targetLabel}</TargetIdBadgeLink>
+                  <Badge className="text-md bg-primitive-neutral-800 min-w-fit">{formattingMGRS.spacing(targetData.targetMgrs)}</Badge> */}
                   <p className="font-medium text-primitive-neutral-0">{targetData.targetName}</p>
                 </div>
               </div>
-              <div className="flex flex-col gap-1 pl-3">
+              <div className="flex flex-col gap-1 pl-4">
                 {Object.entries(targetData.detachmentData).map(([detachmentId, detachment]) => {
                   return (
                     <div key={detachmentId} className="flex flex-col gap-0.5 mb-4 last:mb-0">
@@ -178,7 +179,7 @@ export function MissionCard({
           <p className="flex items-center gap-1 text-sm text-primitive-neutral-200">
             <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
             <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(mission.scheduled_at)}</Badge>
-            {title.trim() ? null : (
+            {!title?.trim() ? null : (
               <>
                 <span>—</span>
                 <span className="line-clamp-2" title={title}>

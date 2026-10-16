@@ -1,4 +1,4 @@
-import { Archive, Crosshair, ShieldCheck } from "lucide-react";
+import { Archive, MapPinned, ShieldCheck } from "lucide-react";
 import { DICTIONARY } from "@/constants/dictionary";
 import type { TargetMetrics } from "@/store/useTargetStore";
 
@@ -12,7 +12,7 @@ export function MetricCards({ metrics }: MetricCardsProps) {
       id: "total",
       label: DICTIONARY.common.statistics_label.total_quantity,
       value: metrics.total,
-      icon: Crosshair,
+      icon: MapPinned,
       color: "text-primitive-blue-500",
     },
     {

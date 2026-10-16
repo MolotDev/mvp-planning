@@ -144,7 +144,7 @@ export function locksCrewFilter(role: AuthRole | null): boolean {
 }
 
 export function hidesDetachmentFilter(role: AuthRole | null): boolean {
-  return role === "CREW";
+  return role !== "CENTER";
 }
 
 export function withSessionScope<T extends { organizationId: string; crewId?: string }>(

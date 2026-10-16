@@ -1,4 +1,4 @@
-import { Calendar, Crosshair } from "lucide-react";
+import { Calendar, MapPinned } from "lucide-react";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { Badge, TargetIdBadge } from "@/components/ui/badge";
@@ -109,7 +109,7 @@ function LaunchScopeCard({
         </p>
         {scope.target ? (
           <div className="flex flex-wrap items-center gap-1 text-sm">
-            <Crosshair className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
             <TargetIdBadge className="text-sm">{scope.target.displayed_id || scope.target.label}</TargetIdBadge>
             <span>{scope.target.name}</span>
             <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{formattingMGRS.spacing(scope.target.mgrs)}</Badge>

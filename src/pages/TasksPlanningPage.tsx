@@ -27,6 +27,8 @@ import { DEFAULT_TASK_FILTERS, useTaskFilterStore, type TaskFilterState } from "
 import type { MissionStatusFilter } from "@/types/mission";
 import { notifySuccess } from "@/lib/toasts";
 import { DETACHMENT_REFS } from "@/data/crews";
+import { useReportStore } from "@/store/useReportStore";
+import { matchingReports } from "@/lib/reportAggregation";
 
 export function TasksPlanningPage() {
   const navigate = useNavigate();
@@ -42,8 +44,10 @@ export function TasksPlanningPage() {
   const restoreTask = useTaskStore((state) => state.restoreTask);
   const missions = useMissionStore((state) => state.missions);
   const targets = useTargetStore((state) => state.targets);
+  const aimingPoints = useTargetStore((state) => state.aimingPoints);
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const targetId = searchParams.get("targetId");
+  const reports = useReportStore((state) => state.reports);
 
   useEffect(() => {
     const parsed = taskFiltersFromSearchParams(searchParams, missions);
@@ -183,23 +187,31 @@ export function TasksPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {visibleTasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                mission={missions.find((mission) => mission.id === task.mission_id)}
-                target={targets.find((target) => task.target_ids.includes(target.id))}
-                battleGroups={battleGroups.filter(
-                  (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
-                )}
-                onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
-                onRestore={(item) => {
-                  restoreTask(item.id);
-                  notifySuccess(DICTIONARY.tasks.toasts.task_restored);
-                }}
-              />
-            ))}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+            {visibleTasks.map((task) => {
+              const mission = missions.find((mission) => mission.id === task.mission_id);
+              const currentMissionReports = matchingReports(reports, [task.organization_id], mission?.scheduled_at ?? "");
+              const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? ""
+              const aimingPoint = aimingPoints.find((aimingPoint) => aimingPoint.id === task.aiming_point_id);
+              return (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  mission={mission}
+                  reportId={reportId}
+                  target={targets.find((target) => task.target_ids.includes(target.id))}
+                  aimingPoint={aimingPoint}
+                  battleGroups={battleGroups.filter(
+                    (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
+                  )}
+                  onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
+                  onRestore={(item) => {
+                    restoreTask(item.id);
+                    notifySuccess(DICTIONARY.tasks.toasts.task_restored);
+                  }}
+                />
+              )
+            })}
           </div>
         )}
       </div>

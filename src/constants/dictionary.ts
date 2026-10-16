@@ -21,6 +21,7 @@ export const DICTIONARY = {
       allow_report_edit: "Дозволити редагування звіту",
       unfold: "Розгорнути",
       fold: "Згорнути",
+      distribute: "Розподілити",
     },
     states: {
       active: "Активний",

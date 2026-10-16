@@ -1,4 +1,4 @@
-import { Crosshair } from "lucide-react";
+import { MapPinned } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge, TargetIdBadge } from "@/components/ui/badge";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
@@ -67,7 +67,7 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
         {slice.targets.length > 0 ? (
           <div className="flex flex-col gap-2">
             <p className="flex items-center gap-1 text-sm text-primitive-neutral-200">
-              <Crosshair className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{DICTIONARY.reports.metrics.targets_title}:</span>
             </p>
             {slice.targets.map((target) => (

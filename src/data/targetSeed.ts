@@ -47,7 +47,7 @@ export const SEED_AIMING_POINTS: AimingPoint[] = [
     target_id: TARGET_1_ID,
     label: "AP1",
     displayed_id: "",
-    name: "Пунтк приймання",
+    name: "Пункт приймання",
     mgrs: "36U EV 45220 88325",
     agl_msl: 12,
     feat_hgt_msl: 18,

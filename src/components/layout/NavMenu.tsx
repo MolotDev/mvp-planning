@@ -1,10 +1,10 @@
 import {
   ChevronDown,
   ChevronRight,
-  Crosshair,
   FileBarChart,
   Flag,
   ListTodo,
+  MapPinned,
   Plane,
   Rocket,
   type LucideIcon,
@@ -31,7 +31,7 @@ const PLANNING_ITEMS: NavItem[] = [
 ];
 
 const CATALOG_ITEMS: NavItem[] = [
-  { to: "/catalogs/targets", label: TRANSLATIONS.targets, icon: Crosshair },
+  { to: "/catalogs/targets", label: TRANSLATIONS.targets, icon: MapPinned },
   { to: "/catalogs/assets", label: TRANSLATIONS.uavModels, icon: Plane },
 ];
 
