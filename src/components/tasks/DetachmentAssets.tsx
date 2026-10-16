@@ -9,9 +9,9 @@ interface DetachmentAssetsProps {
   assets: UavAsset[];
 }
 
-export function DetachmentAssets({ organizationId, assets }: DetachmentAssetsProps) {
-  const assetsLabel = formatTaskAssets(assets);
-  const full = [detachmentName(organizationId), `(${assetsLabel} од.)`].filter(Boolean).join(" ");
+export function DetachmentAssets({ organizationId }: DetachmentAssetsProps) {
+  // const assetsLabel = formatTaskAssets(assets);
+  // const full = [detachmentName(organizationId), `(${assetsLabel} од.)`].filter(Boolean).join(" ");
 
   return (
     <div className="flex items-center flex-wrap gap-2">

@@ -11,7 +11,7 @@ import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAdminister, homePath, taskInScope } from "@/lib/access";
-import { taskAllocatedQuantity, taskAllocation, visibleBattleGroups } from "@/lib/battleGroup";
+import { taskAllocatedQuantity, taskAllocation, uavName, visibleBattleGroups } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
@@ -168,7 +168,7 @@ export function TaskPreviewPage() {
           <p className={cn("text-sm font-medium", quotaMet ? "text-primitive-green-500" : "text-primitive-red-500")}>
             {fillTemplate(DICTIONARY.tasks.allocated_quota, { allocated, total: task.quantity })}
           </p>
-          <BattleGroupSummaryList groups={groups} showProgress />
+          <BattleGroupSummaryList groups={groups} assetData={{label: uavName(task.asset_id), quantity: task.quantity}} showProgress />
           {canGotoMission && (
             <div className="mt-auto flex justify-end">
               <PreviewActionButton
