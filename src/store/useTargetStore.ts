@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { SEED_AIMING_POINTS, SEED_TARGETS } from "@/data/targetSeed";
+import { notifyCrossTab } from "@/services/crossTabSync";
 import type { AimingPoint, StatusFilter, Target } from "@/types/target";
 
 export const TARGET_STORE_KEY = "military_crm_target_store";
@@ -149,6 +150,7 @@ export const useTargetStore = create<TargetStoreState>()(
           targets: [target, ...state.targets],
           targetSeq: state.targetSeq + 1,
         }));
+        notifyCrossTab("SYNC_ALL");
         return target;
       },
       updateTarget: (id, input) => {
@@ -170,6 +172,7 @@ export const useTargetStore = create<TargetStoreState>()(
         set((state) => ({
           targets: state.targets.map((target) => (target.id === id ? updated : target)),
         }));
+        notifyCrossTab("SYNC_ALL");
         return updated;
       },
       archiveTarget: (id) => {
@@ -184,6 +187,7 @@ export const useTargetStore = create<TargetStoreState>()(
               : point,
           ),
         }));
+        notifyCrossTab("SYNC_ALL");
       },
       restoreTarget: (id) => {
         const now = new Date().toISOString();
@@ -192,6 +196,7 @@ export const useTargetStore = create<TargetStoreState>()(
             target.id === id ? { ...target, archived_at: null, updated_at: now } : target,
           ),
         }));
+        notifyCrossTab("SYNC_ALL");
       },
       createAimingPoint: (targetId, input) => {
         const parent = get().targets.find((target) => target.id === targetId);
@@ -224,6 +229,7 @@ export const useTargetStore = create<TargetStoreState>()(
               : target,
           ),
         }));
+        notifyCrossTab("SYNC_ALL");
         return point;
       },
       updateAimingPoint: (id, input) => {
@@ -243,6 +249,7 @@ export const useTargetStore = create<TargetStoreState>()(
         set((state) => ({
           aimingPoints: state.aimingPoints.map((point) => (point.id === id ? updated : point)),
         }));
+        notifyCrossTab("SYNC_ALL");
         return updated;
       },
       archiveAimingPoint: (id) => {
@@ -252,6 +259,7 @@ export const useTargetStore = create<TargetStoreState>()(
             point.id === id ? { ...point, archived_at: now, updated_at: now } : point,
           ),
         }));
+        notifyCrossTab("SYNC_ALL");
       },
       restoreAimingPoint: (id) => {
         const now = new Date().toISOString();
@@ -260,6 +268,7 @@ export const useTargetStore = create<TargetStoreState>()(
             point.id === id ? { ...point, archived_at: null, updated_at: now } : point,
           ),
         }));
+        notifyCrossTab("SYNC_ALL");
       },
     }),
     {

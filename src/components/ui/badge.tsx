@@ -1,6 +1,6 @@
 import { type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { CrosshairIcon } from "lucide-react";
+import { CrosshairIcon, MapPinned } from "lucide-react";
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
@@ -57,12 +57,27 @@ export function ProgressBadge({label, processed, total, className = "" }: { labe
 export function AimingPointBadge({label, mgrs, className = "" }: { label: string, mgrs: string, className?: string }) {
   return (
     <div className="flex items-center flex-wrap gap-2" title="Точка прицілювання">
-      <CrosshairIcon className="h-4 w-4" />
+      <CrosshairIcon className="h-4 w-4 text-sky-300/50" />
       <Badge className={cn("font-semibold bg-sky-200/5 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
         {mgrs}
       </Badge>
       {/* <span className="text-sm text-primitive-neutral-300">{`•`}</span> */}
       <span className="text-sm text-primitive-neutral-300">{label}</span>
+    </div>
+  );
+}
+export function TargetBadge({targetId, mgrs, label, className = "" }: { targetId: string, mgrs: string, label: string, className?: string }) {
+  return (
+    <div className={cn("flex items-center gap-2 text-sm", className)}>
+      <div className="flex h-6 items-center justify-center">
+        <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <TargetBadgeLink className="text-md tracking-widest" id={targetId}>
+          {mgrs}
+        </TargetBadgeLink>
+        <p className="font-medium text-primitive-neutral-0">{label}</p>
+      </div>
     </div>
   );
 }

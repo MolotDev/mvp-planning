@@ -18,6 +18,7 @@ interface IconOnlyButtonProps {
   onClick?: () => void;
   disabled?: boolean;
   className?: string;
+  title?: string;
   tabIndex?: number;
 }
 
@@ -58,8 +59,8 @@ export function ResetIconButton(props: IconOnlyButtonProps) {
   return <IconOnlyButton title={DICTIONARY.common.actions.restore} icon={RotateCcw} {...props} />;
 }
 
-export function EditIconButton(props: IconOnlyButtonProps) {
-  return <IconOnlyButton title={DICTIONARY.common.actions.edit} icon={Pencil} {...props} />;
+export function EditIconButton({ title, ...props }: IconOnlyButtonProps) {
+  return <IconOnlyButton title={title ?? DICTIONARY.common.actions.edit} icon={Pencil} {...props} />;
 }
 
 export function SaveIconButton(props: IconOnlyButtonProps) {

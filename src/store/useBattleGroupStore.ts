@@ -5,6 +5,7 @@ import { CREWS } from "@/data/crews";
 import { createBattleGroupSeed } from "@/data/battleGroupSeed";
 import { occupiedCrewIds, taskAllocation, taskIdsOnOperationalDay, validateBattleGroupInput, type BattleGroupRules } from "@/lib/battleGroup";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
+import { isApplyingRemoteSync, notifyCrossTab } from "@/services/crossTabSync";
 import { registerBattleGroupSource, syncAllocatedReports, syncLaunchForGroup, syncReportForTask, reconcileLaunchesWithBattleGroups } from "@/store/storeBridge";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -99,6 +100,7 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
         linkTaskBattleGroup(scoped.task_id, group.id, now);
         syncLaunches([group.id]);
         syncReportForTask(scoped.task_id);
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return group;
       },
       updateBattleGroup: (id, input) => {
@@ -129,6 +131,7 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
         }));
         syncLaunches([id]);
         syncReportForTask(scoped.task_id);
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return updated;
       },
       archiveBattleGroup: (id) => {
@@ -143,6 +146,7 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
           ),
         }));
         syncLaunches([id]);
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return true;
       },
       archiveForTasks: (taskIds, archivedAt) => {
@@ -255,6 +259,7 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
         }));
         syncLaunches([...activeIds, ...removedIds]);
         syncReportForTask(taskId);
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return null;
       },
     }),
@@ -293,6 +298,9 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
       },
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (isApplyingRemoteSync()) {
+            return;
+          }
           reconcileLaunchesWithBattleGroups();
           syncAllocatedReports();
         });

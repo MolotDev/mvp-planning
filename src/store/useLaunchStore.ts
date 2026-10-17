@@ -5,6 +5,7 @@ import { createLaunchSeed } from "@/data/launchSeed";
 import { formatTimeUk } from "@/lib/dates";
 import { allocationAimingMgrs, resolveDefaultAimingMgrs } from "@/lib/launchAiming";
 import { isLaunchReadOnly, isLaunchReportStatus, syncLaunchesWithGroup, withProcessedAt } from "@/lib/launches";
+import { isApplyingRemoteSync, notifyCrossTab } from "@/services/crossTabSync";
 import { reconcileLaunchesWithBattleGroups, registerLaunchSync } from "@/store/storeBridge";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTargetStore } from "@/store/useTargetStore";
@@ -86,6 +87,7 @@ function commitLaunchPatch(
   set((state) => ({
     launches: state.launches.map((launch) => (launch.id === existing.id ? updated : launch)),
   }));
+  notifyCrossTab("SYNC_LAUNCHES");
   return updated;
 }
 
@@ -194,6 +196,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
         set((state) => ({
           launches: state.launches.map((launch) => (launch.id === snapshot.id ? { ...snapshot } : launch)),
         }));
+        notifyCrossTab("SYNC_LAUNCHES");
       },
       reconcile: (groups) => {
         groups.forEach((group) => {
@@ -210,6 +213,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
         set((state) => ({
           launches: state.launches.map((launch) => (launch.id === id ? updated : launch)),
         }));
+        notifyCrossTab("SYNC_LAUNCHES");
         return updated;
       },
       resetLaunchesForReportClear: (ids) => {
@@ -243,6 +247,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
             };
           }),
         }));
+        notifyCrossTab("SYNC_LAUNCHES");
       },
       markLaunchesReported: (ids, reportedAt) => {
         const idSet = new Set(ids);
@@ -258,6 +263,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
               : launch,
           ),
         }));
+        notifyCrossTab("SYNC_LAUNCHES");
       },
       reportLaunch: (id, input) => {
         const existing = get().launches.find((launch) => launch.id === id);
@@ -290,6 +296,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
         set((state) => ({
           launches: state.launches.map((launch) => (launch.id === id ? updated : launch)),
         }));
+        notifyCrossTab("SYNC_LAUNCHES");
         return updated;
       },
     }),
@@ -329,6 +336,9 @@ export const useLaunchStore = create<LaunchStoreState>()(
       },
       onRehydrateStorage: () => () => {
         queueMicrotask(() => {
+          if (isApplyingRemoteSync()) {
+            return;
+          }
           reconcileLaunchesWithBattleGroups();
         });
       },

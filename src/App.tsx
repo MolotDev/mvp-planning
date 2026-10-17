@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { useCrossTabSync } from "@/hooks/useCrossTabSync";
 import { AccessGuard, RequireAuth } from "@/components/auth/AccessGuard";
 import { AppShell } from "@/components/layout/AppShell";
 import { homePath } from "@/lib/access";
@@ -22,6 +23,7 @@ function HomeRedirect() {
 }
 
 export default function App() {
+  useCrossTabSync();
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />

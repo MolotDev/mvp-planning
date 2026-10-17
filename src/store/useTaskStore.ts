@@ -4,9 +4,9 @@ import { createMissionSeed } from "@/data/missionSeed";
 import { operationalDay } from "@/lib/battleGroup";
 import { isDateInRange, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
-import { cascadeMissionAllocation, type AllocationPair } from "@/lib/missionCascade";
+import { cascadeMissionAllocation } from "@/lib/missionCascade";
+import { notifyCrossTab } from "@/services/crossTabSync";
 import { taskMissionIds, taskTargetIds } from "@/lib/taskAllocations";
-import { useAssetStore } from "@/store/useAssetStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { missionScheduledAt } from "@/store/storeBridge";
@@ -131,6 +131,34 @@ function createId(): string {
   return crypto.randomUUID();
 }
 
+function reuseAllocationId(
+  beforeTasks: Task[],
+  removedLineIds: Set<string>,
+  consumedLineIds: Set<string>,
+  organizationId: string,
+  row: TaskDraft,
+): string {
+  if (row.id && removedLineIds.has(row.id) && !consumedLineIds.has(row.id)) {
+    consumedLineIds.add(row.id);
+    return row.id;
+  }
+  const candidates = beforeTasks.flatMap((task) =>
+    task.organization_id === organizationId
+      ? task.allocations.filter(
+          (line) => removedLineIds.has(line.id) && !consumedLineIds.has(line.id) && line.asset_id === row.asset_id,
+        )
+      : [],
+  );
+  const continuation = candidates.find((line) => line.target_id === row.target_id) ?? candidates[0];
+  if (continuation) {
+    consumedLineIds.add(continuation.id);
+    return continuation.id;
+  }
+  const created = createId();
+  consumedLineIds.add(created);
+  return created;
+}
+
 function cascadeBattleGroups(taskIds: string[], archivedAt: string) {
   useBattleGroupStore.getState().archiveForTasks(taskIds, archivedAt);
 }
@@ -219,8 +247,12 @@ export const useTaskStore = create<TaskStoreState>()(
         const now = new Date().toISOString();
         const day = operationalDay(scheduledAt);
         let seq = get().taskSeq;
-        const beforeById = new Map(get().tasks.map((task) => [task.id, task]));
-        let tasks = get().tasks.map((task) => ({
+        const beforeTasks = get().tasks.map((task) => ({
+          ...task,
+          allocations: task.allocations.map((line) => ({ ...line })),
+          battle_groups_ids: [...task.battle_groups_ids],
+        }));
+        let tasks = beforeTasks.map((task) => ({
           ...task,
           allocations: task.allocations.map((line) => ({ ...line })),
           battle_groups_ids: [...task.battle_groups_ids],
@@ -241,6 +273,7 @@ export const useTaskStore = create<TaskStoreState>()(
           };
         });
         const rows = drafts.filter((draft) => draft.organization_id && draft.asset_id && draft.quantity > 0);
+        const consumedLineIds = new Set<string>();
         const byOrg = new Map<string, TaskDraft[]>();
         rows.forEach((draft) => {
           const list = byOrg.get(draft.organization_id) ?? [];
@@ -273,7 +306,7 @@ export const useTaskStore = create<TaskStoreState>()(
             tasks.push(task);
           }
           const lines: TaskAllocation[] = orgRows.map((row) => ({
-            id: row.id && removedLineIds.has(row.id) ? row.id : createId(),
+            id: reuseAllocationId(beforeTasks, removedLineIds, consumedLineIds, organizationId, row),
             mission_id: missionId,
             target_id: row.target_id,
             aiming_point_id: row.aiming_point_id || null,
@@ -295,8 +328,6 @@ export const useTaskStore = create<TaskStoreState>()(
         tasks = tasks.map((task) =>
           archived.has(task.id) ? { ...task, archived_at: now, updated_at: now } : task,
         );
-        const keptLineIds = new Set(tasks.flatMap((task) => task.allocations.map((line) => line.id)));
-        const droppedLineIds = new Set([...removedLineIds].filter((id) => !keptLineIds.has(id)));
         const lineTaskId = new Map<string, string>();
         tasks.forEach((task) => {
           task.allocations.forEach((line) => lineTaskId.set(line.id, task.id));
@@ -307,14 +338,6 @@ export const useTaskStore = create<TaskStoreState>()(
         }
         useLaunchStore.setState({
           launches: useLaunchStore.getState().launches.map((launch) => {
-            if (
-              launch.allocation_line_id &&
-              droppedLineIds.has(launch.allocation_line_id) &&
-              launch.archived_at === null &&
-              launch.reported_at === null
-            ) {
-              return { ...launch, archived_at: now, updated_at: now };
-            }
             const nextTaskId = launch.allocation_line_id ? lineTaskId.get(launch.allocation_line_id) : undefined;
             if (nextTaskId && nextTaskId !== launch.task_id && launch.archived_at === null) {
               return { ...launch, task_id: nextTaskId, updated_at: now };
@@ -322,26 +345,20 @@ export const useTaskStore = create<TaskStoreState>()(
             return launch;
           }),
         });
-        const pairs: AllocationPair[] = [];
-        tasks.forEach((after) => {
-          const before = beforeById.get(after.id);
-          if (before) {
-            pairs.push({ before, after });
-          }
-        });
         const { targets, aimingPoints } = useTargetStore.getState();
         const cascaded = cascadeMissionAllocation({
-          pairs,
+          beforeTasks,
+          afterTasks: tasks,
           archivedTaskIds: archivedIds,
           now,
           launches: useLaunchStore.getState().launches,
           groups: useBattleGroupStore.getState().battleGroups,
           targets,
           aimingPoints,
-          assets: useAssetStore.getState().assets,
         });
         useLaunchStore.setState({ launches: cascaded.launches });
         useBattleGroupStore.setState({ battleGroups: cascaded.groups });
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return tasks.filter(
           (task) => task.archived_at === null && task.allocations.some((line) => line.mission_id === missionId),
         );
@@ -379,6 +396,7 @@ export const useTaskStore = create<TaskStoreState>()(
             ),
           });
         }
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
       },
       archiveTask: (id) => {
         const archivedAt = new Date().toISOString();
@@ -388,6 +406,7 @@ export const useTaskStore = create<TaskStoreState>()(
           ),
         }));
         cascadeBattleGroups([id], archivedAt);
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
       },
       restoreTask: (id) => {
         const now = new Date().toISOString();
@@ -396,6 +415,7 @@ export const useTaskStore = create<TaskStoreState>()(
             task.id === id ? { ...task, archived_at: null, updated_at: now } : task,
           ),
         }));
+        notifyCrossTab("SYNC_TASKS");
       },
       markTasksReported: (ids, reportedAt) => {
         const idSet = new Set(ids);
@@ -406,6 +426,7 @@ export const useTaskStore = create<TaskStoreState>()(
               : task,
           ),
         }));
+        notifyCrossTab("SYNC_TASKS");
       },
     }),
     {

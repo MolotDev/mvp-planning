@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { ArrowUpRight, Calendar, Divide, MapPinned } from "lucide-react";
+import { ArrowUpRight, Calendar, Divide } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ViewReportButton } from "@/components/reports/ViewReportButton";
-import { AimingPointBadge, Badge, ProgressBadge, TargetBadgeLink } from "@/components/ui/badge";
+import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
+import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { detachmentName } from "@/lib/detachments";
 import { getEntityState } from "@/lib/entityState";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { countProcessedLaunches } from "@/lib/launches";
+import { filledBoardCount } from "@/lib/missionCascade";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
@@ -163,19 +165,7 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
                 const target = targets.find((item) => item.id === targetGroup.targetId);
                 return (
                   <div key={targetGroup.targetId} className="flex flex-col gap-2 mb-3 last:mb-0">
-                    {target ? (
-                      <div className="flex items-start gap-2">
-                        <div className="flex h-6 items-center justify-center">
-                          <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <TargetBadgeLink className="text-md tracking-widest" id={target.id}>
-                            {formattingMGRS.spacing(target.mgrs)}
-                          </TargetBadgeLink>
-                          <p className="font-medium text-primitive-neutral-0">{target.name}</p>
-                        </div>
-                      </div>
-                    ) : null}
+                    {target ? <TargetBadge targetId={target.id} mgrs={formattingMGRS.spacing(target.mgrs)} label={target.name} /> : null}
                     <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 bg-primitive-neutral-850/40 py-1 pl-3 pr-2">
                       {targetGroup.allocations.map((line) => {
                         const aimingPoint = aimingPoints.find((item) => item.id === line.aiming_point_id);
@@ -184,12 +174,7 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
                         );
                         const assignedCrews = assignedGroups.filter((item) => item.asset_id === line.asset_id).map((item) => crewName(item.lead_crew_id));
                         const distributed = countProcessedLaunches(lineLaunches).total;
-                        // const crews = [...new Set(
-                        //   assignedGroups
-                        //     .filter((item) => item.asset_id === line.asset_id)
-                        //     .map((item) => crewName(item.lead_crew_id))
-                        //     .filter(Boolean),
-                        // )];
+                        const filledBoards = filledBoardCount(lineLaunches);
                         return (
                           <div key={line.id} className="flex flex-wrap items-center gap-2 ml-2">
                             <AimingPointBadge
@@ -202,9 +187,9 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
                               processed={distributed}
                               total={line.quantity}
                             />
-                            {/* <span className={cn("text-sm", crews.length > 0 ? "text-primitive-neutral-200" : "text-primitive-neutral-500")}>
-                              {crews.length > 0 ? crews.join(", ") : DICTIONARY.tasks.allocation.crew_unassigned}
-                            </span> */}
+                            {filledBoards > line.quantity ? (
+                              <AllocationConflictBadge planned={line.quantity} filled={filledBoards} />
+                            ) : null}
                           </div>
                         );
                       })}

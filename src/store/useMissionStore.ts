@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { createMissionSeed } from "@/data/missionSeed";
 import { taskTargetIds } from "@/lib/taskAllocations";
 import { allMissionReportsSubmitted, missionHasSubmittedReport } from "@/lib/missionConfirmation";
+import { notifyCrossTab } from "@/services/crossTabSync";
 import { readAllocatedReports, registerMissionSchedule } from "@/store/storeBridge";
 import { isDateInRange } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
@@ -147,6 +148,7 @@ export const useMissionStore = create<MissionStoreState>()(
           missions: [mission, ...state.missions],
           missionSeq: state.missionSeq + 1,
         }));
+        notifyCrossTab("SYNC_MISSIONS", "SYNC_TASKS", "SYNC_LAUNCHES");
         return mission;
       },
       updateMission: (id, input, taskDrafts) => {
@@ -170,6 +172,7 @@ export const useMissionStore = create<MissionStoreState>()(
         set((state) => ({
           missions: state.missions.map((mission) => (mission.id === id ? updated : mission)),
         }));
+        notifyCrossTab("SYNC_MISSIONS", "SYNC_TASKS", "SYNC_LAUNCHES");
         return updated;
       },
       archiveMission: (id) => {
@@ -180,6 +183,7 @@ export const useMissionStore = create<MissionStoreState>()(
             mission.id === id ? { ...mission, archived_at: archivedAt, updated_at: archivedAt } : mission,
           ),
         }));
+        notifyCrossTab("SYNC_MISSIONS", "SYNC_TASKS", "SYNC_LAUNCHES");
       },
       restoreMission: (id) => {
         const now = new Date().toISOString();
@@ -188,6 +192,7 @@ export const useMissionStore = create<MissionStoreState>()(
             mission.id === id ? { ...mission, archived_at: null, updated_at: now } : mission,
           ),
         }));
+        notifyCrossTab("SYNC_MISSIONS");
       },
       markMissionsReported: (ids, reportedAt) => {
         const idSet = new Set(ids);
@@ -198,6 +203,7 @@ export const useMissionStore = create<MissionStoreState>()(
               : mission,
           ),
         }));
+        notifyCrossTab("SYNC_MISSIONS");
       },
       confirmMission: (id) => {
         const mission = get().missions.find((item) => item.id === id);
@@ -213,6 +219,7 @@ export const useMissionStore = create<MissionStoreState>()(
             item.id === id ? { ...item, confirmed_at: now, updated_at: now } : item,
           ),
         }));
+        notifyCrossTab("SYNC_MISSIONS");
         return true;
       },
       unlockMissionReports: (id) => {
@@ -226,6 +233,7 @@ export const useMissionStore = create<MissionStoreState>()(
             item.id === id ? { ...item, confirmed_at: null, updated_at: now } : item,
           ),
         }));
+        notifyCrossTab("SYNC_MISSIONS");
         return true;
       },
     }),
