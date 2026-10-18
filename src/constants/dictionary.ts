@@ -170,7 +170,7 @@ export const DICTIONARY = {
     create_button: "Створити ВЗ",
     tasks_title: "Політні заявки",
     add_target: "Додати ціль",
-    add_detachment: "Додати загін та засоби",
+    add_detachment: "Додати сили та засоби",
     select_detachment: "Оберіть загін",
     select_asset: "Виберіть засіб",
     asset_quantity: "Кількість засобів",
@@ -178,11 +178,12 @@ export const DICTIONARY = {
     no_tasks_assigned: "Політні заявки не додані",
     no_detachments_assigned: "Ціль не розподілено між загонами!",
     empty_state: "У базі відсутні вогневі завдання, які відповідають заданим параметрам.",
+    no_missions: "Немає вогневих завдань.",
     assignment_title: "Розподіл засобів між загонами",
     fields: {
-      name: "Назва ВЗ",
+      name: "Назва завдання",
       scheduled_at: "Планова дата виконання",
-      description: "Характер цілі",
+      description: "Опис завдання",
       detachment: "Загони",
       target: "Ціль",
       aiming_points: "Точки ураження",
@@ -202,7 +203,7 @@ export const DICTIONARY = {
       reset_filters: "Скинути фільтри",
     },
     modals: {
-      title_create: "Створити ВЗ:",
+      title_create: "Створення вогневого завдання:",
       title_edit: "Редагувати ВЗ",
       confirm_execution: {
         title: "Підтвердження виконання",

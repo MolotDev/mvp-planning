@@ -20,9 +20,10 @@ import type { Mission } from "@/types/mission";
 interface CreateEditMissionModalProps {
   mission?: Mission | null;
   onClose: () => void;
+  planningDate?: Date | null;
 }
 
-export function CreateEditMissionModal({ mission, onClose }: CreateEditMissionModalProps) {
+export function CreateEditMissionModal({ mission, onClose, planningDate }: CreateEditMissionModalProps) {
   const isEdit = Boolean(mission);
   const targets = useTargetStore((state) => state.targets);
   const catalogTargets = useMemo(
@@ -36,7 +37,7 @@ export function CreateEditMissionModal({ mission, onClose }: CreateEditMissionMo
   const updateMission = useMissionStore((state) => state.updateMission);
 
   const [scheduledAt, setScheduledAt] = useState<Date | null>(
-    mission ? startOfDay(new Date(mission.scheduled_at)) : null,
+    mission ? startOfDay(new Date(mission.scheduled_at)) : planningDate ? startOfDay(planningDate) : null,
   );
   const [name, setName] = useState(mission?.name ?? "");
   const [description, setDescription] = useState(mission?.description ?? "");

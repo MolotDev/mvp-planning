@@ -3,6 +3,23 @@ export function startOfDay(date: Date): Date {
   copy.setHours(0, 0, 0, 0);
   return copy;
 }
+export function getDaysArray(start: string, end: string): Date[] {
+  const arr = [];
+  const dt = new Date(start);
+  const endDt = new Date(end);
+
+  while (dt <= endDt) {
+      arr.push(new Date(dt));
+      dt.setDate(dt.getDate() + 1);
+  }
+  return arr;
+}
+export function calculateDateOffset(date: Date, offset: number): string {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() + offset);
+  copy.setMinutes(0, 0, 0);
+  return copy.toISOString();
+}
 
 export function toDateInputValue(iso: string): Date {
   return startOfDay(new Date(iso));
@@ -51,4 +68,27 @@ export function formatTimeUk(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
+}
+
+export function convertDateToDdMmDayOfWeek(date: Date): string {
+  return new Intl.DateTimeFormat("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    weekday: "short",
+  }).format(date).split(", ").reverse().join(" • ").toUpperCase();
+}
+export function isToday(date: Date): boolean {
+  return date.getDate() === new Date().getDate();
+}
+export function isTomorrow(date: Date): boolean {
+  return date.getDate() === new Date().getDate() + 1;
+}
+export function isYesterday(date: Date): boolean {
+  return date.getDate() === new Date().getDate() - 1;
+}
+export function isMoreThanOneDay(date: Date): boolean {
+  return date.getDate() > new Date().getDate() + 1;
+}
+export function isLessThanOneDay(date: Date): boolean {
+  return date.getDate() < new Date().getDate() - 1;
 }

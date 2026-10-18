@@ -171,10 +171,12 @@ interface NativeFormSelectProps {
   ariaLabel?: string;
   invalid?: boolean;
   autoSelect?: boolean;
+  tabIndex?: number;
 }
 
 export function NativeFormSelect({
   id,
+  tabIndex,
   value,
   onChange,
   options,
@@ -198,6 +200,7 @@ export function NativeFormSelect({
   return (
     <select
       id={id}
+      tabIndex={tabIndex}
       value={value}
       disabled={disabled}
       data-error={ariaInvalid || invalid}

@@ -10,26 +10,32 @@ const pickerClassName =
 
 interface SingleDatePickerProps {
   id?: string;
+  tabIndex?: number;
   selected: Date | null;
   onChange: (date: Date | null) => void;
   placeholder?: string;
   disabled?: boolean;
   isError?: boolean;
+  autoFocus?: boolean;
 }
 
 export function AppDatePicker({
   id,
+  tabIndex,
   selected,
   onChange,
   placeholder,
   disabled = false,
   isError = false,
+  autoFocus = false,
 }: SingleDatePickerProps) {
   return (
     <DatePicker
       autoComplete="off"
       id={id}
       locale="uk"
+      autoFocus={autoFocus}
+      tabIndex={tabIndex}
       selected={selected}
       onChange={onChange}
       dateFormat="dd.MM.yyyy"

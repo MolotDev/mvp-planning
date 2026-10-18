@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ArrowUpRight, Calendar, Divide } from "lucide-react";
+import { ArrowUpRight, Calendar, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ViewReportButton } from "@/components/reports/ViewReportButton";
 import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
@@ -87,7 +87,9 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
   const totalQuantity = [...assetTotals.values()].reduce((sum, quantity) => sum + quantity, 0);
   const totalAssets = [...assetTotals.entries()].map(([assetId, quantity]) => `${uavName(assetId)} × ${quantity}`).join(", ");
 
-  const mainMission = missions.find((item) => item.id === groupedMissions[0].missionId);
+  const mainMission = groupedMissions[0]
+    ? missions.find((item) => item.id === groupedMissions[0].missionId)
+    : undefined;
 
   return (
     <Card className={cn(entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")} onDoubleClick={() => onPreview(task)}>
@@ -223,7 +225,7 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
           >
             {role === "DETACHMENT" && entityState === "active" && !assignedGroups.length ? (
               <Button className="h-7" onClick={() => navigate(`/planning/tasks/${task.id}?isEditMode=true`)}>
-                <Divide className="h-4 w-4" aria-hidden="true" />
+                <Users className="h-4 w-4" aria-hidden="true" />
                 {DICTIONARY.common.actions.distribute}
               </Button>
             ) : null}

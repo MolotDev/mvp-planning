@@ -58,6 +58,8 @@ export function MissionForm({
           wrapperClassName="min-w-fit"
         >
           <AppDatePicker
+            tabIndex={scheduledAt ? -1 : 0}
+            autoFocus={!scheduledAt}
             id="scheduled_at"
             selected={scheduledAt}
             onChange={(date) => {
@@ -89,6 +91,8 @@ export function MissionForm({
           wrapperClassName="w-full"
         >
           <Textarea
+            tabIndex={readOnly ? -1 : 0}
+            autoFocus={!readOnly}
             id="description"
             value={description}
             disabled={readOnly}
@@ -103,8 +107,8 @@ export function MissionForm({
         </FormField>
       </div>
       <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.tasks_title}</h3>
+        <div className="flex items-center justify-end gap-2">
+          {/* <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.tasks_title}</h3> */}
           {readOnly ? null : (
             <Button onClick={() => onTargetDraftsChange([...targetDrafts, emptyTarget()])}>
               <Plus className="h-4 w-4" aria-hidden="true" />
@@ -218,8 +222,8 @@ function TargetAssignmentBlock({
         </div>
       ) : null} */}
       {selectedTarget ? (
-      <div className="flex flex-col gap-2 mt-8">
-        <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.assignment_title}</h3>
+      <div className="flex flex-col gap-2">
+        {/* <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.assignment_title}</h3> */}
         <div>
             {block.detachments.map((row, index) => (
               <div
@@ -235,6 +239,7 @@ function TargetAssignmentBlock({
                     id={`${row.key}-aiming`}
                     label={index === 0 ? DICTIONARY.tasks.aiming_points : ""}
                     wrapperClassName="flex-1"
+                    labelClassName="text-zinc-400"
                   >
                     <NativeFormSelect
                       autoSelect={false}
@@ -252,8 +257,14 @@ function TargetAssignmentBlock({
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <FormField id={`${row.key}-org`} label={index === 0 ? DICTIONARY.missions.fields.detachment : ""} wrapperClassName="w-28 lg:w-40">
+                  <FormField
+                    id={`${row.key}-org`}
+                    label={index === 0 ? DICTIONARY.missions.fields.detachment : ""}
+                    wrapperClassName="w-28 lg:w-40"
+                    labelClassName="text-zinc-400"
+                  >
                     <NativeFormSelect
+                      ariaInvalid={!row.organization_id}
                       id={`${row.key}-org`}
                       value={row.organization_id}
                       disabled={readOnly}
@@ -270,11 +281,18 @@ function TargetAssignmentBlock({
                       className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
-                  <FormField id={`${row.key}-uav`} label={index === 0 ? DICTIONARY.missions.fields.assets : ""} wrapperClassName="w-28 lg:w-40">
+                  <FormField
+                    id={`${row.key}-uav`}
+                    label={index === 0 ? DICTIONARY.missions.fields.assets : ""}
+                    wrapperClassName="w-28 lg:w-40"
+                    labelClassName="text-zinc-400"
+                  >
                     <NativeFormSelect
+                      ariaInvalid={!row.asset_id}
                       id={`${row.key}-uav`}
                       value={row.asset_id}
                       disabled={readOnly}
+                      tabIndex={row.quantity ? -1 : 0}
                       placeholder={DICTIONARY.missions.select_asset}
                       options={catalogAssets
                         .filter((asset) => asset.archived_at === null || asset.id === row.asset_id)
@@ -291,11 +309,19 @@ function TargetAssignmentBlock({
                     />
                   </FormField>
                   <div className="flex items-end gap-1">
-                    <FormField id={`${row.key}-qty`} label={index === 0 ? DICTIONARY.missions.quantity : ""} wrapperClassName="w-full">
+                    <FormField
+                      id={`${row.key}-qty`}
+                      label={index === 0 ? DICTIONARY.missions.quantity : ""}
+                      wrapperClassName="w-full"
+                      labelClassName="text-zinc-400"
+                    >
                       <Input
+                        data-error={!row.quantity}
                         id={`${row.key}-qty`}
                         // type="number"
-                        // min={1}
+                          // min={1}
+                        tabIndex={row.quantity ? -1 : 0}
+                        autoFocus={!readOnly && !row.quantity}
                         pattern="^[1-9][0-9]*$"
                         value={row.quantity}
                         disabled={readOnly}
@@ -329,6 +355,7 @@ function TargetAssignmentBlock({
               <Button
                 variant="ghost"
                 onClick={() => onChange({ ...block, detachments: [...block.detachments, emptyDetachment()] })}
+                className="mt-2"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 {DICTIONARY.missions.add_detachment}

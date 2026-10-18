@@ -3,8 +3,8 @@ import {
   ALLOCATION_2_ID,
   BATTLE_GROUP_1_ID,
   BATTLE_GROUP_2_ID,
-  TASK_1_ID,
   TASK_2_ID,
+  TASK_3_ID,
 } from "@/data/missionSeed";
 import type { BattleGroup } from "@/types/battleGroup";
 
@@ -15,7 +15,7 @@ export function createBattleGroupSeed(now = new Date()): BattleGroup[] {
   return [
     {
       id: BATTLE_GROUP_1_ID,
-      task_id: TASK_1_ID,
+      task_id: TASK_3_ID,
       lead_crew_id: "1.1.1",
       support_crew_ids: [],
       asset_id: "uav_1",

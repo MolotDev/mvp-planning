@@ -5,7 +5,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        "relative flex h-full min-w-[320px] flex-col justify-between rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4 hover:z-10 hover:shadow-md",
+        "relative flex h-full flex-col justify-between rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4 hover:z-10 hover:shadow-md",
         className,
       )}
       {...props}
@@ -14,7 +14,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("flex items-center justify-between gap-2 mb-4", className)} {...props} />;
+  return <div className={cn("flex items-center justify-between gap-2 mb-2", className)} {...props} />;
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

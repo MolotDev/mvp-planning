@@ -9,13 +9,14 @@ interface FormFieldProps {
   error?: string;
   wrapperClassName?: string;
   optional?: boolean;
+  labelClassName?: string;
   children: ReactNode;
 }
 
-export function FormField({ id, label, error, optional = false, children, wrapperClassName = "" }: FormFieldProps) {
+export function FormField({ id, label, error, optional = false, children, wrapperClassName = "", labelClassName = "" }: FormFieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
-      <Label htmlFor={id}>
+      <Label htmlFor={id} className={labelClassName}>
         {label}
         {optional ? (
           <span className="ml-1 italic text-primitive-neutral-500">{DICTIONARY.common.optional}</span>

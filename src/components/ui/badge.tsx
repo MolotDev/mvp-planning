@@ -1,6 +1,6 @@
 import { type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { CrosshairIcon, MapPinned } from "lucide-react";
+import { ArrowUpRight, CrosshairIcon, MapPinned } from "lucide-react";
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
@@ -23,12 +23,13 @@ export function TargetIdBadgeLink({ className, id: targetId, ...props }: HTMLAtt
 }
 export function TargetBadgeLink({ className, id: targetId, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <a href={`#/catalogs/targets/${targetId}`} title="Перглянути ціль">
+    <a onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} href={`#/catalogs/targets/${targetId}`} title="Перглянути ціль" className="group text-ellipsis whitespace-nowrap flex items-center">
       <Badge 
         className={cn("min-w-fit tracking-widest text-sky-300 underline underline-offset-2 font-semibold bg-sky-950 hover:shadow-[0_0_10px_rgba(2,132,199,0.5)] hover:bg-primitive-neutral-800",
           className || "text-md")}
         {...props}
       />
+      <ArrowUpRight className="w-3 h-3 text-sky-400/70 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
     </a>
   );
 }
@@ -66,17 +67,17 @@ export function AimingPointBadge({label, mgrs, className = "" }: { label: string
     </div>
   );
 }
-export function TargetBadge({targetId, mgrs, label, className = "" }: { targetId: string, mgrs: string, label: string, className?: string }) {
+export function TargetBadge({targetId, mgrs, label, wrapperClasses = "", targetClasses = "" }: { targetId: string, mgrs: string, label: string, wrapperClasses?: string, targetClasses?: string }) {
   return (
-    <div className={cn("flex items-center gap-2 text-sm", className)}>
+    <div className={cn("flex items-center gap-2 w-full", wrapperClasses)}>
       <div className="flex h-6 items-center justify-center">
         <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <TargetBadgeLink className="text-md tracking-widest" id={targetId}>
+      <div className="flex flex-wrap items-center gap-1 w-full">
+        <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-md")} id={targetId} title={mgrs}>
           {mgrs}
-        </TargetBadgeLink>
-        <p className="font-medium text-primitive-neutral-0">{label}</p>
+        </TargetBadgeLink>      
+        <p title={label} className="w-full font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
       </div>
     </div>
   );

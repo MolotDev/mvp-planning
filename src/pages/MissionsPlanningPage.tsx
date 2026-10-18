@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { LandPlot, Plus, Search, X } from "lucide-react";
+import { Calendar, LandPlot, Plus, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CreateEditMissionModal } from "@/components/missions/CreateEditMissionModal";
 import { MissionCard } from "@/components/missions/MissionCard";
@@ -9,7 +9,7 @@ import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
-import { formatIsoDate } from "@/lib/dates";
+import { calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, formatIsoDate, getDaysArray, isLessThanOneDay, isMoreThanOneDay, isToday} from "@/lib/dates";
 import { canAdminister } from "@/lib/access";
 import {
   missionFilterRange,
@@ -26,7 +26,9 @@ import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import type { Mission, MissionStatusFilter } from "@/types/mission";
 import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
-import { Card } from "@/components/ui/card";
+import { Card, CardBody } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export function MissionsPlanningPage() {
   const navigate = useNavigate();
@@ -54,6 +56,13 @@ export function MissionsPlanningPage() {
       setFilters(parsed);
     }
   }, [searchParams, setFilters]);
+  useEffect(() => {
+    if (filters.dateFrom === null) {
+      const dateFrom = calculateDateOffset(new Date(), -2).split('T')[0];
+      const dateTo = calculateDateOffset(new Date(), 2).split('T')[0];
+      setFilters({ ...filters, dateFrom, dateTo });
+    }
+  }, [filters.dateFrom, filters.dateTo, setFilters]);
 
   const applyFilters = (next: MissionFilterState) => {
     setFilters(next);
@@ -66,12 +75,28 @@ export function MissionsPlanningPage() {
   };
 
   const [from, to] = missionFilterRange(filters);
-  const visibleMissions = useMemo(
-    () => filterMissions(missions, tasks, targets, aimingPoints, filters.query, filters.status, from, to),
-    [missions, tasks, targets, aimingPoints, filters.query, filters.status, from, to],
-  );
-  const metrics = useMemo(() => getMissionMetrics(visibleMissions), [visibleMissions]);
 
+  const filteredMissions = useMemo(() => {
+    return filterMissions(missions, tasks, targets, aimingPoints, filters.query, filters.status, from, to)
+  }, [missions, tasks, targets, aimingPoints, filters.query, filters.status, from, to]);
+  const visibleMissions = useMemo(
+    () => {
+      if (!from || !to) {
+        return [];
+      }
+      const displayingData = getDaysArray(from?.toISOString() ?? "", to?.toISOString() ?? "").map(date => {
+        return {
+          date: date,
+          mission: filteredMissions.find(mission => formatDateUk(mission.scheduled_at) === formatDateUk(date.toString())) ?? null,
+        }
+      });
+      return displayingData;
+    },
+    [filteredMissions, from, to],
+  );
+
+  const metrics = useMemo(() => getMissionMetrics(filteredMissions), [filteredMissions]);
+  const [planningDate, setPlanningDate] = useState<Date | null>(null);
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <h1 className="sr-only">{TRANSLATIONS.missions}</h1>
@@ -149,32 +174,72 @@ export function MissionsPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {visibleMissions.map((mission) => (
-              <MissionCard
-                key={mission.id}
-                mission={mission}
-                tasks={tasks}
-                targets={targets}
-                aimingPoints={aimingPoints}
-                onPreview={(item) => navigate(`/planning/missions/${item.id}`)}
-                onArchive={(item) => {
-                  archiveMission(item.id);
-                  notifySuccess(DICTIONARY.missions.toasts.archived);
-                }}
-                onRestore={(item) => {
-                  restoreMission(item.id);
-                  notifySuccess(DICTIONARY.missions.toasts.restored);
-                }}
-              />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-5">
+            {visibleMissions.map(({date, mission}) => (
+              <div className={cn(
+                "w-full flex flex-col gap-0.5 opacity-70",
+                isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
+                isToday(date) ? "opacity-100 scale-[102%]" : ""
+              )} key={`${date}-${mission?.id}`}>
+                <div className="flex items-center gap-2">
+                  <Badge className={cn(
+                    "flex items-center bg-primitive-neutral-800 text-sm",
+                    date.getDate() === new Date().getDate() ? "" : "bg-primitive-neutral-700"
+                  )}>
+                    <Calendar className="h-3 w-3 shrink-0 mr-1" aria-hidden="true" />
+                    {/* {formatDateUk(date.toISOString())} */}
+                    {convertDateToDdMmDayOfWeek(date)}
+                  </Badge>
+                  
+                  <span className="text-sm">
+                    {date.getDate() === new Date().getDate() ? "Сьогодні" : ""}
+                  </span>
+                </div>
+                {mission ? (
+                  <MissionCard
+                    key={mission.id}
+                    mission={mission}
+                    tasks={tasks}
+                    targets={targets}
+                    aimingPoints={aimingPoints}
+                    onPreview={(item) => navigate(`/planning/missions/${item.id}`)}
+                    onArchive={(item) => {
+                      archiveMission(item.id);
+                      notifySuccess(DICTIONARY.missions.toasts.archived);
+                    }}
+                    onRestore={(item) => {
+                      restoreMission(item.id);
+                      notifySuccess(DICTIONARY.missions.toasts.restored);
+                    }}
+                  />
+                ) : (
+                  <Card className="min-h-60">
+                    <CardBody className="gap-3 text-center justify-center">
+                      <p className="text-sm text-primitive-neutral-300 opacity-60">
+                        {DICTIONARY.missions.no_missions}
+                      </p>
+                      {managesMissions && date.getDate() > new Date().getDate() ? (
+                        <Button variant="outline" onClick={() => {
+                          setModalMission(null);
+                          setPlanningDate(date);
+                        }}>
+                          {/* <Plus className="h-4 w-4" aria-hidden="true" /> */}
+                          {DICTIONARY.common.actions.create}
+                        </Button>
+                      ) : null}
+                    </CardBody>
+                  </Card>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
       {modalMission !== undefined ? (
-        <CreateEditMissionModal mission={modalMission} onClose={() => {
+        <CreateEditMissionModal mission={modalMission} planningDate={planningDate} onClose={() => {
           navigate(`/planning/missions`);
           setModalMission(undefined);
+          setPlanningDate(null);
         }} />
       ) : null}
     </section>

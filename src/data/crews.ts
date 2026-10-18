@@ -1,9 +1,9 @@
 import type { Crew, Detachment } from "@/types/battleGroup";
 
 export const DETACHMENT_REFS: Detachment[] = [
-  { id: "detachment_1", name: "1-й Загін" },
-  { id: "detachment_2", name: "2-й Загін" },
-  { id: "detachment_3", name: "3-й Загін" },
+  { id: "detachment_1", name: "1_Загін" },
+  { id: "detachment_2", name: "2_Загін" },
+  { id: "detachment_3", name: "3_Загін" },
 ];
 
 export const CREWS: Crew[] = [

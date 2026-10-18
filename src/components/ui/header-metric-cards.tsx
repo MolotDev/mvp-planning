@@ -55,13 +55,13 @@ export function HeaderMetricCards({
         return (
           <article
             key={item.id}
-            className="relative rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 px-4 py-3 hover:z-10 hover:shadow-md"
+            className="flex items-center justify-between relative rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 px-4 py-2 hover:z-10 hover:shadow-md"
           >
             <div className="flex items-center gap-1 text-sm text-primitive-neutral-300">
               <Icon className="h-4 w-4" style={{ color: item.color }} aria-hidden="true" />
               <span>{item.label}</span>
             </div>
-            <p className="mt-2 text-center text-2xl font-semibold text-primitive-neutral-0">{item.value}</p>
+            <p className="text-center text-2xl font-semibold text-primitive-neutral-0">{item.value}</p>
           </article>
         );
       })}

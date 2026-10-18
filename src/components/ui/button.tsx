@@ -12,6 +12,8 @@ const buttonVariants = cva(
         ghost:
           "bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md",
         icon: "h-9 w-9 bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md",
+        outline:
+          "bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md border border-primitive-neutral-800",
       },
       size: {
         default: "h-9 px-3",
