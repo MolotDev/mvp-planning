@@ -1,9 +1,14 @@
-import { ArrowUpRight, ListTodo, PlaneIcon } from "lucide-react";
-import { Badge, ProgressBadge } from "@/components/ui/badge";
+import { useState } from "react";
+import { ArrowUpRight, Eye, ListTodo, PlaneIcon, Users } from "lucide-react";
+import { AimingPointBadge, Badge, ProgressBadge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { DICTIONARY } from "@/constants/dictionary";
-import { DETACHMENT_REFS } from "@/data/crews";
-import { fillTemplate } from "@/lib/battleGroupCapacity";
+import { crewName, uavName } from "@/lib/battleGroup";
+import { crewWord, fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
+import { detachmentName } from "@/lib/detachments";
+import { formattingMGRS } from "@/lib/formattingMGRS";
 import {
   activeMissionTasks,
   assignedQuantity,
@@ -16,6 +21,7 @@ import { cn } from "@/lib/utils";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
+import type { AimingPoint, Target } from "@/types/target";
 
 // const badgeClassName: Record<DetachmentTone, string> = {
 //   ready: "border border-emerald-800/60 bg-emerald-950/60 text-emerald-300",
@@ -28,9 +34,19 @@ interface MissionReadinessPanelProps {
   tasks: Task[];
   groups: BattleGroup[];
   launches: Launch[];
+  targets: Target[];
+  aimingPoints: AimingPoint[];
 }
 
-export function MissionReadinessPanel({ mission, tasks, groups, launches }: MissionReadinessPanelProps) {
+export function MissionReadinessPanel({
+  mission,
+  tasks,
+  groups,
+  launches,
+  targets,
+  aimingPoints,
+}: MissionReadinessPanelProps) {
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   // const navigate = useNavigate();
   const text = DICTIONARY.missions.command;
   const related = activeMissionTasks(mission, tasks);
@@ -50,6 +66,35 @@ export function MissionReadinessPanel({ mission, tasks, groups, launches }: Miss
     ),
   );
   const orgIds = [...new Set(related.map((task) => task.organization_id))];
+  const crewRows = related.flatMap((task) =>
+    groups
+      .filter((group) => group.archived_at === null && group.task_id === task.id)
+      .flatMap((group) => {
+        const allocation =
+          task.allocations.find((line) => line.mission_id === mission.id && line.id === group.allocation_line_id) ??
+          task.allocations.find((line) => line.mission_id === mission.id && line.asset_id === group.asset_id);
+        if (!allocation) {
+          return [];
+        }
+        const target = targets.find((item) => item.id === allocation.target_id);
+        const point = allocation.aiming_point_id
+          ? aimingPoints.find((item) => item.id === allocation.aiming_point_id && item.archived_at === null)
+          : undefined;
+        const groupLaunches = launches.filter(
+          (launch) => launch.archived_at === null && launch.battle_group_id === group.id,
+        );
+        return [{
+          group,
+          detachment: detachmentName(task.organization_id),
+          aiming: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
+          mgrs: formattingMGRS.spacing(point?.mgrs || target?.mgrs || ""),
+          ready: equippedCount(groupLaunches),
+          trackers: groupLaunches.filter((launch) => Boolean(launch.tracker_model_serial_number?.trim())).length,
+          launches: groupLaunches,
+        }];
+      }),
+  );
+  const openRow = crewRows.find((row) => row.group.id === openGroupId);
   const barTotal = segments.prepped + segments.partial + segments.untouched + segments.unallocated;
   const widths = [
     { key: "prepped", count: segments.prepped, className: "bg-emerald-500", label: text.segment_prepped },
@@ -109,7 +154,7 @@ export function MissionReadinessPanel({ mission, tasks, groups, launches }: Miss
           //   0,
           // );
           // const tone = detachmentTone(orgAssigned, orgPrepped, orgPlanned);
-          const name = DETACHMENT_REFS.find((item) => item.id === orgId)?.name ?? orgId;
+          const name = detachmentName(orgId);
           // const toneLabel =
           //   tone === "ready" ? text.badge_ready : tone === "needs_allocation" ? text.badge_needs : text.badge_progress;
           return (
@@ -120,7 +165,7 @@ export function MissionReadinessPanel({ mission, tasks, groups, launches }: Miss
                   title={`${task?.label ?? ""} - Політна заявка. ${name}.`}
                   className="group text-ellipsis whitespace-nowrap flex items-center underline underline-offset-4"
                 >
-                  <Badge className="bg-primitive-neutral-800 text-md pt-0.5 pb-1">
+                  <Badge className="bg-primitive-neutral-800 text-md pt-0.5 pb-1 hover:shadow-[0_0_8px_rgba(214,225,233,0.4)] transition-shadow">
                     <span className="text-sm text-primitive-neutral-0">
                       {`${name}. Політна заявка - ${task?.label ?? ""}`}
                     </span>
@@ -184,7 +229,111 @@ export function MissionReadinessPanel({ mission, tasks, groups, launches }: Miss
               : null}
           </div>
         </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm font-semibold text-primitive-neutral-300 flex gap-2 items-center">
+            <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+            {fillTemplate(text.crew_launches, { count: crewRows.length, crew_word: crewWord(crewRows.length) })}
+          </p>
+          {crewRows.length === 0 ? (
+            <p className="pl-6 text-sm text-primitive-neutral-300">{DICTIONARY.tasks.no_crews_assigned}</p>
+          ) : (
+            crewRows.map((row) => (
+              <div key={row.group.id} className="mb-3 ml-6 flex flex-col gap-2 last:mb-0 border-b border-primitive-neutral-800 last:border-b-0">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-2">
+                  <div className="flex min-w-0 w-full flex-wrap items-center gap-2 justify-between">
+                    {!!row.group.id ? (
+                      <a
+                        href={`#/planning/launches/${row.group.id ?? ""}`}
+                        title={`Перейти до пусків екіпажу ${crewName(row.group.lead_crew_id)}.`}
+                        className="group text-ellipsis whitespace-nowrap flex items-center underline underline-offset-4"
+                      >
+                        <Badge className="bg-primitive-neutral-800 text-md pt-0.5 pb-1 hover:shadow-[0_0_8px_rgba(214,225,233,0.4)] transition-shadow">
+                          <span className="text-sm text-primitive-neutral-0">
+                            {`${crewName(row.group.lead_crew_id)} (${row.detachment}) Пуски`}
+                          </span>
+                        </Badge>
+                        <ArrowUpRight className="w-4 h-4 text-sky-400/70 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                      </a>
+                    ) : (
+                      <Badge className="bg-primitive-neutral-800 text-md pt-0.5 pb-1">
+                        <span className="text-sm text-primitive-neutral-0">
+                          {`${crewName(row.group.lead_crew_id)} (${row.detachment}) Пуски`}
+                        </span>
+                      </Badge>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <ProgressBadge
+                        label={`${uavName(row.group.asset_id)} × ( ${row.ready} / ${row.group.uav_quantity} )`}
+                        processed={row.ready}
+                        total={row.group.uav_quantity}
+                        className="text-xs"
+                      />
+                      <span className="text-xs text-primitive-neutral-500">
+                        {fillTemplate(DICTIONARY.tasks.details.tracker_count, { ready: row.trackers, total: row.group.uav_quantity })}
+                      </span>
+                      {/* <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-primitive-neutral-200">
+                          {fillTemplate(DICTIONARY.tasks.details.prep_count, { ready: row.ready, total: row.group.uav_quantity })}
+                        </span>
+                        <span className="text-xs text-primitive-neutral-200">
+                          {fillTemplate(DICTIONARY.tasks.details.tracker_count, { ready: row.trackers, total: row.group.uav_quantity })}
+                        </span>
+                      </div> */}
+                    </div>
+                    {/* <Button
+                      variant="ghost"
+                      className="h-7 bg-primitive-neutral-500 rounded-md px-2"
+                      disabled={row.launches.length === 0}
+                      onClick={() => setOpenGroupId(row.group.id)}
+                    >
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                      {text.open_launches}
+                    </Button> */}
+                  </div>
+                  <AimingPointBadge label={row.aiming} mgrs={row.mgrs || DICTIONARY.tasks.details.empty_value} />
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
+      {openRow ? (
+        <Modal
+          className="max-w-3xl"
+          title={fillTemplate(DICTIONARY.tasks.details.launch_modal_title, {
+            crew: crewName(openRow.group.lead_crew_id),
+            asset: uavName(openRow.group.asset_id),
+            target: openRow.aiming,
+          })}
+          confirmLabel={DICTIONARY.common.actions.close}
+          showConfirm={false}
+          onClose={() => setOpenGroupId(null)}
+          onConfirm={() => setOpenGroupId(null)}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-primitive-neutral-800 text-xs text-primitive-neutral-400">
+                  <th scope="col" className="px-2 py-2 font-medium">{DICTIONARY.tasks.details.column_index}</th>
+                  <th scope="col" className="px-2 py-2 font-medium">{DICTIONARY.tasks.details.column_trajectory}</th>
+                  <th scope="col" className="px-2 py-2 font-medium">{DICTIONARY.tasks.details.column_serial_full}</th>
+                  <th scope="col" className="px-2 py-2 font-medium">{DICTIONARY.tasks.details.column_tracker}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openRow.launches.map((launch, index) => (
+                  <tr key={launch.id} className="border-b border-primitive-neutral-800">
+                    <td className="px-2 py-2 text-primitive-neutral-0">{index + 1}</td>
+                    <td className="px-2 py-2 text-primitive-neutral-0">{launch.trajectory_name || DICTIONARY.tasks.details.empty_value}</td>
+                    <td className="px-2 py-2 text-primitive-neutral-0">{launch.asset_serial_number.trim() || DICTIONARY.tasks.details.empty_value}</td>
+                    <td className="px-2 py-2 text-primitive-neutral-0">{launch.tracker_model_serial_number || DICTIONARY.tasks.details.empty_value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Modal>
+      ) : null}
     </section>
   );
 }

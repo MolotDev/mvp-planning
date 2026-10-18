@@ -203,7 +203,7 @@ export function AllocationWorkspace({
         >
           <div className="h-full bg-primitive-blue-500" style={{ width: `${progress}%` }} />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
           <p className="text-sm text-primitive-neutral-300">
             {fillTemplate(text.free_crews_list, { free: freeCrews.length, total: roster.length })}
           </p>

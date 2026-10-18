@@ -284,6 +284,7 @@ export const DICTIONARY = {
       row_needs_crew: "🔴 {quantity} Потребує екіпажу",
       readiness_summary_title: "Готовність загонів:",
       readiness_summary_title_crews: "Готовність екіпажів:",
+      crew_launches: "Пуски задіяних екіпажів ({count} {crew_word}):",
       flight_tasks: "Політні заявки загонів на:",
       detachment_order: "{name}: {total} засобів • {points} точ. приц.",
       detachment_prepped: "{done}/{total} споряджено",

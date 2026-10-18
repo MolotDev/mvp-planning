@@ -3,7 +3,6 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk, formatTimeUk } from "@/lib/dates";
 import { formattingMGRS } from "@/lib/formattingMGRS";
-import { CloseIconButton } from "@/components/ui/icon-buttons";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 import { Button } from "../ui/button";

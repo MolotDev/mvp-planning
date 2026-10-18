@@ -282,7 +282,14 @@ export function MissionPreviewPage() {
               <span className="text-sm font-medium">Денна статистика загонів</span>
               <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
             </Button>
-            <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+            <MissionReadinessPanel
+              mission={mission}
+              tasks={tasks}
+              groups={battleGroups}
+              launches={launches}
+              targets={targets}
+              aimingPoints={aimingPoints}
+            />
           </div>
           {/* <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
           
