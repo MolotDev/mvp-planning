@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { X } from "lucide-react";
+import { CrosshairIcon, MapPinned, PlaneIcon, Users, X } from "lucide-react";
 import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
 import { MissionLaunchMonitor } from "@/components/missions/MissionLaunchMonitor";
@@ -139,11 +139,15 @@ export function MissionPreviewPage() {
     setDidChange(false);
   };
 
+  const assetQuantity = targetDrafts.flatMap(item => item.detachments).reduce((sum, item) => sum += Number(item.quantity), 0);
+  const detachmentQuantity = (new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.organization_id))).size;
+  const assignedTasks = new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.task_id));
+  const crewQuantity = (new Set(battleGroups.filter(item => assignedTasks.has(item.allocation_line_id ?? "")).flatMap(item=> item.lead_crew_id))).size;
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate("/planning/missions")} />
+          <GoBackIconButton onClick={() => navigate(-1)} />
           {isConfirmed ? (
             <Badge style={entityStatusBadgeStyle("reported")}>
               {`${DICTIONARY.common.states.reported} + ${DICTIONARY.common.statuses.confirmed}`}
@@ -166,68 +170,107 @@ export function MissionPreviewPage() {
           ) : null}
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-        <div className="flex h-full w-[62%] flex-col space-y-6 overflow-y-auto border-r border-primitive-neutral-800 p-4">
-          {editing ? (
-            <section className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {/* <h4 className="text-lg font-semibold text-primitive-neutral-0">{mission.label}</h4> */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button variant="ghost" onClick={resetDraft}>
-                    <X className="h-4 w-4" aria-hidden="true" />
-                    {DICTIONARY.common.actions.cancel}
-                  </Button>
-                  <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
-                    {DICTIONARY.missions.buttons.save_mission}
-                  </Button>
-                </div>
+      <div className="flex min-h-0 flex-1 flex-row overflow-hidden justify-between">
+        <div className="h-full w-[59%] space-y-2 overflow-y-auto overflow-x-hidden">
+          <div className="flex flex-col rounded-md bg-primitive-neutral-900 p-4 pt-1">
+            <article className="w-full flex justify-between border-b border-primitive-neutral-700 mb-4">
+              <div className="flex gap-2 items-center justify-center py-1 px-3">
+                <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                <p className="truncate text-sm font-semibold text-zinc-300">
+                  {`${catalogTargets.length} цілі`}
+                </p>
               </div>
-              <MissionForm
-                setDidChange={setDidChange}
-                scheduledAt={scheduledAt}
-                name={name}
-                description={description}
-                targetDrafts={targetDrafts}
-                catalogTargets={catalogTargets}
-                aimingPoints={aimingPoints}
-                dateError={dateError ?? undefined}
-                descriptionError={descriptionError ?? undefined}
-                readOnly={false}
-                onScheduledAtChange={setScheduledAt}
-                onNameChange={setName}
-                onDescriptionChange={setDescription}
-                onTargetDraftsChange={setTargetDrafts}
-              />
-              {targetDrafts.length >= 2 ? (
+              <div className="border-l border-primitive-neutral-700" />
+              <div className="flex gap-2 items-center justify-center py-1 px-3">
+                <CrosshairIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                <p className="truncate text-sm font-semibold text-zinc-300">
+                  {`${catalogTargets.flatMap(item=> item.aiming_point_ids).length} точ. приц.`}
+                </p>
+              </div>
+              <div className="border-l border-primitive-neutral-700" />
+              <div className="flex gap-2 items-center justify-center py-1 px-3">
+                <PlaneIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                <p className="truncate text-sm font-semibold text-zinc-300">
+                  {`${assetQuantity} засоби`}
+                </p>
+              </div>
+              <div className="border-l border-primitive-neutral-700" />
+              <div className="flex gap-2 items-center justify-center py-1 px-3">
+                <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                <p className="truncate text-sm font-semibold text-zinc-300">
+                  {`${detachmentQuantity} загони`}
+                </p>
+              </div>
+              <div className="border-l border-primitive-neutral-700" />
+              <div className="flex gap-2 items-center justify-center py-1 px-3">
+                <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                <p className="truncate text-sm font-semibold text-zinc-300">
+                  {`${crewQuantity} екіпажі`}
+                </p>
+              </div>
+            </article>
+            {editing ? (
+              <section className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  <Button variant="ghost" onClick={resetDraft}>
-                    <X className="h-4 w-4" aria-hidden="true" />
-                    {DICTIONARY.common.actions.cancel}
-                  </Button>
-                  <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
-                    {DICTIONARY.missions.buttons.save_mission}
-                  </Button>
+                  {/* <h4 className="text-lg font-semibold text-primitive-neutral-0">{mission.label}</h4> */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="ghost" onClick={resetDraft}>
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      {DICTIONARY.common.actions.cancel}
+                    </Button>
+                    <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
+                      {DICTIONARY.missions.buttons.save_mission}
+                    </Button>
+                  </div>
                 </div>
-              ) : null}
-            </section>
-          ) : (
-            <>
-              <MissionAllocationBoard
-                mission={mission}
-                tasks={tasks}
-                launches={launches}
-                targets={targets}
-                aimingPoints={aimingPoints}
-                groups={battleGroups}
-                canEdit={canEdit}
-                onEdit={() => setEditing(true)}
-              />
-              <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
-              <MissionLaunchMonitor mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
-            </>
-          )}
+                <MissionForm
+                  setDidChange={setDidChange}
+                  scheduledAt={scheduledAt}
+                  name={name}
+                  description={description}
+                  targetDrafts={targetDrafts}
+                  catalogTargets={catalogTargets}
+                  aimingPoints={aimingPoints}
+                  dateError={dateError ?? undefined}
+                  descriptionError={descriptionError ?? undefined}
+                  readOnly={false}
+                  onScheduledAtChange={setScheduledAt}
+                  onNameChange={setName}
+                  onDescriptionChange={setDescription}
+                  onTargetDraftsChange={setTargetDrafts}
+                />
+                {targetDrafts.length >= 2 ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button variant="ghost" onClick={resetDraft}>
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      {DICTIONARY.common.actions.cancel}
+                    </Button>
+                    <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
+                      {DICTIONARY.missions.buttons.save_mission}
+                    </Button>
+                  </div>
+                ) : null}
+              </section>
+            ) : (
+              <>
+                <MissionAllocationBoard
+                  mission={mission}
+                  tasks={tasks}
+                  launches={launches}
+                  targets={targets}
+                  aimingPoints={aimingPoints}
+                  groups={battleGroups}
+                  canEdit={canEdit}
+                  onEdit={() => setEditing(true)}
+                />
+                {/* <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
+                {/* <MissionLaunchMonitor mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
+              </>
+            )}
+          </div>
         </div>
-        <div className="h-full w-[38%] overflow-y-auto bg-primitive-neutral-900/40 p-4">
+        <div className="h-full w-[40%] overflow-y-auto bg-primitive-neutral-900/40">
+          <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
           <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
         </div>
       </div>

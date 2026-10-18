@@ -45,11 +45,11 @@ export function AimingPointIdBadge({ className, ...props }: HTMLAttributes<HTMLS
   );
 }
 
-export function ProgressBadge({label, processed, total, className = "" }: { label: string, processed: number, total: number, className?: string }) {
+export function ProgressBadge({label, processed, total, className = "" }: { label: string, processed: number, total: number, title?: string, className?: string }) {
   const status = processed === 0 ? "error" : processed === total ? "success" : "warning";
   const title = processed === 0 ? "Не опрацьовано" : processed === total ? "Опрацьовано повністю" : `Опрацьовано ${processed} / ${total}`;
   return (
-    <Badge className={cn("progress-badge", className)} data-status={status} title={title}>
+    <Badge className={cn("progress-badge text-xs", className)} data-status={status} title={title}>
       {label}
     </Badge>
   );
@@ -57,13 +57,15 @@ export function ProgressBadge({label, processed, total, className = "" }: { labe
 
 export function AimingPointBadge({label, mgrs, className = "" }: { label: string, mgrs: string, className?: string }) {
   return (
-    <div className="flex items-center flex-wrap gap-2" title="Точка прицілювання">
-      <CrosshairIcon className="h-4 w-4 text-sky-300/50" />
-      <Badge className={cn("font-semibold bg-sky-200/5 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
-        {mgrs}
-      </Badge>
-      {/* <span className="text-sm text-primitive-neutral-300">{`•`}</span> */}
-      <span className="text-sm text-primitive-neutral-300">{label}</span>
+    <div className="flex gap-2" title="Точка прицілювання">
+      <CrosshairIcon className="h-4 w-4 text-sky-300/50 mt-1" />
+      <div className="flex flex-wrap items-center gap-x-1 w-full">
+        <Badge className={cn("font-semibold bg-sky-200/5 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
+          {mgrs}
+        </Badge>
+        {/* <span className="text-sm text-primitive-neutral-300">{`•`}</span> */}
+        <span className="text-sm text-primitive-neutral-300">{label}</span>
+      </div>
     </div>
   );
 }
@@ -74,10 +76,10 @@ export function TargetBadge({targetId, mgrs, label, wrapperClasses = "", targetC
         <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
       </div>
       <div className="flex flex-wrap items-center gap-1 w-full">
-        <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-md")} id={targetId} title={mgrs}>
+        <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-sm")} id={targetId} title={mgrs}>
           {mgrs}
         </TargetBadgeLink>      
-        <p title={label} className="w-full font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
+        <p title={label} className="w-fit font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
       </div>
     </div>
   );

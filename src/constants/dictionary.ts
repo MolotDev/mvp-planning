@@ -182,7 +182,7 @@ export const DICTIONARY = {
     assignment_title: "Розподіл засобів між загонами",
     fields: {
       name: "Назва завдання",
-      scheduled_at: "Планова дата виконання",
+      scheduled_at: "Дата виконання",
       description: "Опис завдання",
       detachment: "Загони",
       target: "Ціль",

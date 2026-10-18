@@ -168,7 +168,7 @@ textarea[data-error="true"]:hover {
 }
 
 .progress-badge {
-  @apply w-fit text-primitive-neutral-0 text-xs;
+  @apply w-fit text-primitive-neutral-0;
 }
 .progress-badge[data-status="success"] {
   color: #64ff00;
