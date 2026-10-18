@@ -3,31 +3,24 @@ import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/component
 import { Button } from "@/components/ui/button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { DETACHMENT_REFS } from "@/data/crews";
-import { crewName, uavName } from "@/lib/battleGroup";
-import { fillTemplate } from "@/lib/battleGroupCapacity";
+import { uavName } from "@/lib/battleGroup";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import {
   activeMissionTasks,
-  assignedQuantity,
-  equippedCount,
   launchesForLine,
-  linePrepState,
-  type LinePrepState,
 } from "@/lib/missionDashboard";
-import { cn } from "@/lib/utils";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 import { formatDateUk } from "@/lib/dates";
-import { AllocationConflictBadge } from "../tasks/QuantityDiscrepancy";
 
-const statusClassName: Record<LinePrepState, string> = {
-  ready: "border border-emerald-800/60 bg-emerald-950/60 text-emerald-300",
-  progress: "border border-amber-800/60 bg-amber-950/50 text-amber-300",
-  queued: "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-300",
-  needs_crew: "border border-rose-900/60 bg-rose-950/50 text-rose-300",
-};
+// const statusClassName: Record<LinePrepState, string> = {
+//   ready: "border border-emerald-800/60 bg-emerald-950/60 text-emerald-300",
+//   progress: "border border-amber-800/60 bg-amber-950/50 text-amber-300",
+//   queued: "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-300",
+//   needs_crew: "border border-rose-900/60 bg-rose-950/50 text-rose-300",
+// };
 
 interface MissionAllocationBoardProps {
   mission: Mission;
@@ -46,7 +39,7 @@ export function MissionAllocationBoard({
   launches,
   targets,
   aimingPoints,
-  groups,
+  // groups,
   canEdit,
   onEdit,
 }: MissionAllocationBoardProps) {

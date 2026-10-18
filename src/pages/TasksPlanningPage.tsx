@@ -187,7 +187,7 @@ export function TasksPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-3">
             {visibleTasks.map((task) => {
               const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
               const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? ""

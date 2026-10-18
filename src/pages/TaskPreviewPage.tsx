@@ -194,10 +194,10 @@ export function TaskPreviewPage() {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" className="border border-primitive-neutral-700" onClick={() => setInfoOpen(true)}>
+            {/* <Button variant="ghost" className="border border-primitive-neutral-700" onClick={() => setInfoOpen(true)}>
               <Info className="h-4 w-4" aria-hidden="true" />
               {text.task_info}
-            </Button>
+            </Button> */}
             {role === "CENTER" && report?.status === "submitted" ? (
               <Button variant="ghost" onClick={() => navigate(`/reports/${report.id}`)}>
                 {text.view_report}
@@ -218,7 +218,7 @@ export function TaskPreviewPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-          <div className="flex h-full w-[55%] flex-col gap-4 overflow-y-auto border-r border-primitive-neutral-800 p-4">
+          <div className="flex h-full w-[60%] flex-col gap-4 overflow-y-auto border-r border-primitive-neutral-800 pr-2">
             <AllocationWorkspace
               task={task}
               targets={targets}
@@ -241,24 +241,35 @@ export function TaskPreviewPage() {
               onHighlightCrew={highlightCrew}
             />
           </div>
-          <div className="relative flex h-full w-[45%] flex-col overflow-hidden bg-primitive-neutral-900/40">
-            <div className="flex h-full flex-col gap-4 overflow-y-auto p-4">
-            <Button
-              variant="ghost"
-              className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
-              onClick={() => setStatsOpen(true)}
-            >
-              <span className="text-sm font-medium">{text.crew_stats}</span>
-              <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
-            </Button>
-            <LaunchSummaryCards
-              task={task}
-              targets={targets}
-              aimingPoints={aimingPoints}
-              groups={battleGroups}
-              launches={launches}
-              onOpen={setLaunchSelection}
-            />
+          <div className="relative flex h-full w-[40%] flex-col overflow-hidden bg-primitive-neutral-900/40">
+            <div className="flex h-full flex-col gap-4 overflow-y-auto pl-2">
+              <Button
+                variant="ghost"
+                className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
+                onClick={() => setInfoOpen(true)}
+              >
+                <p className="flex items-center gap-2">
+                  <Info className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-sm font-medium">{text.task_info}</span>
+                </p>
+                <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
+                onClick={() => setStatsOpen(true)}
+              >
+                <span className="text-sm font-medium">{text.crew_stats}</span>
+                <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
+              </Button>
+              <LaunchSummaryCards
+                task={task}
+                targets={targets}
+                aimingPoints={aimingPoints}
+                groups={battleGroups}
+                launches={launches}
+                onOpen={setLaunchSelection}
+              />
             </div>
             {statsOpen ? (
               <CrewStatsDrawer
@@ -270,18 +281,18 @@ export function TaskPreviewPage() {
                 onClose={() => setStatsOpen(false)}
               />
             ) : null}
+            {infoOpen ? (
+              <TaskInfoDrawer
+                task={task}
+                missions={missions}
+                targets={targets}
+                aimingPoints={aimingPoints}
+                onClose={() => setInfoOpen(false)}
+              />
+            ) : null}
           </div>
         </div>
       </section>
-      {infoOpen ? (
-        <TaskInfoDrawer
-          task={task}
-          missions={missions}
-          targets={targets}
-          aimingPoints={aimingPoints}
-          onClose={() => setInfoOpen(false)}
-        />
-      ) : null}
       {launchSelection && selectedLaunches.length > 0 ? (
         <LaunchDetailsModal
           crewName={crewName(launchSelection.crewId)}

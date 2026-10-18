@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CrosshairIcon, MapPinned, PlaneIcon, Users, X } from "lucide-react";
+import { CrosshairIcon, MapPinned, PanelRightClose, PanelRightOpen, PlaneIcon, Users, X } from "lucide-react";
 import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
-import { MissionLaunchMonitor } from "@/components/missions/MissionLaunchMonitor";
 import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPanel";
 import { Button } from "@/components/ui/button";
-import { GoBackIconButton } from "@/components/ui/icon-buttons";
+import { CloseIconButton, GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
@@ -33,6 +32,7 @@ import { useReportStore } from "@/store/useReportStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { MissionForm } from "@/components/missions/MissionForm";
+import { text } from "stream/consumers";
 
 export function MissionPreviewPage() {
   const { missionId = "" } = useParams();
@@ -143,6 +143,10 @@ export function MissionPreviewPage() {
   const detachmentQuantity = (new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.organization_id))).size;
   const assignedTasks = new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.task_id));
   const crewQuantity = (new Set(battleGroups.filter(item => assignedTasks.has(item.allocation_line_id ?? "")).flatMap(item=> item.lead_crew_id))).size;
+  
+  
+  const [statsOpen, setStatsOpen] = useState(false);
+
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -269,9 +273,46 @@ export function MissionPreviewPage() {
             )}
           </div>
         </div>
-        <div className="h-full w-[40%] overflow-y-auto bg-primitive-neutral-900/40">
-          <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
-          <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+        <div className="relative flex h-full w-[40%] flex-col overflow-hidden bg-primitive-neutral-900/40">
+          <div className="flex h-full flex-col gap-4 overflow-y-auto pl-2">
+            <Button
+              variant="ghost"
+              className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
+              onClick={() => setStatsOpen(true)}
+            >
+              <span className="text-sm font-medium">Денна статистика загонів</span>
+              <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
+            </Button>
+            <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+          </div>
+          {/* <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
+          
+          {statsOpen ? (
+            <div className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-2xl" role="presentation">
+              <aside
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="task-info-title"
+                className="relative px-2 z-10 mt-1 flex h-full w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-lg"
+              >
+                <header className="flex items-center justify-between gap-3 mb-2">
+                  <h2 id="task-info-title" className="text-base font-semibold text-primitive-neutral-0">
+                    Денна статистика загонів
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    className="h-8 w-8 rounded-full px-0"
+                    title="Закрити статистику загонів"
+                    aria-label="Закрити статистику загонів"
+                    onClick={() => setStatsOpen(false)}
+                  >
+                    <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </header>
+                <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+              </aside>
+            </div>
+          ) : null}
         </div>
       </div>
       {approvalModal === "confirm" ? (

@@ -6,6 +6,8 @@ import { formattingMGRS } from "@/lib/formattingMGRS";
 import { CloseIconButton } from "@/components/ui/icon-buttons";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
+import { Button } from "../ui/button";
+import { PanelRightClose } from "lucide-react";
 
 interface TaskInfoDrawerProps {
   task: Task;
@@ -40,19 +42,29 @@ export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose 
   const scheduledAt = task.scheduled_at || task.created_at;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="presentation">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+    // <div className="fixed inset-0 z-50 flex justify-end" role="presentation">
+    <div className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-2xl" role="presentation">
+      {/* <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" /> */}
       <aside
         role="dialog"
         aria-modal="true"
         aria-labelledby="task-info-title"
-        className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-lg"
+        className="relative z-10 flex h-full w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-lg"
       >
         <header className="flex items-center justify-between gap-3 border-b border-primitive-neutral-800 px-4 py-3">
           <h2 id="task-info-title" className="text-base font-semibold text-primitive-neutral-0">
             {text.task_info}
           </h2>
-          <CloseIconButton onClick={onClose} />
+          <Button
+            variant="ghost"
+            className="h-8 w-8 rounded-full px-0"
+            title={text.close_stats}
+            aria-label={text.close_stats}
+            onClick={onClose}
+          >
+            <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          {/* <CloseIconButton onClick={onClose} /> */}
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
           <section className="flex flex-col gap-1.5">

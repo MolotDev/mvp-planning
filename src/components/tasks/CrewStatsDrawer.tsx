@@ -37,7 +37,7 @@ export function CrewStatsDrawer({
 
   return (
     <aside
-      className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900/95 shadow-2xl backdrop-blur"
+      className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-2xl"
       role="dialog"
       aria-modal="false"
       aria-labelledby="crew-stats-title"
