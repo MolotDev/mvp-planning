@@ -5,7 +5,7 @@ import { MissionAllocationBoard } from "@/components/missions/MissionAllocationB
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
 import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPanel";
 import { Button } from "@/components/ui/button";
-import { CloseIconButton, GoBackIconButton } from "@/components/ui/icon-buttons";
+import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
@@ -32,7 +32,6 @@ import { useReportStore } from "@/store/useReportStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { MissionForm } from "@/components/missions/MissionForm";
-import { text } from "stream/consumers";
 
 export function MissionPreviewPage() {
   const { missionId = "" } = useParams();

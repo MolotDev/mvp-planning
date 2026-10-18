@@ -104,15 +104,15 @@ export function MissionReadinessPanel({ mission, tasks, groups, launches }: Miss
           const points = related.filter((item) => item.organization_id === orgId).flatMap((item) => item.allocations).length;
           const orgLines = lines.filter((item) => item.task.organization_id === orgId);
           const orgPlanned = orgLines.reduce((sum, item) => sum + item.line.quantity, 0);
-          const orgAssigned = orgLines.reduce((sum, item) => sum + assignedQuantity(item.task, item.line, groups), 0);
-          const orgPrepped = orgLines.reduce(
-            (sum, item) => sum + equippedCount(launchesForLine(item.task, item.line, launches)),
-            0,
-          );
-          const tone = detachmentTone(orgAssigned, orgPrepped, orgPlanned);
+          // const orgAssigned = orgLines.reduce((sum, item) => sum + assignedQuantity(item.task, item.line, groups), 0);
+          // const orgPrepped = orgLines.reduce(
+          //   (sum, item) => sum + equippedCount(launchesForLine(item.task, item.line, launches)),
+          //   0,
+          // );
+          // const tone = detachmentTone(orgAssigned, orgPrepped, orgPlanned);
           const name = DETACHMENT_REFS.find((item) => item.id === orgId)?.name ?? orgId;
-          const toneLabel =
-            tone === "ready" ? text.badge_ready : tone === "needs_allocation" ? text.badge_needs : text.badge_progress;
+          // const toneLabel =
+          //   tone === "ready" ? text.badge_ready : tone === "needs_allocation" ? text.badge_needs : text.badge_progress;
           return (
             <div key={orgId} className="flex flex-wrap items-center justify-between gap-2 pl-6 mb-3 last:mb-0">
               <div className="flex min-w-0 items-center gap-x-2 justify-between flex-wrap">
