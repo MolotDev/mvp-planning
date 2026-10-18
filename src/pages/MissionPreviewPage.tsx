@@ -1,47 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MissionForm } from "@/components/missions/MissionForm";
-// import { type TaskGroupMode } from "@/components/missions/MissionProgressPanel";
+import { Save, X } from "lucide-react";
+import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
+import { MissionInlineForm } from "@/components/missions/MissionInlineForm";
+import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
+import { MissionLaunchMonitor } from "@/components/missions/MissionLaunchMonitor";
+import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPanel";
 import { Button } from "@/components/ui/button";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
+import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { DICTIONARY } from "@/constants/dictionary";
-import { isScheduledBeforeCreated, startOfDay } from "@/lib/dates";
 import { canAdminister } from "@/lib/access";
+import { isScheduledBeforeCreated, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
-import { allMissionReportsSubmitted } from "@/lib/missionConfirmation";
+import { allMissionReportsSubmitted, isMissionPlanningLocked } from "@/lib/missionConfirmation";
 import {
   draftsFromMission,
   getDateError,
   getScheduledIso,
   hasIncompleteAssignment,
-  // linkedTasksForMission,
   toTaskDrafts,
   type TargetDraft,
 } from "@/lib/missionForm";
 import { notifyError, notifySuccess } from "@/lib/toasts";
-// import { cn } from "@/lib/utils";
-// import { LaunchProgressBadge } from "@/components/tasks/LaunchProgressBadge";
-// import { useLaunchStore } from "@/store/useLaunchStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useBattleGroupStore } from "@/store/useBattleGroupStore";
+import { useLaunchStore } from "@/store/useLaunchStore";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useReportStore } from "@/store/useReportStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
-// import { fillTemplate, remainingTaskAssets } from "@/lib/battleGroupCapacity";
-// import { useBattleGroupStore } from "@/store/useBattleGroupStore";
-import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 
 export function MissionPreviewPage() {
   const { missionId = "" } = useParams();
   const navigate = useNavigate();
   const mission = useMissionStore((state) => state.missions.find((item) => item.id === missionId));
   const tasks = useTaskStore((state) => state.tasks);
-  // const launches = useLaunchStore((state) => state.launches);
+  const launches = useLaunchStore((state) => state.launches);
   const targets = useTargetStore((state) => state.targets);
-  // const battleGroups = useBattleGroupStore((state) => state.battleGroups);
+  const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const aimingPoints = useTargetStore((state) => state.aimingPoints);
   const updateMission = useMissionStore((state) => state.updateMission);
   const role = useAuthStore((state) => state.role);
@@ -49,9 +49,9 @@ export function MissionPreviewPage() {
   const confirmMission = useMissionStore((state) => state.confirmMission);
   const unlockMissionReports = useMissionStore((state) => state.unlockMissionReports);
   const reports = useReportStore((state) => state.reports);
-  // const [isEditMode, setIsEditMode] = useState(true);
   const [approvalModal, setApprovalModal] = useState<"confirm" | "unlock" | null>(null);
-  // const [groupMode, setGroupMode] = useState<TaskGroupMode>("target");
+  const [editing, setEditing] = useState(false);
+  const [didChange, setDidChange] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(() =>
     mission ? startOfDay(new Date(mission.scheduled_at)) : null,
   );
@@ -61,36 +61,24 @@ export function MissionPreviewPage() {
     mission ? draftsFromMission(mission, tasks) : [],
   );
 
-  // const linkedTasks = useMemo(() => {
-  //   if (!mission) {
-  //     return [];
-  //   }
-  //   return linkedTasksForMission(mission, tasks);
-  // }, [tasks, mission]);
-
-  // const linkedGroups = useMemo(() => {
-  //   return battleGroups.filter(
-  //     (group) => linkedTasks.some(task => task.id === group.task_id),
-  //   );
-  // }, [battleGroups, linkedTasks]);
-
   useEffect(() => {
+    if (editing) {
+      return;
+    }
     const current = useMissionStore.getState().missions.find((item) => item.id === missionId);
     if (!current) {
       return;
     }
-    // setIsEditMode(false);
     setScheduledAt(startOfDay(new Date(current.scheduled_at)));
     setName(current.name ?? "");
     setDescription(current.description);
     setTargetDrafts(draftsFromMission(current, useTaskStore.getState().tasks));
-  }, [missionId]);
+    setDidChange(false);
+  }, [editing, mission?.updated_at, missionId, tasks]);
 
   const catalogTargets = useMemo(() => {
     const selectedIds = new Set(targetDrafts.map((draft) => draft.target_id));
-    return targets.filter(
-      (target) => target.archived_at === null || selectedIds.has(target.id),
-    );
+    return targets.filter((target) => target.archived_at === null || selectedIds.has(target.id));
   }, [targets, targetDrafts]);
 
   if (!mission) {
@@ -107,37 +95,33 @@ export function MissionPreviewPage() {
   const entityState = getEntityState(mission);
   const isConfirmed = mission.confirmed_at !== null;
   const isArchived = entityState === "archived";
-  // const planningLocked = isMissionPlanningLocked(mission, tasks, reports);
+  const planningLocked = isMissionPlanningLocked(mission, tasks, reports);
+  const canEdit = managesMissions && !planningLocked && !isArchived;
   const canConfirm = managesMissions && !isConfirmed && !isArchived && allMissionReportsSubmitted(mission, tasks, reports);
-  // const editMode = isEditMode && !planningLocked;
   const title = mission.name ? `${mission.label} — ${mission.name}` : mission.label;
-  const createdAt = mission.created_at;
   const scheduledIso = getScheduledIso(scheduledAt);
-  const dateError = getDateError(scheduledIso, createdAt);
+  const dateError = getDateError(scheduledIso, mission.created_at);
   const descriptionError = description.trim() ? null : DICTIONARY.targets_catalog.validation.required;
-  const actionsEnabled =
-    Boolean(scheduledIso) && !dateError && !descriptionError && !hasIncompleteAssignment(targetDrafts);
+  const actionsEnabled = Boolean(scheduledIso) && !dateError && !descriptionError && !hasIncompleteAssignment(targetDrafts);
 
-  const [didChange, setDidChange] = useState(false);
-
-  const handleCancel = () => {
+  const resetDraft = () => {
     setScheduledAt(startOfDay(new Date(mission.scheduled_at)));
     setName(mission.name ?? "");
     setDescription(mission.description);
     setTargetDrafts(draftsFromMission(mission, useTaskStore.getState().tasks));
-    // setIsEditMode(false);
-    navigate("/planning/missions");
+    setDidChange(false);
+    setEditing(false);
   };
 
   const handleSave = () => {
     if (!scheduledIso || !actionsEnabled) {
       return;
     }
-    if (isScheduledBeforeCreated(scheduledIso, createdAt)) {
+    if (isScheduledBeforeCreated(scheduledIso, mission.created_at)) {
       notifyError(DICTIONARY.missions.toasts.date_error);
       return;
     }
-    updateMission(
+    const updated = updateMission(
       mission.id,
       {
         name: name.trim() ? name.trim() : null,
@@ -146,20 +130,20 @@ export function MissionPreviewPage() {
       },
       toTaskDrafts(targetDrafts),
     );
-    notifySuccess(DICTIONARY.missions.toasts.updated);
-    // setIsEditMode(false);
-    const updated = useMissionStore.getState().missions.find((item) => item.id === mission.id);
-    if (updated) {
-      setTargetDrafts(draftsFromMission(updated, useTaskStore.getState().tasks));
+    if (!updated) {
+      notifyError(DICTIONARY.common.error);
+      return;
     }
+    notifySuccess(DICTIONARY.missions.toasts.updated);
+    setEditing(false);
+    setDidChange(false);
   };
-  // const remaining = remainingTaskAssets(linkedTasks.flatMap((task) => task.assets), linkedGroups);
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate(-1)} />
+          <GoBackIconButton onClick={() => navigate("/planning/missions")} />
           {isConfirmed ? (
             <Badge style={entityStatusBadgeStyle("reported")}>
               {`${DICTIONARY.common.states.reported} + ${DICTIONARY.common.statuses.confirmed}`}
@@ -167,9 +151,9 @@ export function MissionPreviewPage() {
           ) : (
             <EntityStatusBadge status={entityState} />
           )}
-          <h4 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
+          <h1 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
             {title}
-          </h4>
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {canConfirm ? (
@@ -180,74 +164,61 @@ export function MissionPreviewPage() {
               {DICTIONARY.common.actions.allow_report_edit}
             </Button>
           ) : null}
-          {/* {canToggleEdit ? (
-          <div className="flex items-center gap-2 text-sm text-primitive-neutral-200">
-            <span id="mission-edit-mode-label">{DICTIONARY.missions.edit_toggle}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={editMode}
-              aria-labelledby="mission-edit-mode-label"
-              disabled={isArchived}
-              onClick={() => {
-                if (!canToggleEdit) {
-                  return;
-                }
-                setIsEditMode((current) => !current);
-              }}
-              className={cn(
-                "relative h-6 w-11 rounded-full hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-                editMode
-                  ? "bg-primitive-blue-500 hover:bg-primitive-blue-500/90"
-                  : "bg-primitive-neutral-700 hover:bg-primitive-neutral-600",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-5 w-5 rounded-full bg-primitive-neutral-0 transition-transform",
-                  editMode ? "left-5" : "left-0.5",
-                )}
-              />
-            </button>
-          </div>
-          ) : null} */}
         </div>
       </header>
-      <div className="w-full max-w-4xl mx-auto flex-1 gap-4 overflow-hidden"> {/* lg:grid-cols-2 */}
-        <div className="h-full flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
-          <MissionForm
-            setDidChange={setDidChange}
-            scheduledAt={scheduledAt}
-            name={name}
-            description={description}
-            targetDrafts={targetDrafts}
-            catalogTargets={catalogTargets}
-            aimingPoints={aimingPoints}
-            dateError={dateError ?? undefined}
-            descriptionError={descriptionError ?? undefined}
-            readOnly={false}
-            onScheduledAtChange={setScheduledAt}
-            onNameChange={setName}
-            onDescriptionChange={setDescription}
-            onTargetDraftsChange={setTargetDrafts}
-          />
-          <div className="mt-4 flex justify-end gap-3 mt-auto">
-            <Button variant="ghost" onClick={handleCancel}>
-              {DICTIONARY.common.actions.cancel}
-            </Button>
-            <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
-              {DICTIONARY.missions.buttons.save_mission}
-            </Button>
-          </div>
+      <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+        <div className="flex h-full w-[55%] flex-col space-y-6 overflow-y-auto border-r border-primitive-neutral-800 p-4">
+          {editing ? (
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.command.fire_title}</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button variant="ghost" onClick={resetDraft}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    {DICTIONARY.common.actions.cancel}
+                  </Button>
+                  <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
+                    <Save className="h-4 w-4" aria-hidden="true" />
+                    {DICTIONARY.missions.buttons.save_mission}
+                  </Button>
+                </div>
+              </div>
+              <MissionInlineForm
+                setDidChange={setDidChange}
+                scheduledAt={scheduledAt}
+                name={name}
+                description={description}
+                targetDrafts={targetDrafts}
+                catalogTargets={catalogTargets}
+                aimingPoints={aimingPoints}
+                dateError={dateError ?? undefined}
+                descriptionError={descriptionError ?? undefined}
+                onScheduledAtChange={setScheduledAt}
+                onNameChange={setName}
+                onDescriptionChange={setDescription}
+                onTargetDraftsChange={setTargetDrafts}
+              />
+            </section>
+          ) : (
+            <>
+              <MissionAllocationBoard
+                mission={mission}
+                tasks={tasks}
+                launches={launches}
+                targets={targets}
+                aimingPoints={aimingPoints}
+                groups={battleGroups}
+                canEdit={canEdit}
+                onEdit={() => setEditing(true)}
+              />
+              <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+              <MissionLaunchMonitor mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+            </>
+          )}
         </div>
-        {/* <MissionProgressPanel
-          tasks={linkedTasks}
-          targets={targets}
-          battleGroups={linkedGroups}
-          launches={launches.filter((launch) => linkedTasks.some((task) => task.id === launch.task_id))}
-          groupMode={groupMode}
-          onGroupModeChange={setGroupMode}
-        /> */}
+        <div className="h-full w-[45%] overflow-y-auto bg-primitive-neutral-900/40 p-4">
+          <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+        </div>
       </div>
       {approvalModal === "confirm" ? (
         <Modal
