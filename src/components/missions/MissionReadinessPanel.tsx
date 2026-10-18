@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ArrowUpRight, Eye, ListTodo, PlaneIcon, Users } from "lucide-react";
+import { ArrowUpRight, ListTodo, PlaneIcon, Users } from "lucide-react";
 import { AimingPointBadge, Badge, ProgressBadge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewName, uavName } from "@/lib/battleGroup";
