@@ -10,38 +10,41 @@ const pickerClassName =
 
 interface SingleDatePickerProps {
   id?: string;
+  className?: string;
   tabIndex?: number;
   selected: Date | null;
   onChange: (date: Date | null) => void;
   placeholder?: string;
   disabled?: boolean;
   isError?: boolean;
-  autoFocus?: boolean;
+  inputRef?: React.RefObject<DatePicker>;
 }
 
 export function AppDatePicker({
   id,
+  className = "",
   tabIndex,
   selected,
   onChange,
   placeholder,
   disabled = false,
   isError = false,
-  autoFocus = false,
+  inputRef,
 }: SingleDatePickerProps) {
   return (
     <DatePicker
+      autoFocus={true}
+      ref={inputRef}
       autoComplete="off"
       id={id}
       locale="uk"
-      autoFocus={autoFocus}
       tabIndex={tabIndex}
       selected={selected}
       onChange={onChange}
       dateFormat="dd.MM.yyyy"
       placeholderText={placeholder}
       disabled={disabled}
-      className={cn(pickerClassName, "min-h-[38px] hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50", isError ? "border-primitive-red-500" : "")}
+      className={cn(pickerClassName, "min-h-[38px] hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50", isError ? "border-primitive-red-500" : "", className)}
       calendarClassName="crm-datepicker"
       popperClassName="crm-datepicker-popper"
       wrapperClassName="w-full"

@@ -208,6 +208,7 @@ export function NativeFormSelect({
       aria-label={ariaLabel}
       onChange={(event) => onChange(event.target.value)}
       className={cn(className, invalid && invalidControlClass)}
+      title={options.find((option) => option.value === value)?.label ?? placeholder}
     >
       <option value="">{placeholder}</option>
       {options.map((option) => (

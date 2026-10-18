@@ -130,9 +130,9 @@ export function TargetSearchCombobox({
           }
           setOpen((current) => !current);
         }}
-        className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-left text-sm text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-8 w-full overflow-hidden items-center justify-between gap-2 rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-left text-sm text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <span className="truncate">{selected ? targetLabel(selected) : DICTIONARY.missions.select_target}</span>
+        <p className="w-full overflow-hidden text-ellipsis whitespace-nowrap">{selected ? targetLabel(selected) : DICTIONARY.missions.select_target}</p>
         <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />
       </button>
       {open && menuBox

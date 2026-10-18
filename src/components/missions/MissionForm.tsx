@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { Crosshair, MapPinned, Plus } from "lucide-react";
 import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/button";
 import { AppDatePicker } from "@/components/ui/date-picker";
@@ -14,6 +14,7 @@ import { assignRowAimingPoint, emptyDetachment, emptyTarget, type TargetDraft } 
 import type { AimingPoint, Target } from "@/types/target";
 import { DETACHMENT_REFS } from "@/data/crews";
 import { extractNumeric } from "@/lib/validation";
+import DatePicker from "react-datepicker";
 
 interface MissionFormProps {
   scheduledAt: Date | null;
@@ -48,47 +49,58 @@ export function MissionForm({
   onTargetDraftsChange,
   setDidChange,
 }: MissionFormProps) {
+  const datepickerRef = useRef<DatePicker | null>(null);
+  useEffect(() => {
+    if (datepickerRef.current && !readOnly && !scheduledAt) {
+      datepickerRef.current.setFocus();
+    }
+  }, []);
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row">
-        <FormField
-          id="scheduled_at"
-          label={DICTIONARY.missions.fields.scheduled_at}
-          // error={readOnly ? undefined : dateError}
-          wrapperClassName="min-w-fit"
-        >
-          <AppDatePicker
-            tabIndex={scheduledAt ? -1 : 0}
-            autoFocus={!scheduledAt}
+      <div className="flex gap-2">
+        <div className="flex gap-2 flex-1">
+          <FormField
             id="scheduled_at"
-            selected={scheduledAt}
-            onChange={(date) => {
-              onScheduledAtChange(date);
-              setDidChange(true);
-            }}
-            placeholder={DICTIONARY.missions.fields.scheduled_at}
-            disabled={readOnly}
-            isError={!!dateError}
-          />
-        </FormField>
-        <FormField id="mission_name" label={DICTIONARY.missions.fields.name}
-          wrapperClassName="min-w-fit">
-          <Input
-            id="mission_name"
-            value={name}
-            disabled={readOnly}
-            onChange={(event) => {
-              onNameChange(event.target.value);
-              setDidChange(true);
-            }}
-            className="min-h-[38px]"
-          />
-        </FormField>
+            label={DICTIONARY.missions.fields.scheduled_at}
+            // error={readOnly ? undefined : dateError}
+            wrapperClassName="flex-1"
+            labelClassName="text-zinc-600"
+          >
+            <AppDatePicker
+              inputRef={datepickerRef}
+              className="min-h-9 h-9"
+              id="mission_scheduled_at_date_picker"
+              selected={scheduledAt}
+              onChange={(date) => {
+                onScheduledAtChange(date);
+                setDidChange(true);
+              }}
+              placeholder={DICTIONARY.missions.fields.scheduled_at}
+              disabled={readOnly}
+              isError={!!dateError}
+            />
+          </FormField>
+          <FormField id="mission_name" label={DICTIONARY.missions.fields.name}
+            wrapperClassName="flex-1"
+            labelClassName="text-zinc-600">
+            <Input
+              id="mission_name"
+              value={name}
+              disabled={readOnly}
+              onChange={(event) => {
+                onNameChange(event.target.value);
+                setDidChange(true);
+              }}
+              className="min-h-9 h-9"
+            />
+          </FormField>
+        </div>
         <FormField
           id="description"
           label={DICTIONARY.missions.fields.description}
           // error={readOnly ? undefined : descriptionError}
-          wrapperClassName="w-full"
+          wrapperClassName="flex-1"
+          labelClassName="text-zinc-600"
         >
           <Textarea
             tabIndex={readOnly ? -1 : 0}
@@ -102,19 +114,27 @@ export function MissionForm({
             }}
             rows={1}
             data-error={!!descriptionError}
-            className="min-h-[38px]"
+            className="min-h-9 h-9 pt-1.5"
           />
         </FormField>
       </div>
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-end gap-2">
+          {!!targetDrafts.length ? (
+            <p className="rounded-md border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
+              {DICTIONARY.missions.command.cascade_notice}
+            </p>
+          ) : null}
           {/* <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.tasks_title}</h3> */}
-          {readOnly ? null : (
-            <Button onClick={() => onTargetDraftsChange([...targetDrafts, emptyTarget()])}>
+          {/* {readOnly ? null : (
+            <Button
+              className="py-1 h-7 bg-sky-900/50 hover:bg-sky-800/80 transition-all duration-300"
+              onClick={() => onTargetDraftsChange([...targetDrafts, emptyTarget()])}
+            >
               <Plus className="h-4 w-4" aria-hidden="true" />
               {DICTIONARY.missions.add_target}
             </Button>
-          )}
+          )} */}
         </div>
         {targetDrafts.map((block) => (
           <TargetAssignmentBlock
@@ -133,6 +153,15 @@ export function MissionForm({
           />
         ))}
       </section>
+      {readOnly ? null : (
+        <Button
+          className="py-1 h-7 bg-sky-900/50 hover:bg-sky-800/80 transition-all duration-300"
+          onClick={() => onTargetDraftsChange([...targetDrafts, emptyTarget()])}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {DICTIONARY.missions.add_target}
+        </Button>
+      )}
     </div>
   );
 }
@@ -181,25 +210,26 @@ function TargetAssignmentBlock({
   // }, [block.aiming_point_ids, points]);
 
   return (
-    <article className="rounded-lg border border-primitive-neutral-800 p-3">
-      <div className="mb-3 flex items-start justify-between gap-2">
-        <FormField id={`target-${block.key}`} label={DICTIONARY.missions.fields.target} wrapperClassName="w-full">
-          <TargetSearchCombobox
-            id={`target-${block.key}`}
-            value={block.target_id}
-            disabled={readOnly}
-            targets={catalogTargets}
-            onChange={(targetId) =>
-              onChange({
-                ...block,
-                target_id: targetId,
-                aiming_point_ids: [],
-                detachments: block.detachments.map((row) => ({ ...row, aiming_point_id: "" })),
-              })
-            }
-          />
-        </FormField>
-        {readOnly ? null : <DeleteIconButton onClick={onRemove} />}
+    <article className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 p-3">
+      <div className="w-full flex items-center justify-between gap-2 last:mb-0">
+        <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+        <TargetSearchCombobox
+          id={`target-${block.key}`}
+          value={block.target_id}
+          disabled={readOnly}
+          targets={catalogTargets}
+          onChange={(targetId) =>
+            onChange({
+              ...block,
+              target_id: targetId,
+              aiming_point_ids: [],
+              detachments: block.detachments.map((row) => ({ ...row, aiming_point_id: "" })),
+            })
+          }
+        />
+        <div className="min-w-8 w-8">
+          {readOnly ? null : <DeleteIconButton onClick={onRemove} />}
+        </div>
       </div>
       {/* {selectedTarget ? (
         <div className="mb-3 flex items-center gap-1.5 min-h-7">
@@ -234,12 +264,13 @@ function TargetAssignmentBlock({
                     : "border-b border-primitive-neutral-800 py-2"
                 }
               >
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-end">
+                  <Crosshair className="h-4 w-4 shrink-0 text-sky-300/50 mb-2" aria-hidden="true" />
                   <FormField
                     id={`${row.key}-aiming`}
                     label={index === 0 ? DICTIONARY.tasks.aiming_points : ""}
                     wrapperClassName="flex-1"
-                    labelClassName="text-zinc-400"
+                    labelClassName="text-zinc-600 text-xs"
                   >
                     <NativeFormSelect
                       autoSelect={false}
@@ -251,17 +282,17 @@ function TargetAssignmentBlock({
                         .filter((point) => point.archived_at === null || point.id === row.aiming_point_id)
                         .map((point) => ({
                           value: point.id,
-                          label: `${point.mgrs} - ${point.name}`,
+                          label: `${point.name} - ${point.mgrs}`,
                         }))}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
-                      className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField
                     id={`${row.key}-org`}
                     label={index === 0 ? DICTIONARY.missions.fields.detachment : ""}
-                    wrapperClassName="w-28 lg:w-40"
-                    labelClassName="text-zinc-400"
+                    wrapperClassName="w-28 lx:w-40"
+                    labelClassName="text-zinc-600 text-xs"
                   >
                     <NativeFormSelect
                       ariaInvalid={!row.organization_id}
@@ -278,14 +309,14 @@ function TargetAssignmentBlock({
                           ),
                         })
                       }
-                      className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField
                     id={`${row.key}-uav`}
                     label={index === 0 ? DICTIONARY.missions.fields.assets : ""}
-                    wrapperClassName="w-28 lg:w-40"
-                    labelClassName="text-zinc-400"
+                    wrapperClassName="w-28 lx:w-40"
+                    labelClassName="text-zinc-600 text-xs"
                   >
                     <NativeFormSelect
                       ariaInvalid={!row.asset_id}
@@ -305,15 +336,15 @@ function TargetAssignmentBlock({
                           ),
                         })
                       }
-                      className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <div className="flex items-end gap-1">
                     <FormField
                       id={`${row.key}-qty`}
                       label={index === 0 ? DICTIONARY.missions.quantity : ""}
-                      wrapperClassName="w-full"
-                      labelClassName="text-zinc-400"
+                      wrapperClassName="w-fit"
+                      labelClassName="w-fit text-zinc-600 text-xs"
                     >
                       <Input
                         data-error={!row.quantity}
@@ -333,7 +364,7 @@ function TargetAssignmentBlock({
                             ),
                           })
                         }
-                        className="max-w-20"
+                        className="max-w-16 h-8"
                       />
                     </FormField>
                     {readOnly ? null : (
@@ -354,8 +385,8 @@ function TargetAssignmentBlock({
             {readOnly ? null : (
               <Button
                 variant="ghost"
+                className="py-1 h-7 mt-2"
                 onClick={() => onChange({ ...block, detachments: [...block.detachments, emptyDetachment()] })}
-                className="mt-2"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 {DICTIONARY.missions.add_detachment}

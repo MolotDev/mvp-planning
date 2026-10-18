@@ -187,7 +187,6 @@ export function MissionsPlanningPage() {
                     date.getDate() === new Date().getDate() ? "" : "bg-primitive-neutral-700"
                   )}>
                     <Calendar className="h-3 w-3 shrink-0 mr-1" aria-hidden="true" />
-                    {/* {formatDateUk(date.toISOString())} */}
                     {convertDateToDdMmDayOfWeek(date)}
                   </Badge>
                   

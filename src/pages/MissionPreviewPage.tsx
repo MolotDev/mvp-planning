@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Save, X } from "lucide-react";
+import { X } from "lucide-react";
 import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
-import { MissionInlineForm } from "@/components/missions/MissionInlineForm";
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
 import { MissionLaunchMonitor } from "@/components/missions/MissionLaunchMonitor";
 import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPanel";
@@ -33,6 +32,7 @@ import { useMissionStore } from "@/store/useMissionStore";
 import { useReportStore } from "@/store/useReportStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
+import { MissionForm } from "@/components/missions/MissionForm";
 
 export function MissionPreviewPage() {
   const { missionId = "" } = useParams();
@@ -151,9 +151,9 @@ export function MissionPreviewPage() {
           ) : (
             <EntityStatusBadge status={entityState} />
           )}
-          <h1 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
-            {title}
-          </h1>
+          <h2 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
+            {mission.label}
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {canConfirm ? (
@@ -167,23 +167,22 @@ export function MissionPreviewPage() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-        <div className="flex h-full w-[55%] flex-col space-y-6 overflow-y-auto border-r border-primitive-neutral-800 p-4">
+        <div className="flex h-full w-[62%] flex-col space-y-6 overflow-y-auto border-r border-primitive-neutral-800 p-4">
           {editing ? (
             <section className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.command.fire_title}</h2>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {/* <h4 className="text-lg font-semibold text-primitive-neutral-0">{mission.label}</h4> */}
                 <div className="flex flex-wrap items-center gap-2">
                   <Button variant="ghost" onClick={resetDraft}>
                     <X className="h-4 w-4" aria-hidden="true" />
                     {DICTIONARY.common.actions.cancel}
                   </Button>
                   <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
-                    <Save className="h-4 w-4" aria-hidden="true" />
                     {DICTIONARY.missions.buttons.save_mission}
                   </Button>
                 </div>
               </div>
-              <MissionInlineForm
+              <MissionForm
                 setDidChange={setDidChange}
                 scheduledAt={scheduledAt}
                 name={name}
@@ -193,11 +192,23 @@ export function MissionPreviewPage() {
                 aimingPoints={aimingPoints}
                 dateError={dateError ?? undefined}
                 descriptionError={descriptionError ?? undefined}
+                readOnly={false}
                 onScheduledAtChange={setScheduledAt}
                 onNameChange={setName}
                 onDescriptionChange={setDescription}
                 onTargetDraftsChange={setTargetDrafts}
               />
+              {targetDrafts.length >= 2 ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button variant="ghost" onClick={resetDraft}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    {DICTIONARY.common.actions.cancel}
+                  </Button>
+                  <Button disabled={!actionsEnabled || !didChange} onClick={handleSave}>
+                    {DICTIONARY.missions.buttons.save_mission}
+                  </Button>
+                </div>
+              ) : null}
             </section>
           ) : (
             <>
@@ -216,7 +227,7 @@ export function MissionPreviewPage() {
             </>
           )}
         </div>
-        <div className="h-full w-[45%] overflow-y-auto bg-primitive-neutral-900/40 p-4">
+        <div className="h-full w-[38%] overflow-y-auto bg-primitive-neutral-900/40 p-4">
           <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
         </div>
       </div>
