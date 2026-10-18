@@ -7,7 +7,6 @@ import { formatDateUk } from "@/lib/dates";
 import {
   activeMissionTasks,
   assignedQuantity,
-  detachmentTone,
   equippedCount,
   launchesForLine,
   prepSegmentsForLine,
