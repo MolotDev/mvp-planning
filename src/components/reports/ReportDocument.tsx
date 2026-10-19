@@ -1239,11 +1239,11 @@ function LaunchGroupRows({
   groupLabel,
   launches,
   group,
-  readOnly,
+  // readOnly,
   assets,
-  onSerial,
-  onTrackerSerial,
-  onClearTracker,
+  // onSerial,
+  // onTrackerSerial,
+  // onClearTracker,
 }: {
   groupLabel: string;
   launches: Launch[];
@@ -1254,7 +1254,7 @@ function LaunchGroupRows({
   onTrackerSerial: (launch: Launch, value: string) => void;
   onClearTracker: (launch: Launch) => void;
 }) {
-  const text = DICTIONARY.reports;
+  // const text = DICTIONARY.reports;
   return (
     <>
       <tr>
@@ -1264,7 +1264,7 @@ function LaunchGroupRows({
       </tr>
       {launches.map((launch) => {
         const asset = assets.find((item) => item.id === launch.asset_id);
-        const trackerName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
+        // const trackerName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
         return (
           <tr key={launch.id}>
             <td className={cell}>{crewName(group.lead_crew_id)}</td>
