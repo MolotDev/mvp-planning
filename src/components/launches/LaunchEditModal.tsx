@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Calendar } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { ClearTrackerButton } from "@/components/launches/ClearTrackerButton";
-import { Badge, TargetIdBadgeLink } from "@/components/ui/badge";
+import { InlineFieldAlert } from "@/components/launches/InlineFieldAlert";
+import { AimingPointBadge, Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CloseIconButton, DeleteIconButton } from "@/components/ui/icon-buttons";
 import { Input } from "@/components/ui/input";
@@ -11,14 +13,16 @@ import { Modal } from "@/components/ui/modal";
 import { TRACKERS } from "@/data/launchCatalog";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canEditLaunchField, canEditLaunchFields } from "@/lib/access";
-import { ammosForAsset } from "@/lib/assets";
-import { uavName } from "@/lib/battleGroup";
-import { formatDateUk } from "@/lib/dates";
+import { ammosForAsset, defaultAmmoId } from "@/lib/assets";
+import { crewName, uavName } from "@/lib/battleGroup";
+import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly, launchLockKind, processedTransitionPatch, trackerName } from "@/lib/launches";
+import { duplicateValueMessage, groupLaunchesByCrew } from "@/lib/taskCrewMatrix";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
-import type { BattleGroup, BattleGroupInput } from "@/types/battleGroup";
+import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
@@ -47,15 +51,6 @@ interface LaunchEditorProps {
   launches: Launch[];
   editing: boolean;
   locked: boolean;
-  updateBattleGroup: (id: string, input: BattleGroupInput) => void;
-}
-
-function defaultAmmoId(launch: Launch): string {
-  if (launch.ammo_model_id) {
-    return launch.ammo_model_id;
-  }
-  const options = ammosForAsset(launch.asset_id);
-  return options.length === 1 ? options[0].id : "";
 }
 
 function draftFromLaunch(launch: Launch): RowDraft {
@@ -64,7 +59,7 @@ function draftFromLaunch(launch: Launch): RowDraft {
     trajectory_name: launch.trajectory_name ?? "",
     asset_serial_number: launch.asset_serial_number,
     tracker_model_serial_number: launch.tracker_model_serial_number ?? "",
-    ammo_model_id: defaultAmmoId(launch),
+    ammo_model_id: defaultAmmoId(launch.asset_id, launch.ammo_model_id),
     ammo_quantity: launch.ammo_quantity > 0 ? String(launch.ammo_quantity) : "1",
   };
 }
@@ -86,52 +81,6 @@ function draftsMatch(current: Record<string, RowDraft>, base: Record<string, Row
 
 function cloneDrafts(source: Record<string, RowDraft>): Record<string, RowDraft> {
   return Object.fromEntries(Object.entries(source).map(([id, draft]) => [id, { ...draft }]));
-}
-
-function ApplyPopover({
-  anchor,
-  label,
-  onApply,
-  onClose,
-}: {
-  anchor: HTMLElement;
-  label: string;
-  onApply: () => void;
-  onClose: () => void;
-}) {
-  const [box, setBox] = useState(() => anchor.getBoundingClientRect());
-
-  useEffect(() => {
-    const update = () => setBox(anchor.getBoundingClientRect());
-    update();
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, [anchor]);
-
-  const placeAbove = box.top > 56;
-
-  return createPortal(
-    <div
-      className="fixed z-[60] rounded-md border border-primitive-neutral-800 bg-primitive-neutral-900 p-2 shadow-md"
-      style={{
-        top: placeAbove ? box.top - 2 : box.bottom + 2,
-        left: box.left,
-        transform: placeAbove ? "translateY(-100%)" : undefined,
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <Button className="h-5 px-1.5 text-[12px] leading-none hover:cursor-pointer hover:shadow-md" onClick={onApply}>
-          {label}
-        </Button>
-        <CloseIconButton className="h-5 w-5" onClick={onClose} />
-      </div>
-    </div>,
-    document.body,
-  );
 }
 
 function AmmoApplyPopover({
@@ -187,7 +136,6 @@ export function LaunchEditor({
   launches,
   editing,
   locked,
-  updateBattleGroup,
 }: LaunchEditorProps) {
   const role = useAuthStore((state) => state.role);
   const crewLimited = canEditLaunchFields(role);
@@ -195,7 +143,7 @@ export function LaunchEditor({
   const archiveLaunch = useLaunchStore((state) => state.archiveLaunch);
   const storedLaunches = useLaunchStore((state) => state.launches);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deleteOfBattleGroup, setDeleteOfBattleGroup] = useState<BattleGroup | null>(null);
+  const allGroups = useBattleGroupStore((state) => state.battleGroups);
   const [baseDrafts, setBaseDrafts] = useState<Record<string, RowDraft>>(() =>
     Object.fromEntries(launches.map((launch) => [launch.id, draftFromLaunch(launch)])),
   );
@@ -203,13 +151,65 @@ export function LaunchEditor({
   const [ammoOffer, setAmmoOffer] = useState<{ launchId: string; ammoId: string; anchor: HTMLElement } | null>(null);
   const [trajectoryNameOffer, setTrajectoryNameOffer] = useState<{ launchId: string; value: string; anchor: HTMLElement } | null>(null);
   const isDirty = !draftsMatch(drafts, baseDrafts);
+  const detailsText = DICTIONARY.tasks.details;
+  const serialEntries = useMemo(
+    () =>
+      groupLaunchesByCrew(task, allGroups, storedLaunches).flatMap((group) =>
+        group.launches.map((launch, index) => ({
+          id: launch.id,
+          index: index + 1,
+          serial: launch.asset_serial_number,
+          tracker: launch.tracker_model_serial_number,
+          crewName: group.crewId ? crewName(group.crewId) : null,
+          crewId: group.crewId ?? null,
+        })),
+      ),
+    [allGroups, storedLaunches, task],
+  );
+  const liveEntries = serialEntries.map((entry) => {
+    const draft = drafts[entry.id];
+    if (!draft) {
+      return entry;
+    }
+    return {
+      ...entry,
+      serial: draft.asset_serial_number,
+      tracker: draft.tracker_model_serial_number || null,
+    };
+  });
+  const duplicateMessages = new Map(
+    launches.map((launch) => {
+      const draft = drafts[launch.id];
+      if (!draft) {
+        return [launch.id, { serial: "", tracker: "" }] as const;
+      }
+      return [
+        launch.id,
+        {
+          serial: duplicateValueMessage(liveEntries, launch.id, "serial", draft.asset_serial_number, {
+            duplicate: detailsText.duplicate_serial,
+            crew: detailsText.crew_title,
+          }),
+          tracker: duplicateValueMessage(liveEntries, launch.id, "tracker", draft.tracker_model_serial_number, {
+            duplicate: detailsText.duplicate_tracker,
+            crew: detailsText.crew_title,
+          }),
+        },
+      ] as const;
+    }),
+  );
   const liveLaunch = (launch: Launch) => storedLaunches.find((item) => item.id === launch.id) ?? launch;
   const rowLocked = (launch: Launch) => locked || isLaunchReadOnly(liveLaunch(launch), task, mission ?? null);
+  const hasDuplicate = launches.some((launch) => {
+    if (rowLocked(launch)) {
+      return false;
+    }
+    const message = duplicateMessages.get(launch.id);
+    return Boolean(message?.serial || message?.tracker);
+  });
   const fieldsEnabled = editing && !locked;
   const pointIds = new Set(task.allocations.map((line) => line.aiming_point_id).filter(Boolean));
   const points = aimingPoints.filter((point) => pointIds.has(point.id) && point.archived_at === null);
-  const headingName = mission?.name?.trim() ? mission.name : (target?.name ?? "");
-  const scheduledAt = task.scheduled_at || mission?.scheduled_at || task.created_at;
   const columns = DICTIONARY.tasks.launch_board.columns;
 
   const inheritedAiming = (draft: RowDraft) =>
@@ -319,6 +319,9 @@ export function LaunchEditor({
   };
 
   const handleSave = () => {
+    if (hasDuplicate) {
+      return;
+    }
     let failed = false;
     launches.forEach((launch) => {
       if (isLaunchReadOnly(liveLaunch(launch), task, mission ?? null)) {
@@ -362,21 +365,23 @@ export function LaunchEditor({
       notifyError(DICTIONARY.common.error);
       return;
     }
-    if (deleteOfBattleGroup) {
-      updateBattleGroup(deleteOfBattleGroup.id, {
-        ...deleteOfBattleGroup,
-        uav_quantity: deleteOfBattleGroup.uav_quantity - 1,
-      });
-    }
     notifySuccess(DICTIONARY.launches.toasts.deleted);
     setPendingDeleteId(null);
-    setDeleteOfBattleGroup(null);
+  };
+
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const toggleOpenSection = (sectionId: string) => {
+    setOpenSections((existing) => {
+      const next = new Set(existing);
+      next.has(sectionId) ? next.delete(sectionId) : next.add(sectionId);
+      return next;
+    });
   };
 
   return (
     <div className="flex-1 flex flex-col gap-4">
       <div className="flex flex-col gap-4">
-        <p className="flex flex-wrap items-center gap-1 text-[20px] text-primitive-neutral-0">
+        {/* <p className="flex flex-wrap items-center gap-1 text-[20px] text-primitive-neutral-0">
           <Calendar className="h-5 w-5 shrink-0" aria-hidden="true" />
           <Badge className="bg-primitive-neutral-800 text-[20px]">{formatDateUk(scheduledAt)}</Badge>
           {headingName ? (
@@ -394,18 +399,44 @@ export function LaunchEditor({
               {formattingMGRS.spacing(target.mgrs)}
             </Badge>
           </div>
-        ) : null}
-        {battleGroups.map((group) => {
-          const rows = launches.filter((launch) => launch.battle_group_id === group.id);
-          if (rows.length === 0) {
-            return null;
-          }
+        ) : null} */}
+        {(() => {
+          const sameCrew = new Set(battleGroups.map((item) => item.lead_crew_id)).size <= 1;
+          const sectionMap = new Map<string, { id: string; point: (typeof aimingPoints)[number] | null; rows: Launch[] }>();
+          launches.forEach((launch) => {
+            const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+            const point = resolveLaunchAimingPoint(task, launch, owner, aimingPoints) ?? null;
+            const id = point?.id ?? "";
+            const section = sectionMap.get(id) ?? { id, point, rows: [] };
+            section.rows.push(launch);
+            sectionMap.set(id, section);
+          });
+          const sections = [...sectionMap.values()].sort((left, right) => {
+            if (!left.point) {
+              return 1;
+            }
+            if (!right.point) {
+              return -1;
+            }
+            return (left.point.displayed_id || left.point.name).localeCompare(right.point.displayed_id || right.point.name, "uk");
+          });
           return (
-            <div key={group.id} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="text-sm text-primitive-neutral-300">{columns.battle_group}</span>
-                <BattleGroupCrewLine group={group} />
-              </div>
+            <>
+              {sameCrew && battleGroups[0] && role !== "CREW" ? <BattleGroupCrewLine group={battleGroups[0]} /> : null}
+              {sections.map((section, index) => {
+          const rows = section.rows;
+          const sectionGroups = battleGroups.filter((item) => rows.some((launch) => launch.battle_group_id === item.id));
+          return (
+            <details open={openSections.has(section.id || "target") || index === 0} key={section.id || "target"} className="flex flex-col gap-2">
+              <summary onClick={() => toggleOpenSection(section.id)} className="flex flex-wrap items-center justify-between gap-1 text-[20px] text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md px-2 rounded-lg bg-primitive-neutral-800">
+                {section.point ? (
+                  <AimingPointBadge label={section.point.name} mgrs={formattingMGRS.spacing(section.point.mgrs)} />
+                ) : null}
+                <ChevronDown className={cn("h-4 w-4 transition-transform", !openSections.has(section.id || "target") ? "rotate-180" : "")} aria-hidden="true" />
+              </summary>
+              {!sameCrew
+                ? sectionGroups.map((item) => <BattleGroupCrewLine key={item.id} group={item} />)
+                : null}
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[880px] border-collapse text-left text-sm">
                   <thead className="f-full text-primitive-neutral-300">
@@ -433,6 +464,10 @@ export function LaunchEditor({
                       const trackerId =
                         draft.tracker_model_serial_number.trim() && TRACKERS.length === 1 ? TRACKERS[0].id : null;
                       const trackerLabel = trackerName(trackerId);
+                      const warning = duplicateMessages.get(launch.id);
+                      const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+                      const ownerCount = launches.filter((item) => item.battle_group_id === owner?.id).length;
+                      const canRemoveExcess = owner !== undefined && ownerCount > owner.uav_quantity;
                       const showTrackerClear =
                         !rowDisabled &&
                         (trackerLabel !== "" || draft.tracker_model_serial_number.trim() !== "");
@@ -474,7 +509,7 @@ export function LaunchEditor({
                               className="max-h-7 max-w-[100px] text-xs"
                             />
                             {trajectoryNameOffer?.launchId === launch.id && !rowDisabled ? (
-                              <ApplyPopover
+                              <ApplyBelowPopover
                                 anchor={trajectoryNameOffer.anchor}
                                 label={DICTIONARY.tasks.launch_board.apply_to_listed_launches_below}
                                 onApply={() => applyToListedBelow(index, "trajectory_name", trajectoryNameOffer.value.trim() || "")}
@@ -500,15 +535,23 @@ export function LaunchEditor({
                             </select>
                           </td> */}
                           <td className="px-2 py-2">
-                            <Input
-                              data-error={!draft.asset_serial_number.trim()}
-                              className="max-h-7 max-w-[200px] text-md px-1.5"
-                              tabIndex={draft.asset_serial_number ? -1 : 0}
-                              aria-label={`${columns.uav_serial} ${launch.id}`}
-                              value={draft.asset_serial_number}
-                              disabled={rowDisabled}
-                              onChange={(event) => patchDraft(launch.id, { asset_serial_number: event.target.value })}
-                            />
+                            <div className="relative max-w-[200px]">
+                              <Input
+                                data-error={!draft.asset_serial_number.trim()}
+                                className={cn(
+                                  "max-h-7 w-full text-md px-1.5",
+                                  warning?.serial && "border-primitive-red-500 pr-[75%]",
+                                )}
+                                tabIndex={draft.asset_serial_number ? -1 : 0}
+                                aria-label={`${columns.uav_serial} ${launch.id}`}
+                                aria-invalid={Boolean(warning?.serial)}
+                                title={warning?.serial || undefined}
+                                value={draft.asset_serial_number}
+                                disabled={rowDisabled}
+                                onChange={(event) => patchDraft(launch.id, { asset_serial_number: event.target.value })}
+                              />
+                              <InlineFieldAlert message={warning?.serial ?? ""} className="leading-7" />
+                            </div>
                           </td>
                           <td className="group/tracker px-2 py-2">
                             <div className="flex items-center gap-1 min-w-[92px] max-w-[100px] max-h-7">
@@ -526,16 +569,24 @@ export function LaunchEditor({
                             </div>
                           </td>
                           <td className="px-2 py-2">
-                            <Input
-                              className="max-h-7 max-w-[200px] text-md px-1.5"
-                              tabIndex={draft.tracker_model_serial_number ? -1 : 0}
-                              aria-label={`${columns.tracker_serial} ${launch.id}`}
-                              value={draft.tracker_model_serial_number}
-                              disabled={rowDisabled}
-                              onChange={(event) =>
-                                patchDraft(launch.id, { tracker_model_serial_number: event.target.value })
-                              }
-                            />
+                            <div className="relative max-w-[200px]">
+                              <Input
+                                className={cn(
+                                  "max-h-7 w-full text-md px-1.5",
+                                  warning?.tracker && "border-primitive-red-500 pr-[75%]",
+                                )}
+                                tabIndex={draft.tracker_model_serial_number ? -1 : 0}
+                                aria-label={`${columns.tracker_serial} ${launch.id}`}
+                                aria-invalid={Boolean(warning?.tracker)}
+                                title={warning?.tracker || undefined}
+                                value={draft.tracker_model_serial_number}
+                                disabled={rowDisabled}
+                                onChange={(event) =>
+                                  patchDraft(launch.id, { tracker_model_serial_number: event.target.value })
+                                }
+                              />
+                              <InlineFieldAlert message={warning?.tracker ?? ""} className="leading-7" />
+                            </div>
                           </td>
                           <td className="px-2 py-2">
                             <select
@@ -582,12 +633,13 @@ export function LaunchEditor({
                             />
                           </td>
                           <td className="px-2 py-2">
-                            {!locked && !crewLimited && (
-                              <DeleteIconButton tabIndex={-1} onClick={() => {
-                                setPendingDeleteId(launch.id);
-                                setDeleteOfBattleGroup(group);
-                              }} disabled={rowDisabled} />
-                            ) }
+                            {!locked && !crewLimited && canRemoveExcess && !rowLocked(stored) ? (
+                              <DeleteIconButton
+                                tabIndex={-1}
+                                onClick={() => setPendingDeleteId(launch.id)}
+                                disabled={rowDisabled}
+                              />
+                            ) : null}
                           </td>
                         </tr>
                       );
@@ -595,15 +647,18 @@ export function LaunchEditor({
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
           );
-        })}
+              })}
+            </>
+          );
+        })()}
         {fieldsEnabled ? (
           <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" className="hover:cursor-pointer hover:shadow-md" onClick={resetToBase}>
               {DICTIONARY.tasks.launch_board.reset_to_base}
             </Button>
-            <Button className="hover:shadow-md" disabled={!isDirty} onClick={handleSave}>
+            <Button className="hover:shadow-md" disabled={!isDirty || hasDuplicate} onClick={handleSave}>
               {DICTIONARY.common.actions.save}
             </Button>
           </div>

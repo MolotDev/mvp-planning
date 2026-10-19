@@ -3,7 +3,7 @@ import { ArrowUpRight, Info, PanelRightOpen } from "lucide-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { AllocationWorkspace } from "@/components/tasks/AllocationWorkspace";
 import { CrewStatsDrawer } from "@/components/tasks/CrewStatsDrawer";
-import { LaunchDetailsModal } from "@/components/tasks/LaunchDetailsModal";
+import { LaunchDetailsModal, type LaunchAimingSection } from "@/components/tasks/LaunchDetailsModal";
 import { LaunchSummaryCards } from "@/components/tasks/LaunchSummaryCards";
 import { TaskInfoDrawer } from "@/components/tasks/TaskInfoDrawer";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
+import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly } from "@/lib/launches";
+import { formattingMGRS } from "@/lib/formattingMGRS";
 import { matchingReports } from "@/lib/reportAggregation";
 import { groupLaunchesByCrew, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { draftsFromGroups } from "@/lib/taskDashboard";
@@ -33,7 +35,6 @@ import { useTargetStore } from "@/store/useTargetStore";
 interface LaunchSelection {
   crewId: string;
   assetId: string;
-  allocationId: string;
 }
 
 export function TaskPreviewPage() {
@@ -148,22 +149,45 @@ export function TaskPreviewPage() {
     setEditing(false);
   };
 
-  const selectedLaunches = launchSelection
-    ? taskLaunches.filter((launch) => {
-        const group = battleGroups.find((item) => item.id === launch.battle_group_id);
-        if (!group || group.lead_crew_id !== launchSelection.crewId || group.asset_id !== launchSelection.assetId) {
-          return false;
-        }
-        return group.allocation_line_id === launchSelection.allocationId || group.allocation_line_id === null;
-      })
+  const selectedGroups = launchSelection
+    ? battleGroups.filter(
+        (group) =>
+          group.archived_at === null &&
+          group.task_id === task.id &&
+          group.lead_crew_id === launchSelection.crewId &&
+          group.asset_id === launchSelection.assetId,
+      )
     : [];
-  const selectedAllocation = launchSelection
-    ? task.allocations.find((line) => line.id === launchSelection.allocationId)
-    : undefined;
-  const selectedTarget = targets.find((item) => item.id === selectedAllocation?.target_id);
-  const selectedPoint = selectedAllocation?.aiming_point_id
-    ? aimingPoints.find((item) => item.id === selectedAllocation.aiming_point_id && item.archived_at === null)
-    : undefined;
+  const selectedGroupIds = new Set(selectedGroups.map((group) => group.id));
+  const selectedLaunches = launchSelection
+    ? taskLaunches.filter((launch) => selectedGroupIds.has(launch.battle_group_id))
+    : [];
+  const plannedQuantity = selectedGroups.reduce((sum, group) => sum + group.uav_quantity, 0);
+  const sectionMap = new Map<string, LaunchAimingSection>();
+  selectedLaunches.forEach((launch) => {
+    const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+    const point = resolveLaunchAimingPoint(task, launch, owner, aimingPoints);
+    const line = task.allocations.find((item) => item.id === (launch.allocation_line_id ?? owner?.allocation_line_id));
+    const target = targets.find((item) => item.id === line?.target_id);
+    const id = point?.id ?? line?.target_id ?? "target";
+    const section = sectionMap.get(id) ?? {
+      id,
+      label: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
+      mgrs: formattingMGRS.spacing(point?.mgrs || target?.mgrs || ""),
+      launchIds: [],
+    };
+    section.launchIds.push(launch.id);
+    sectionMap.set(id, section);
+  });
+  const launchSections = [...sectionMap.values()].sort((left, right) => left.label.localeCompare(right.label, "uk"));
+  const selectedTargetNames = [
+    ...new Set(
+      selectedGroups
+        .map((group) => task.allocations.find((line) => line.id === group.allocation_line_id)?.target_id)
+        .map((id) => targets.find((item) => item.id === id)?.name)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
   const lockedIds = new Set(
     selectedLaunches
       .filter((launch) =>
@@ -245,7 +269,7 @@ export function TaskPreviewPage() {
             <div className="flex h-full flex-col gap-4 overflow-y-auto pl-2">
               <Button
                 variant="ghost"
-                className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
+                className="min-h-10 h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
                 onClick={() => setInfoOpen(true)}
               >
                 <p className="flex items-center gap-2">
@@ -256,7 +280,7 @@ export function TaskPreviewPage() {
               </Button>
               <Button
                 variant="ghost"
-                className="h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
+                className="min-h-10 h-10 w-full justify-between border border-primitive-neutral-700 bg-primitive-neutral-900 px-3"
                 onClick={() => setStatsOpen(true)}
               >
                 <span className="text-sm font-medium">{text.crew_stats}</span>
@@ -297,11 +321,13 @@ export function TaskPreviewPage() {
         <LaunchDetailsModal
           crewName={crewName(launchSelection.crewId)}
           assetName={uavName(launchSelection.assetId)}
-          aimingName={selectedPoint?.name || selectedTarget?.name || DICTIONARY.tasks.allocation.primary_target}
+          aimingName={selectedTargetNames.join(", ") || DICTIONARY.tasks.allocation.primary_target}
           launches={selectedLaunches}
+          sections={launchSections}
           entries={serialEntries}
           canEdit={canEdit}
           lockedIds={lockedIds}
+          plannedQuantity={plannedQuantity}
           onClose={() => setLaunchSelection(null)}
         />
       ) : null}

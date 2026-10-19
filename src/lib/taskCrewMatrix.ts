@@ -1,4 +1,5 @@
 import { visibleBattleGroups } from "@/lib/battleGroup";
+import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Task } from "@/types/mission";
@@ -75,6 +76,22 @@ export function conflictingLaunchIndex(
   });
 
   return {index: match?.index ?? null, crewName: match?.crewName ?? null};
+}
+
+export function duplicateValueMessage(
+  entries: LaunchSerialEntry[],
+  launchId: string,
+  field: "serial" | "tracker",
+  value: string,
+  templates: { duplicate: string; crew: string },
+): string {
+  const match = conflictingLaunchIndex(entries, launchId, field, value);
+  if (match.index === null) {
+    return "";
+  }
+  const base = fillTemplate(templates.duplicate, { value: value.trim(), index: match.index });
+  const crew = match.crewName ? fillTemplate(templates.crew, { name: match.crewName }) : "";
+  return `${base} ${crew}`.trim();
 }
 
 export function groupLaunchesByCrew(task: Task, groups: BattleGroup[], launches: Launch[]): CrewLaunchGroup[] {

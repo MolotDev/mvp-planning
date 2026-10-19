@@ -355,7 +355,7 @@ export const DICTIONARY = {
       back_to_tasks: "До заявок",
       title_dated: "Політна заявка: {label} ({date})",
       task_info: "Деталі вогневого завдання",
-      allow_edit: "Дозволити редагувати",
+      allow_edit: "Редагувати",
       planned: "Заплановано: {count} од.",
       allocated: "Розподілено: {count} од.",
       remaining_units: "Залишок: {count} од.",

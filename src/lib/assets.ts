@@ -20,6 +20,14 @@ export function antennasForAsset(assetId: string): Antenna[] {
   return ANTENNAS.filter((antenna) => antenna.id === asset.antenna_id);
 }
 
+export function defaultAmmoId(assetId: string, currentId: string): string {
+  if (currentId.trim()) {
+    return currentId;
+  }
+  const options = ammosForAsset(assetId);
+  return options.length === 1 ? options[0].id : "";
+}
+
 export function ammosForAsset(assetId: string, currentId = ""): AmmoModel[] {
   const asset = useAssetStore.getState().assets.find((item) => item.id === assetId);
   if (!asset) {

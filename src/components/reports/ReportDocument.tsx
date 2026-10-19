@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from "react";
 import { FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
+import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
   const text = DICTIONARY.reports;
   const { primary: mainTarget, additional: additionalTargets } = dayTargetRoles(slice);
   const orderedLaunches = chronologicalLaunches(slice, report);
+  const [statusOffer, setStatusOffer] = useState<{ launchId: string; statusId: string; anchor: HTMLElement } | null>(null);
   const tableIds = report.trajectories.reduce<string[]>((ids, trajectory) => {
     if (trajectory.archived_at === null && !ids.includes(trajectory.table_id)) {
       ids.push(trajectory.table_id);
@@ -951,21 +953,50 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                         )}
                         <td className={cell}>{group ? crewName(group.lead_crew_id) : ""}</td>
                         <td className={cell}>
-                          <NativeFormSelect
-                            value={launch.launch_status_id}
-                            disabled={readOnly}
-                            placeholder={DICTIONARY.launches.fields.select_status}
-                            options={statusOptions(launch.launch_status_id)}
-                            onChange={(statusId) =>
-                              updateLaunch(launch.id, {
-                                launch_status_id: statusId,
-                                cause_launch_problem_id: statusId === "problem" ? launch.cause_launch_problem_id : "",
-                              })
-                            }
-                            className={`${selectClass} min-w-40`}
-                            ariaLabel={text.tables.launches_results.status}
-                            invalid={!launch.launch_status_id.trim() || launch.launch_status_id === PLANNED_LAUNCH_STATUS_ID}
-                          />
+                          <div
+                            onChange={(event) => {
+                              const target = event.target;
+                              if (!(target instanceof HTMLSelectElement) || readOnly || !target.value) {
+                                setStatusOffer(null);
+                                return;
+                              }
+                              setStatusOffer({ launchId: launch.id, statusId: target.value, anchor: target });
+                            }}
+                          >
+                            <NativeFormSelect
+                              value={launch.launch_status_id}
+                              disabled={readOnly}
+                              placeholder={DICTIONARY.launches.fields.select_status}
+                              options={statusOptions(launch.launch_status_id)}
+                              onChange={(statusId) =>
+                                updateLaunch(launch.id, {
+                                  launch_status_id: statusId,
+                                  cause_launch_problem_id: statusId === "problem" ? launch.cause_launch_problem_id : "",
+                                })
+                              }
+                              className={`${selectClass} min-w-40`}
+                              ariaLabel={text.tables.launches_results.status}
+                              invalid={!launch.launch_status_id.trim() || launch.launch_status_id === PLANNED_LAUNCH_STATUS_ID}
+                            />
+                            {statusOffer?.launchId === launch.id ? (
+                              <ApplyBelowPopover
+                                anchor={statusOffer.anchor}
+                                label={DICTIONARY.tasks.launch_board.apply_to_listed_launches_below}
+                                onApply={() => {
+                                  const start = orderedLaunches.findIndex((item) => item.id === statusOffer.launchId);
+                                  orderedLaunches.slice(start + 1).forEach((item) => {
+                                    updateLaunch(item.id, {
+                                      launch_status_id: statusOffer.statusId,
+                                      cause_launch_problem_id:
+                                        statusOffer.statusId === "problem" ? item.cause_launch_problem_id : "",
+                                    });
+                                  });
+                                  setStatusOffer(null);
+                                }}
+                                onClose={() => setStatusOffer(null)}
+                              />
+                            ) : null}
+                          </div>
                         </td>
                         {isLaunchProblemsFolded && (
                           <>
@@ -1255,23 +1286,20 @@ function LaunchGroupRows({
             </td>
             <td className={cell}>{assetName(launch.asset_id)}</td>
             <td className={cell}>
-              {readOnly ? (
-                launch.asset_serial_number ? (
-                  launch.asset_serial_number
-                ) : (
-                  <span className="text-sm text-primitive-red-500">-</span>
-                )
-              ) : (
+              <span className={`text-sm ${!launch.asset_serial_number ? "text-primitive-red-500" : ""}`}>{launch.asset_serial_number ?? "-"}</span>
+              {/* {readOnly ? (
+                  <span className="text-sm text-primitive-red-500">{launch.asset_serial_number ?? "-"}</span>) : (
                 <Input
                   value={launch.asset_serial_number}
                   aria-label={text.tables.launches_grouped.asset_sn}
                   onChange={(event) => onSerial(launch.id, event.target.value)}
                   className="h-7 px-2 min-w-28 max-w-[200px]"
                 />
-              )}
+              )} */}
             </td>
             <td className={cn(cell, "group/tracker")}>
-              {readOnly ? (
+              <span className={`text-sm ${!launch.tracker_model_serial_number ? "text-primitive-red-500" : ""}`}>{launch.tracker_model_serial_number ?? "-"}</span>
+              {/* {readOnly ? (
                 launch.tracker_model_serial_number ?? ""
               ) : (
                 <div className="flex items-center gap-1">
@@ -1295,7 +1323,7 @@ function LaunchGroupRows({
                     </Button>
                   ) : null}
                 </div>
-              )}
+              )} */}
             </td>
             <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
           </tr>

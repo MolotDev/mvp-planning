@@ -6,7 +6,7 @@ import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAccess, canEditLaunchFields, crewOwnsGroup, homePath, launchInScope } from "@/lib/access";
 import { getEntityState } from "@/lib/entityState";
-import { taskAimingPoints } from "@/lib/launchAiming";
+import { allocationForLaunch, taskAimingPoints } from "@/lib/launchAiming";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -15,12 +15,15 @@ import { useMissionStore } from "@/store/useMissionStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
+import { formatDateUk } from "@/lib/dates";
+import { Badge, TargetBadge } from "@/components/ui/badge";
+import { Calendar } from "lucide-react";
+import { formattingMGRS } from "@/lib/formattingMGRS";
 
 export function LaunchPreviewPage() {
   const { battleGroupId, taskId } = useParams();
   const navigate = useNavigate();
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
-  const updateBattleGroup = useBattleGroupStore((state) => state.updateBattleGroup);
   const launches = useLaunchStore((state) => state.launches);
   const tasks = useTaskStore((state) => state.tasks);
   const missions = useMissionStore((state) => state.missions);
@@ -32,9 +35,30 @@ export function LaunchPreviewPage() {
 
   const group = battleGroups.find((item) => item.id === battleGroupId);
   const task = tasks.find((item) => item.id === (group?.task_id ?? taskId));
-  const line = task?.allocations[0];
-  const mission = line ? missions.find((item) => item.id === line.mission_id) : undefined;
-  const target = line ? targets.find((item) => item.id === line.target_id) : undefined;
+  const relatedGroups = group
+    ? battleGroups.filter(
+        (item) =>
+          item.archived_at === null &&
+          item.task_id === group.task_id &&
+          item.lead_crew_id === group.lead_crew_id &&
+          item.asset_id === group.asset_id,
+      )
+    : battleGroups.filter((item) => item.task_id === task?.id && item.archived_at === null);
+  const resolvedTargets = task
+    ? relatedGroups
+        .map((item) => allocationForLaunch(task, { allocation_line_id: null, asset_id: item.asset_id }, item)?.target_id)
+        .filter((id): id is string => Boolean(id))
+    : [];
+  const uniqueTargetIds = [...new Set(resolvedTargets)];
+  const target = uniqueTargetIds.length === 1 ? targets.find((item) => item.id === uniqueTargetIds[0]) : undefined;
+  const missionLine = task
+    ? allocationForLaunch(
+        task,
+        { allocation_line_id: null, asset_id: relatedGroups[0]?.asset_id ?? "" },
+        relatedGroups[0],
+      )
+    : undefined;
+  const mission = missionLine ? missions.find((item) => item.id === missionLine.mission_id) : undefined;
 
   if (!task) {
     return (
@@ -47,20 +71,14 @@ export function LaunchPreviewPage() {
     );
   }
 
-  const scopedGroups = (group
-    ? [group]
-    : battleGroups.filter((item) => item.task_id === task.id && item.archived_at === null)
-  ).filter((item) => launchInScope(role, entityId, task, item));
+  const scopedGroups = relatedGroups.filter((item) => launchInScope(role, entityId, task, item));
   if (scopedGroups.length === 0) {
     return <Navigate to={homePath(role)} replace />;
   }
   const scopedGroupIds = new Set(scopedGroups.map((item) => item.id));
-  const scopedLaunches = launches.filter((launch) => {
-    if (launch.archived_at !== null || !scopedGroupIds.has(launch.battle_group_id)) {
-      return false;
-    }
-    return group ? launch.battle_group_id === group.id : launch.task_id === task.id;
-  });
+  const scopedLaunches = launches.filter(
+    (launch) => launch.archived_at === null && scopedGroupIds.has(launch.battle_group_id),
+  );
   const taskState = getEntityState(task);
   const missionState = mission ? getEntityState(mission) : "active";
   const locked = taskState !== "active" || missionState !== "active";
@@ -110,28 +128,47 @@ export function LaunchPreviewPage() {
           </div>
         )}
       </header>
-      <div className="min-h-0 flex-1 flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
-        <LaunchEditor
-          key={group?.id ?? task.id}
-          task={task}
-          mission={mission}
-          target={target}
-          aimingPoints={taskAimingPoints(task, aimingPoints)}
-          updateBattleGroup={updateBattleGroup}
-          battleGroups={scopedGroups}
-          launches={scopedLaunches}
-          editing={editing}
-          locked={locked}
-        />
-        {canAccess(role, "tasks") ? (
-          <div className="mt-auto">
-            <PreviewActionButton
-              label={DICTIONARY.common.actions.preview_task}
-              onClick={() => navigate(`/planning/tasks/${task.id}`)}
-            />
-          </div>
-        ) : null}
-      </div>
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-10">
+          <p className="flex flex-wrap items-center gap-1 text-[20px] text-primitive-neutral-0">
+            <Calendar className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <Badge className="bg-primitive-neutral-800 text-[20px]">{formatDateUk(mission?.scheduled_at ?? "")}</Badge>
+            <span>{` — ${mission?.name ?? mission?.label ?? ""}`}</span>
+          </p>
+          {target ? (
+            <div className="flex flex-wrap items-center min-w-0 gap-3 font-semibold">
+              <TargetBadge
+                targetId={target?.id ?? ""}
+                mgrs={formattingMGRS.spacing(target?.mgrs ?? "")}
+                label={`${target?.name ?? ""}`}
+                wrapperClasses="basis-0 gap-2 font-semibold w-fit flex items-center flex-1"
+              />
+              <span className="text-sm text-primitive-neutral-300">{` (${target?.address ?? ""})`}</span>
+            </div>
+          ) : null}
+        </div>
+        <div className="min-h-0 flex-1 flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
+          <LaunchEditor
+            key={group?.id ?? task.id}
+            task={task}
+            mission={mission}
+            target={target}
+            aimingPoints={taskAimingPoints(task, aimingPoints)}
+            battleGroups={scopedGroups}
+            launches={scopedLaunches}
+            editing={editing}
+            locked={locked}
+          />
+          {canAccess(role, "tasks") ? (
+            <div className="mt-auto">
+              <PreviewActionButton
+                label={DICTIONARY.common.actions.preview_task}
+                onClick={() => navigate(`/planning/tasks/${task.id}`)}
+              />
+            </div>
+          ) : null}
+        </div>
+      </section>
     </section>
   );
 }

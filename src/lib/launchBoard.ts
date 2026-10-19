@@ -1,6 +1,7 @@
 import { crewName, uavName } from "@/lib/battleGroup";
 import { isDateInRange } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
+import { allocationForLaunch, resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, MissionMetrics, Task } from "@/types/mission";
@@ -56,13 +57,11 @@ export function buildLaunchContext(
   battleGroups: BattleGroup[],
 ): LaunchRowContext {
   const task = tasks.find((item) => item.id === launch.task_id);
-  const line = task?.allocations.find((item) => item.id === launch.allocation_line_id) ?? task?.allocations[0];
+  const battleGroup = battleGroups.find((group) => group.id === launch.battle_group_id);
+  const line = allocationForLaunch(task, launch, battleGroup);
   const mission = missions.find((item) => item.id === line?.mission_id);
   const target = targets.find((item) => item.id === line?.target_id);
-  const aimingPoint = aimingPoints.find(
-    (point) => point.id === line?.aiming_point_id && point.mgrs === launch.aiming_point_mgrs.trim(),
-  );
-  const battleGroup = battleGroups.find((group) => group.id === launch.battle_group_id);
+  const aimingPoint = resolveLaunchAimingPoint(task, launch, battleGroup, aimingPoints);
   return { launch, task, mission, target, aimingPoint, battleGroup };
 }
 

@@ -9,7 +9,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
-import { taskAimingPoints } from "@/lib/launchAiming";
+import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { launchQuantitySummary, type LaunchRowContext } from "@/lib/launchBoard";
 import { isLaunchProcessed, quantityDiscrepancy } from "@/lib/launches";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -70,20 +70,36 @@ function LaunchScopeCard({
   const launches = useLaunchStore((state) => state.launches);
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const entityState = getEntityState(scope.task);
-  const groups = scope.battleGroup
-    ? [scope.battleGroup]
-    : battleGroups.filter((group) => scope.launches.some((launch) => launch.battle_group_id === group.id));
+  const groups = scope.battleGroups?.length
+    ? scope.battleGroups
+    : scope.battleGroup
+      ? [scope.battleGroup]
+      : battleGroups.filter((group) => scope.launches.some((launch) => launch.battle_group_id === group.id));
+  const crewLines = groups.filter((group, index) => {
+    const key = `${group.lead_crew_id}|${group.support_crew_ids.join(",")}`;
+    return groups.findIndex((item) => `${item.lead_crew_id}|${item.support_crew_ids.join(",")}` === key) === index;
+  });
   const missionName = scope.mission?.name?.trim() ? scope.mission.name : (scope.target?.name ?? "");
   const scheduledAt = scope.mission?.scheduled_at ?? scope.task.created_at;
-  const points = taskAimingPoints(scope.task, aimingPoints);
   const summary = launchQuantitySummary(scope.launches);
-
-  const assigned = scope.launches.filter(
-    (launch) =>
-      launch.archived_at === null &&
-      isLaunchProcessed(launch),
-  );
-  const isAllAssigned = assigned.length === scope.launches.length;
+  const pointBuckets = new Map<string, { point: AimingPoint | null; launches: Launch[] }>();
+  scope.launches.forEach((launch) => {
+    const group = groups.find((item) => item.id === launch.battle_group_id);
+    const point = resolveLaunchAimingPoint(scope.task, launch, group, aimingPoints) ?? null;
+    const key = point?.id ?? "";
+    const bucket = pointBuckets.get(key) ?? { point, launches: [] };
+    bucket.launches.push(launch);
+    pointBuckets.set(key, bucket);
+  });
+  const aimingBuckets = [...pointBuckets.values()].sort((left, right) => {
+    if (!left.point) {
+      return 1;
+    }
+    if (!right.point) {
+      return -1;
+    }
+    return (left.point.displayed_id || left.point.label).localeCompare(right.point.displayed_id || right.point.label, "uk");
+  });
 
   return (
     <Card className="min-w-[320px] hover:cursor-pointer" onDoubleClick={() => onPreview(scope)}>
@@ -115,7 +131,9 @@ function LaunchScopeCard({
             <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{formattingMGRS.spacing(scope.target.mgrs)}</Badge>
           </div>
         ) : null}
-        {scope.battleGroup ? <BattleGroupCrewLine group={scope.battleGroup} /> : null}
+        {crewLines.map((group) => (
+          <BattleGroupCrewLine key={group.id} group={group} />
+        ))}
         {groups.map((group) => {
           const discrepancy = quantityDiscrepancy(group.uav_quantity, launches, group.id);
           return discrepancy ? (
@@ -126,30 +144,29 @@ function LaunchScopeCard({
           {fillTemplate(DICTIONARY.tasks.launch_board.total_launches, { summary })}
         </p>
         <div className="flex flex-col gap-2">
-          {!points.length && (
-            <div className={cn("flex flex-col gap-1 rounded-md border p-2", isAllAssigned ? "border-primitive-neutral-800" : "border-red-800")}>
-              <p className="text-sm text-primitive-neutral-200">
-                {fillTemplate(DICTIONARY.tasks.launch_board.processed_launches, {
-                  summary: launchQuantitySummary(assigned),
-                })}
-              </p>
-            </div>
-          )}
-          {points.map((point) => {
+          {aimingBuckets.map((bucket) => {
+            const processed = bucket.launches.filter((launch) => launch.archived_at === null && isLaunchProcessed(launch));
+            const complete = processed.length === bucket.launches.length && bucket.launches.length > 0;
+            const point = bucket.point;
             return (
-              <div key={point.id} className={cn("flex flex-col gap-1 rounded-md border p-2", isAllAssigned ? "border-primitive-neutral-800" : "border-red-800")}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
-                    <Badge className="text-[12px] font-semibold bg-sky-950">{point.displayed_id || point.label || "—"}</Badge>
-                    <span className="text-primitive-neutral-0">{point.name}</span>
-                    <Badge className="bg-primitive-neutral-800 text-[12px] font-semibold text-primitive-neutral-0">
-                      {formattingMGRS.spacing(point.mgrs)}
-                    </Badge>
+              <div
+                key={point?.id ?? "target"}
+                className={cn("flex flex-col gap-1 rounded-md border p-2", complete ? "border-primitive-neutral-800" : "border-red-800")}
+              >
+                {point ? (
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
+                      <Badge className="bg-sky-950 text-[12px] font-semibold">{point.displayed_id || point.label || "—"}</Badge>
+                      <span className="text-primitive-neutral-0">{point.name}</span>
+                      <Badge className="bg-primitive-neutral-800 text-[12px] font-semibold text-primitive-neutral-0">
+                        {formattingMGRS.spacing(point.mgrs)}
+                      </Badge>
+                    </div>
                   </div>
-                </div>
+                ) : null}
                 <p className="text-sm text-primitive-neutral-200">
                   {fillTemplate(DICTIONARY.tasks.launch_board.processed_launches, {
-                    summary: launchQuantitySummary(assigned),
+                    summary: launchQuantitySummary(processed),
                   })}
                 </p>
               </div>
@@ -161,35 +178,42 @@ function LaunchScopeCard({
   );
 }
 
+function crewAssetScopeId(row: LaunchRowContext): string {
+  const crewId = row.battleGroup?.lead_crew_id;
+  const assetId = row.battleGroup?.asset_id ?? row.launch.asset_id;
+  if (!row.task || !crewId) {
+    return row.launch.battle_group_id;
+  }
+  return `${row.task.id}:${crewId}:${assetId}`;
+}
+
 export function scopesFromRows(rows: LaunchRowContext[], mode: "battle_group" | "task"): LaunchCardScope[] {
   const map = new Map<string, LaunchCardScope>();
-  const setOfBattleGroups = new Set<BattleGroup>();
-  // const processedAimingPoints = new Set<string>(rows.map((row) => row.launch.aiming_point_mgrs ? row.aimingPoint?.id ?? '' : ''));
-  let id = ""
   rows.forEach((row) => {
     if (!row.task) {
       return;
     }
-    id = mode === "battle_group" ? row.launch.battle_group_id : row.task.id;
-    row.battleGroup && setOfBattleGroups.add(row.battleGroup);
+    const id = mode === "battle_group" ? crewAssetScopeId(row) : row.task.id;
     const existing = map.get(id);
     if (existing) {
       existing.launches.push(row.launch);
+      if (row.battleGroup && !existing.battleGroups?.some((group) => group.id === row.battleGroup?.id)) {
+        existing.battleGroups = [...(existing.battleGroups ?? []), row.battleGroup];
+      }
+      if (existing.target && row.target && existing.target.id !== row.target.id) {
+        existing.target = undefined;
+      }
       return;
     }
     map.set(id, {
       id,
-      task: row.task, //{...row.task, aiming_point_ids: row.task.aiming_point_ids.filter((id) => processedAimingPoints.has(id))},
+      task: row.task,
       mission: row.mission,
       target: row.target,
       battleGroup: mode === "battle_group" ? row.battleGroup : undefined,
+      battleGroups: row.battleGroup ? [row.battleGroup] : [],
       launches: [row.launch],
     });
   });
-  if (mode === "task") {
-    map.forEach((scope) => {
-      scope.battleGroups = [...setOfBattleGroups].filter((group) => scope.launches.some((launch) => launch.battle_group_id === group.id));
-    });
-  }
   return [...map.values()];
 }
