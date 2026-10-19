@@ -214,7 +214,6 @@ export function MissionPreviewPage() {
             {editing ? (
               <section className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {/* <h4 className="text-lg font-semibold text-primitive-neutral-0">{mission.label}</h4> */}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button variant="ghost" onClick={resetDraft}>
                       <X className="h-4 w-4" aria-hidden="true" />
@@ -262,12 +261,9 @@ export function MissionPreviewPage() {
                   launches={launches}
                   targets={targets}
                   aimingPoints={aimingPoints}
-                  groups={battleGroups}
                   canEdit={canEdit}
                   onEdit={() => setEditing(true)}
                 />
-                {/* <MissionReadinessPanel mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
-                {/* <MissionLaunchMonitor mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
               </>
             )}
           </div>
@@ -291,8 +287,6 @@ export function MissionPreviewPage() {
               aimingPoints={aimingPoints}
             />
           </div>
-          {/* <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} /> */}
-          
           {statsOpen ? (
             <div className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-2xl" role="presentation">
               <aside

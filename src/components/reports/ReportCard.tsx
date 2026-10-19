@@ -18,7 +18,6 @@ import { useAuthStore } from "@/store/useAuthStore";
 interface ReportCardProps {
   report: Report;
   snapshot: PlanningSnapshot;
-  onSubmit: (report: Report) => void;
   onArchive: (report: Report) => void;
 }
 
@@ -100,21 +99,6 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
         <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
           {report.status !== "draft" || !managesReports ? null : <ArchiveIconButton onClick={() => onArchive(report)} />}
         </div>
-        {/* {report.status === "draft" ? (
-          <Button
-            className="h-8 px-2"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (isReportSubmittable(report, snapshot)) {
-                onSubmit(report);
-                return;
-              }
-              navigate(`/reports/${report.id}?mode=edit`);
-            }}
-          >
-            {DICTIONARY.reports.submit_report}
-          </Button>
-        ) : null} */}
       </CardFooter>
     </Card>
   );

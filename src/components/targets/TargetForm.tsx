@@ -18,15 +18,6 @@ export function TargetForm({ values, errors, readOnly = false, onChange }: Targe
 
   return (
     <div className="flex flex-col gap-3">
-      {/* <FormField id="displayed_id" label={fields.displayed_id} error={errors.displayed_id}>
-        <Input
-          id="displayed_id"
-          value={values.displayed_id}
-          disabled={readOnly}
-          aria-invalid={Boolean(errors.displayed_id)}
-          onChange={(event) => onChange("displayed_id", event.target.value)}
-        />
-      </FormField> */}
       <FormField id="name" label={fields.name}>
         <Input
           id="name"

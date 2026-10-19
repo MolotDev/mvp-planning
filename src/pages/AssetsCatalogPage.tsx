@@ -4,10 +4,8 @@ import { useSearchParams } from "react-router-dom";
 import { AssetModal } from "@/components/assets/AssetModal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-// import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { ArchiveIconButton, EditIconButton, ResetFiltersIconButton, ResetIconButton } from "@/components/ui/icon-buttons";
-// import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
 import { ANTENNAS } from "@/data/antennas";
 import { AMMOS } from "@/data/launchCatalog";
@@ -56,12 +54,10 @@ export function AssetsCatalogPage() {
     () => filterAssets(assets, filters.query, filters.status),
     [assets, filters.query, filters.status],
   );
-  // const metrics = useMemo(() => getAssetMetrics(visibleAssets), [visibleAssets]);
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <h1 className="sr-only">{DICTIONARY.assets.title}</h1>
-      {/* <HeaderMetricCards metrics={metrics} /> */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <div className="relative min-w-0 flex-1 max-w-60">
@@ -92,13 +88,6 @@ export function AssetsCatalogPage() {
             value={filters.status}
             onChange={(value) => applyFilters({ ...filters, status: value as AssetStatusFilter })}
           />
-          {/* <div className="w-full min-w-[10rem] sm:w-44">
-            <StatusFilterSelect
-              mode="asset"
-              value={filters.status}
-              onChange={(value) => applyFilters({ ...filters, status: value as AssetStatusFilter })}
-            />
-          </div> */}
           <ResetFiltersIconButton onClick={resetFilters} />
         </div>
         <Button className="hover:shadow-md" onClick={() => setModalAsset(null)}>

@@ -263,13 +263,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             {columns.map((trajectory) => (
                               <td key={trajectory.id} className={`${cell} relative`}>
                                 <div className="flex min-w-20 w-fit items-center">
-                                  {/* <Input
-                                    value={trajectory.name}
-                                    aria-label={text.tables.trajectories.header_row}
-                                    readOnly
-                                    disabled
-                                    className="h-7 text-center"
-                                  /> */}
                                   <p className="px-1 text-sm text-primitive-neutral-0 font-bold">
                                     {trajectory.name?.trim() ?? ""}
                                   </p>
@@ -279,34 +272,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                                   <p className="px-1 text-sm text-primitive-neutral-0 font-bold">
                                     {crewName(slice.battleGroups.find((item) => item.id === trajectory.battle_group_id)?.lead_crew_id ?? "")}
                                   </p>
-                                  {/* <FormSelect
-                                    id={`bg-${trajectory.id}`}
-                                    value={trajectory.battle_group_id}
-                                    placeholder={text.select_crew}
-                                    disabled={readOnly || slice.battleGroups.length === 1}
-                                    options={slice.battleGroups.map((group) => ({
-                                      value: group.id,
-                                      label: `${crewName(group.lead_crew_id)}`,
-                                    }))}
-                                    onChange={(battleGroupId) => {
-                                      const group = slice.battleGroups.find((item) => item.id === battleGroupId);
-                                      updateTrajectory(report.id, trajectory.id, {
-                                        battle_group_id: battleGroupId,
-                                        asset_id: group?.asset_id || trajectory.asset_id,
-                                      });
-                                    }}
-                                    className="h-7 px-2 max-w-24"
-                                    invalid={!trajectory.battle_group_id}
-                                  /> */}
-                                  {/* <FormSelect
-                                    className="h-7"
-                                    id={`asset-${trajectory.id}`}
-                                    value={trajectory.asset_id}
-                                    placeholder={text.select_asset}
-                                    disabled={readOnly || slice.battleGroups.length === 1}
-                                    options={assetOptions(trajectory, slice)}
-                                    onChange={(assetId) => updateTrajectory(report.id, trajectory.id, { asset_id: assetId })}
-                                  /> */}
                                   <p className="px-1 text-sm text-primitive-neutral-0 font-bold">
                                     /
                                   </p>
@@ -551,17 +516,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                           groupLabel={[task?.label, crewName(group.lead_crew_id), target?.name].filter(Boolean).join(" / ")}
                           launches={groupLaunches}
                           group={group}
-                          readOnly={readOnly}
                           assets={assets}
-                          onSerial={(launchId, assetSerialNumber) => updateLaunch(launchId, { asset_serial_number: assetSerialNumber })}
-                          onTrackerSerial={(launch, value) => {
-                            if (value.trim() === "") {
-                              clearTracker(launch);
-                              return;
-                            }
-                            updateLaunch(launch.id, { tracker_model_serial_number: value });
-                          }}
-                          onClearTracker={clearTracker}
                         />
                       );
                     })}
@@ -634,7 +589,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                 <th className={`${baseLabelCell} w-20 ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.time}</th>
                 <th className={`${baseLabelCell} w-20 ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.date}</th>
                 <th className={`${baseLabelCell} ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.event}</th>
-                {/* <th className={baseLabelCell}></th> */}
               </tr>
             </thead>
             <tbody>
@@ -1239,22 +1193,13 @@ function LaunchGroupRows({
   groupLabel,
   launches,
   group,
-  // readOnly,
   assets,
-  // onSerial,
-  // onTrackerSerial,
-  // onClearTracker,
 }: {
   groupLabel: string;
   launches: Launch[];
   group: BattleGroup;
-  readOnly: boolean;
   assets: Asset[];
-  onSerial: (launchId: string, serial: string) => void;
-  onTrackerSerial: (launch: Launch, value: string) => void;
-  onClearTracker: (launch: Launch) => void;
 }) {
-  // const text = DICTIONARY.reports;
   return (
     <>
       <tr>
@@ -1264,7 +1209,6 @@ function LaunchGroupRows({
       </tr>
       {launches.map((launch) => {
         const asset = assets.find((item) => item.id === launch.asset_id);
-        // const trackerName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
         return (
           <tr key={launch.id}>
             <td className={cell}>{crewName(group.lead_crew_id)}</td>
@@ -1287,43 +1231,9 @@ function LaunchGroupRows({
             <td className={cell}>{assetName(launch.asset_id)}</td>
             <td className={cell}>
               <span className={`text-sm ${!launch.asset_serial_number ? "text-primitive-red-500" : ""}`}>{launch.asset_serial_number ?? "-"}</span>
-              {/* {readOnly ? (
-                  <span className="text-sm text-primitive-red-500">{launch.asset_serial_number ?? "-"}</span>) : (
-                <Input
-                  value={launch.asset_serial_number}
-                  aria-label={text.tables.launches_grouped.asset_sn}
-                  onChange={(event) => onSerial(launch.id, event.target.value)}
-                  className="h-7 px-2 min-w-28 max-w-[200px]"
-                />
-              )} */}
             </td>
             <td className={cn(cell, "group/tracker")}>
               <span className={`text-sm ${!launch.tracker_model_serial_number ? "text-primitive-red-500" : ""}`}>{launch.tracker_model_serial_number ?? "-"}</span>
-              {/* {readOnly ? (
-                launch.tracker_model_serial_number ?? ""
-              ) : (
-                <div className="flex items-center gap-1">
-                  {trackerName ? <span className="text-sm">{trackerName}</span> : null}
-                  <Input
-                    value={launch.tracker_model_serial_number ?? ""}
-                    aria-label={text.tables.launches_grouped.tracker_sn}
-                    onChange={(event) => onTrackerSerial(launch, event.target.value)}
-                    className="h-7 px-2 min-w-28 max-w-[200px]"
-                  />
-                  {trackerName ? (
-                    <Button
-                      variant="icon"
-                      size="icon"
-                      title={text.tracker.delete_tooltip}
-                      aria-label={text.tracker.delete_tooltip}
-                      className="h-6 min-w-6 w-6 opacity-0 group-hover/tracker:opacity-100 focus-visible:opacity-100"
-                      onClick={() => onClearTracker(launch)}
-                    >
-                      <X className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  ) : null}
-                </div>
-              )} */}
             </td>
             <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
           </tr>

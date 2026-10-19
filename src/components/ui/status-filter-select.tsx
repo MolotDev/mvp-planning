@@ -11,20 +11,6 @@ interface StatusFilterSelectProps {
 
 export function StatusFilterSelect({ value, onChange, mode = "lifecycle", className }: StatusFilterSelectProps) {
   const labels = DICTIONARY.common.status_filter;
-  // const options =
-  //   mode === "report"
-  //     ? [
-  //         { value: "all", label: labels.all },
-  //         { value: "submitted", label: DICTIONARY.common.metrics.submitted },
-  //         { value: "draft", label: DICTIONARY.common.metrics.draft },
-  //         { value: "archived", label: labels.archived },
-  //       ]
-  //     : [
-  //         { value: "all", label: labels.all },
-  //         { value: "reported", label: labels.completed },
-  //         { value: "active", label: labels.active },
-  //         { value: "archived", label: labels.archived },
-  //       ];
 
   const options = useMemo(() => {
     if (mode === "report") {

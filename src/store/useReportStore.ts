@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { CHECKPOINTS } from "@/data/checkpoints";
-// import { assetName } from "@/lib/assets";
-// import { crewName } from "@/lib/battleGroup";
 import {
   aggregateDay,
   blankTrajectory,
@@ -358,7 +356,6 @@ export const useReportStore = create<ReportStoreState>()(
         const now = nowDate.toISOString();
         const slice = aggregateDay(current.organization_id, current.report_date, planningSnapshot());
         const group = slice.battleGroups[0];
-        // const launch = slice.launches[0];
         const checkpoint = CHECKPOINTS[0];
         const comment = 
           current.checkpoint_updates.find((item) => item.battle_group_id === group?.id)?.comment ?? "";
@@ -367,12 +364,6 @@ export const useReportStore = create<ReportStoreState>()(
           time: formatTimeInput(now),
           date: formatIsoDate(nowDate),
           event_description: description, 
-          // buildEventDescription(
-          //   launch ? assetName(launch.asset_id) : "",
-          //   group ? crewName(group.lead_crew_id) : "",
-          //   checkpoint?.name ?? "",
-          //   comment,
-          // ),
         };
         const checkpointUpdate: CheckpointUpdate | null =
           group && checkpoint

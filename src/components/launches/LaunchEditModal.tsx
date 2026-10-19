@@ -381,25 +381,6 @@ export function LaunchEditor({
   return (
     <div className="flex-1 flex flex-col gap-4">
       <div className="flex flex-col gap-4">
-        {/* <p className="flex flex-wrap items-center gap-1 text-[20px] text-primitive-neutral-0">
-          <Calendar className="h-5 w-5 shrink-0" aria-hidden="true" />
-          <Badge className="bg-primitive-neutral-800 text-[20px]">{formatDateUk(scheduledAt)}</Badge>
-          {headingName ? (
-            <>
-              <span>—</span>
-              <span>{headingName}</span>
-            </>
-          ) : null}
-        </p>
-        {target ? (
-          <div className="flex flex-wrap items-baseline gap-2 text-[16px] font-semibold">
-            <TargetIdBadgeLink id={target.id}>{target.displayed_id || target.label}</TargetIdBadgeLink>
-            <span className="text-primitive-neutral-0">{target.name}</span>
-            <Badge className="bg-primitive-neutral-800 text-[16px] font-semibold tracking-wide text-primitive-neutral-0">
-              {formattingMGRS.spacing(target.mgrs)}
-            </Badge>
-          </div>
-        ) : null} */}
         {(() => {
           const sameCrew = new Set(battleGroups.map((item) => item.lead_crew_id)).size <= 1;
           const sectionMap = new Map<string, { id: string; point: (typeof aimingPoints)[number] | null; rows: Launch[] }>();
@@ -445,7 +426,6 @@ export function LaunchEditor({
                       <th className="px-2 py-1 font-medium">{columns.aiming_mgrs}</th>
                       <th className="px-2 py-1 font-medium">{DICTIONARY.launches.fields.trajectory_name}</th>
                       <th className="px-2 py-1 font-medium">{DICTIONARY.common.asset}</th>
-                      {/* <th className="px-2 py-1 font-medium">{DICTIONARY.assets.fields.antenna}</th> */}
                       <th className="px-2 py-1 font-medium">{columns.uav_serial}</th>
                       <th className="px-2 py-1 font-medium">{columns.tracker}</th>
                       <th className="px-2 py-1 font-medium">{columns.tracker_serial}</th>
@@ -520,20 +500,6 @@ export function LaunchEditor({
                           <td className="px-2 py-2">
                             <Input aria-label={`${DICTIONARY.common.asset} ${launch.id}`} value={uavName(launch.asset_id)} disabled className="max-h-7 max-w-[140px]" />
                           </td>
-                          {/* <td className="px-2 py-2">
-                            <select
-                              aria-label={`${DICTIONARY.assets.fields.antenna} ${launch.id}`}
-                              value={antennasForAsset(launch.asset_id)[0]?.id ?? ""}
-                              disabled
-                              className={cn(selectClassName, "max-h-7 max-w-[100px]")}
-                            >
-                              {antennasForAsset(launch.asset_id).map((antenna) => (
-                                <option key={antenna.id} value={antenna.id}>
-                                  {antenna.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td> */}
                           <td className="px-2 py-2">
                             <div className="relative max-w-[200px]">
                               <Input

@@ -6,12 +6,6 @@ import type { AimingPoint, StatusFilter, Target } from "@/types/target";
 
 export const TARGET_STORE_KEY = "military_crm_target_store";
 
-export interface TargetMetrics {
-  total: number;
-  active: number;
-  archived: number;
-}
-
 export interface TargetStoreState {
   targets: Target[];
   aimingPoints: AimingPoint[];
@@ -93,14 +87,6 @@ function matchesStatus(archivedAt: string | null, filter: StatusFilter): boolean
 
 export function filterTargets(targets: Target[], query: string, status: StatusFilter): Target[] {
   return targets.filter((target) => matchesQuery(target, query) && matchesStatus(target.archived_at, status));
-}
-
-export function getTargetMetrics(targets: Target[]): TargetMetrics {
-  return {
-    total: targets.length,
-    active: targets.filter((target) => target.archived_at === null).length,
-    archived: targets.filter((target) => target.archived_at !== null).length,
-  };
 }
 
 export function getActiveAimingPointCount(aimingPoints: AimingPoint[], targetId: string): number {

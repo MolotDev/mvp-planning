@@ -34,15 +34,6 @@ export function validateTargetForm(
   const store = useTargetStore.getState();
   const errors: FieldErrors<TargetFormValues> = {};
 
-  // const displayedId = values.displayed_id.trim();
-  // if (!displayedId) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.required;
-  // } else if (!isValidTargetDisplayedId(displayedId)) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.displayed_id_target;
-  // } else if (store.isTargetDisplayedIdTaken(displayedId, excludeId)) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.unique_displayed_id;
-  // }
-
   const name = values.name.trim();
   if (!name) {
     errors.name = DICTIONARY.targets_catalog.validation.required;
@@ -85,15 +76,6 @@ export function validateAimingPointForm(
 ): FieldErrors<AimingPointFormValues> {
   const store = useTargetStore.getState();
   const errors: FieldErrors<AimingPointFormValues> = {};
-
-  // const displayedId = values.displayed_id.trim();
-  // if (!displayedId) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.required;
-  // } else if (!isValidAimingPointDisplayedId(displayedId)) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.displayed_id_aiming_point;
-  // } else if (store.isAimingPointDisplayedIdTaken(targetId, displayedId, excludeId)) {
-  //   errors.displayed_id = DICTIONARY.targets_catalog.validation.unique_displayed_id;
-  // }
 
   const nameError = requiredError(values.name);
   if (nameError) {

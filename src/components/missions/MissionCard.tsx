@@ -7,7 +7,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { isToday } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import type { Mission, Task } from "@/types/mission";
-import type { AimingPoint, Target } from "@/types/target";
+import type { Target } from "@/types/target";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { cn } from "@/lib/utils";
 import { detachmentName } from "@/lib/detachments";
@@ -35,10 +35,7 @@ interface MissionCardProps {
   mission: Mission;
   tasks: Task[];
   targets: Target[];
-  aimingPoints: AimingPoint[];
   onPreview: (mission: Mission) => void;
-  onArchive: (mission: Mission) => void;
-  onRestore: (mission: Mission) => void;
 }
 
 export function MissionCard({
@@ -46,10 +43,7 @@ export function MissionCard({
   tasks,
   targets,
   onPreview,
-  // onArchive,
-  // onRestore,
 }: MissionCardProps) {
-  // const navigate = useNavigate();
   const reports = useReportStore((state) => state.reports);
   const launches = useLaunchStore((state) => state.launches);
   const linkedTasks = tasks.filter((task) =>
@@ -120,15 +114,6 @@ export function MissionCard({
                   targetClasses="text-xs"
                   wrapperClasses="items-start"
                 />
-                {/* <div className="h-6 flex items-center justify-center">
-                  <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
-                </div>
-                <div className="flex items-center gap-2 text-sm flex-wrap">
-                  <TargetBadgeLink id={targetId}>{formattingMGRS.spacing(targetData.targetMgrs)}</TargetBadgeLink>
-                  <TargetIdBadgeLink className="text-md" id={targetId}>{targetData.targetLabel}</TargetIdBadgeLink>
-                  <Badge className="text-md bg-primitive-neutral-800 min-w-fit">{formattingMGRS.spacing(targetData.targetMgrs)}</Badge>
-                  <p className="font-medium text-primitive-neutral-0">{targetData.targetName}</p>
-                </div> */}
               </div>
               <div className="flex flex-col gap-1">
                 {Object.entries(targetData.detachmentData).map(([detachmentId, detachment]) => {
@@ -145,14 +130,8 @@ export function MissionCard({
                               <ProgressBadge key={assetId} label={`${uavName(assetId)} × ${numbers.quantity}`} processed={numbers.processed} total={numbers.quantity} />
                             ))}
                           </div>
-                          {/* {detachment.reportId ? <ViewReportButton reportId={detachment.reportId} /> : null} */}
                         </div>
                       </div>
-                      {/* <div className="pl-6">
-                        <LaunchProgressBadge
-                          launches={detachment.launches}
-                        />
-                      </div> */}
                     </div>
                   );
                 })}
@@ -170,7 +149,6 @@ export function MissionCard({
         isArchived ? "opacity-60" : "hover:cursor-pointer",
         isToday(new Date(mission.scheduled_at)) ? "border-primitive-neutral-500 hover:shadow-[0_0_10px_rgba(255,255,255,0.2)] hover:border-primitive-neutral-100 transition-all duration-300" : "")
       }
-      // onDoubleClick={() => onPreview(mission)}
       onClick={() => onPreview(mission)}
     >
       <CardHeader>
@@ -186,10 +164,6 @@ export function MissionCard({
             <EntityStatusBadge status={getEntityState(mission)} />
           )}
         </div>
-        {/* <div className="flex items-start h-full" onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
-          <EditIconButton onClick={() => navigate(`/planning/missions/${mission.id}`)} />
-          <PreviewIconButton onClick={() => onPreview(mission)} className="text-primitive-neutral-500" />
-        </div> */}
       </CardHeader>
       <CardBody className="gap-3">
         <div className="flex flex-col gap-0.5 mb-2">
@@ -200,16 +174,6 @@ export function MissionCard({
           )}
           title={title?.trim() || mission.label}>
           {title?.trim() || mission.label}
-            {/* <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(mission.scheduled_at)}</Badge> */}
-            {/* {!title?.trim() ? null : (
-              <>
-                <span>—</span>
-                <span className="line-clamp-2" title={title}>
-                  {title}
-                </span>
-              </>
-            )} */}
           </p>
           <p className="text-sm text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap line-clamp-2" title={mission.description}>
             {mission.description}
@@ -223,28 +187,6 @@ export function MissionCard({
           ) : groupedTargets?.map((target) => target.section)}
         </div>
       </CardBody>
-      {/* <CardFooter className="flex-col items-stretch gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
-            {isArchived ? (
-              <ResetIconButton onClick={() => onRestore(mission)} />
-            ) : (
-              <ArchiveIconButton onClick={() => onArchive(mission)} className="opacity-60" />
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            className="h-8 px-2"
-            onClick={(event) => {
-              event.stopPropagation();
-              navigate(`/planning/tasks?missionId=${mission.id}`);
-            }}
-          >
-            <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
-            {DICTIONARY.missions.preview_tasks}
-          </Button>
-        </div>
-      </CardFooter> */}
     </Card>
   );
 }

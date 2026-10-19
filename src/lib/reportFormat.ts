@@ -2,11 +2,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { formatIsoDate, startOfDay } from "@/lib/dates";
 import type { Trajectory } from "@/types/report";
 
-export const DISTANCE_PATTERN = /^(\d+(?:[.,]\d+)?)\s*км$/;
-export const HEIGHT_PATTERN = /^(\d+)\s*-?\s*(\d+)?\s*\/\s*(\d+)\s*-?\s*(\d+)?$/;
-export const DURATION_PATTERN = /^\d+\s*год\s*\d+\s*хв$/;
 export const STAMP_PATTERN = /^(\d{2}):(\d{2})\s(\d{2})\.(\d{2})\.(\d{4})$/;
-export const STORED_RANGE_PATTERN = /^\d+ - \d+$/;
 
 export function toReportDate(iso: string): string {
   return formatIsoDate(startOfDay(new Date(iso)));
@@ -71,7 +67,6 @@ export function formatDistance(distance: number): string {
 }
 
 export function parseDistance(value: string): number | null {
-  // const match = DISTANCE_PATTERN.exec(value.trim());
   if (!value) {
     return null;
   }
@@ -92,14 +87,13 @@ export function formatHeight(trajectory: Pick<Trajectory, "trajectory_height" | 
 }
 
 export function parseHeight(value: string): { trajectory_height: string; height_above_hot_point: string } | null {
-  // const match = HEIGHT_PATTERN.exec(value.trim());
   const [heights, above] = value.trim().split("/").map((height) => height.trim());
   if (!heights) {
     return null;
   }
   return {
-    trajectory_height: heights.split("-").map(Number).join(" - "), //`${match[1]} - ${match[2]}`,
-    height_above_hot_point: above.split("-").map(Number).join("-"), //`${match[3]} - ${match[4]}`,
+    trajectory_height: heights.split("-").map(Number).join(" - "),
+    height_above_hot_point: above.split("-").map(Number).join("-"),
   };
 }
 

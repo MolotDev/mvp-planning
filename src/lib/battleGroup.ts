@@ -122,20 +122,6 @@ export function uavName(id: string): string {
   return assetName(id);
 }
 
-export function formatBattleGroupSummary(group: BattleGroup): string {
-  const lead = crewName(group.lead_crew_id);
-  const support = group.support_crew_ids.map(crewName);
-  const supportLabel = support.length > 0 ? ` (${support.join(", ")})` : "";
-  return `${lead}${supportLabel} - ${group.uav_quantity} * ${uavName(group.asset_id)}`;
-}
-
-export function formatTaskAssets(assets: UavAsset[]): string {
-  return assets
-    .filter((asset) => asset.asset_id && asset.quantity > 0)
-    .map((asset) => `${uavName(asset.asset_id)} x ${asset.quantity}`)
-    .join(", ");
-}
-
 export function visibleBattleGroups(
   task: { archived_at: string | null },
   groups: BattleGroup[],

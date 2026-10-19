@@ -1,23 +1,6 @@
 import { PLANNED_LAUNCH_STATUS_ID } from "@/data/launchCatalog";
 import { aggregateDay, type DaySlice, type PlanningSnapshot } from "@/lib/reportAggregation";
-// import { DURATION_PATTERN, STORED_RANGE_PATTERN } from "@/lib/reportFormat";
 import type { ActualEvent, Report, Trajectory } from "@/types/report";
-
-export function isTrajectoryComplete(trajectory: Trajectory): boolean {
-  return (
-    trajectory.archived_at === null &&
-    trajectory.name.trim() !== "" &&
-    trajectory.battle_group_id !== "" &&
-    trajectory.asset_id !== "" &&
-    trajectory.distance > 0 &&
-    trajectory.trajectory_height !== "" &&
-    trajectory.height_above_hot_point !== "" &&
-    trajectory.hot_point_cross_line.trim() !== "" &&
-    trajectory.duration.trim() !== "" &&
-    trajectory.time_on_target !== "" &&
-    !Number.isNaN(new Date(trajectory.time_on_target).getTime())
-  );
-}
 
 export function isEventComplete(event: ActualEvent): boolean {
   return (
@@ -35,9 +18,6 @@ export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot):
     return false;
   }
   const trajectories = report.trajectories.filter((trajectory) => trajectory.archived_at === null);
-  // if (trajectories.length === 0 || !trajectories.every(isTrajectoryComplete)) {
-  //   return false;
-  // }
   if (!report.actual_events.length || !report.actual_events.every(isEventComplete)) {
     return false;
   }

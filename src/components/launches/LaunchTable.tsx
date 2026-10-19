@@ -251,7 +251,6 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
             <th className="px-3 py-2 font-medium">{columns.aiming_mgrs}</th>
             <th className="px-3 py-2 font-medium">{DICTIONARY.launches.fields.trajectory_name}</th>
             <th className="px-3 py-2 font-medium">{DICTIONARY.common.asset}</th>
-            {/* <th className="px-3 py-2 font-medium">{DICTIONARY.assets.fields.antenna}</th> */}
             <th className="px-3 py-2 font-medium">{columns.uav_serial}</th>
             <th className="px-3 py-2 font-medium">{columns.tracker}</th>
             <th className="px-3 py-2 font-medium">{columns.tracker_serial}</th>
@@ -351,20 +350,6 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                   )}
                 </td>
                 <td className="px-3 py-2 text-primitive-neutral-200">{uavName(launch.asset_id)}</td>
-                {/* <td className="px-3 py-2">
-                  <select
-                    aria-label={`${DICTIONARY.assets.fields.antenna} ${launch.id}`}
-                    value={antennasForAsset(launch.asset_id)[0]?.id ?? ""}
-                    disabled
-                    className={selectClassName}
-                  >
-                    {antennasForAsset(launch.asset_id).map((antenna) => (
-                      <option key={antenna.id} value={antenna.id}>
-                        {antenna.name}
-                      </option>
-                    ))}
-                  </select>
-                </td> */}
                 <td className="px-3 py-2">
                   {isShowFormFields ? (
                     <Input

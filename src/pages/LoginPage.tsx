@@ -55,9 +55,7 @@ export function LoginPage() {
               return (
                 <div
                   key={option.role}
-                  // variant="ghost"
                   className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2 flex items-center justify-center gap-1 rounded-md bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md"
-                  // onClick={() => chooseRole(option.role)}
                 >
                   {option.label}
                   <FormSelect
@@ -75,9 +73,7 @@ export function LoginPage() {
             return (
               <div
                 key={option.role}
-                // variant="ghost"
                 className="h-auto min-h-16 whitespace-normal px-3 py-3 flex flex-col gap-2 flex items-center justify-center gap-1 rounded-md bg-transparent text-primitive-neutral-0 hover:bg-primitive-neutral-850 hover:shadow-md"
-                // onClick={() => chooseRole(option.role)}
               >
                 {option.label}
                   <FormSelect
@@ -92,35 +88,6 @@ export function LoginPage() {
             )
           })}
         </div>
-        {/* {selectedRole === "DETACHMENT" ? (
-          <FormField id="auth-detachment" label={DICTIONARY.auth.select_detachment}>
-            <FormSelect
-              id="auth-detachment"
-              value={entityId}
-              placeholder={DICTIONARY.auth.select_detachment}
-              options={DETACHMENT_REFS.map((item) => ({ value: item.id, label: item.name }))}
-              onChange={setEntityId}
-            />
-          </FormField>
-        ) : null}
-        {selectedRole === "CREW" ? (
-          <FormField id="auth-crew" label={DICTIONARY.auth.select_crew}>
-            <FormSelect
-              id="auth-crew"
-              value={entityId}
-              placeholder={DICTIONARY.auth.select_crew}
-              options={CREWS.map((item) => ({ value: item.id, label: item.name }))}
-              onChange={setEntityId}
-            />
-          </FormField>
-        ) : null}
-        {selectedRole === "DETACHMENT" || selectedRole === "CREW" ? (
-          <div className="flex justify-end">
-            <Button disabled={!canEnter} onClick={enter}>
-              {DICTIONARY.auth.login_button}
-            </Button>
-          </div>
-        ) : null} */}
       </section>
     </main>
   );

@@ -21,16 +21,6 @@ export function AimingPointForm({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* <FormField id="ap_displayed_id" label={fields.displayed_id}>
-        <Input
-          id="ap_displayed_id"
-          value={values.displayed_id}
-          disabled={readOnly}
-          aria-invalid={Boolean(errors.displayed_id)}
-          onChange={(event) => onChange("displayed_id", event.target.value)}
-          data-error={!!errors.displayed_id}
-        />
-      </FormField> */}
       <FormField id="ap_name" label={fields.name}>
         <Input
           id="ap_name"

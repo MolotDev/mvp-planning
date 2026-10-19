@@ -282,7 +282,6 @@ export function AllocationWorkspace({
                 </div>
               </div>
               {allocations.map((allocation) => {
-                // const target = targets.find((item) => item.id === allocation.target_id);
                 const aimingPoint = aimingPoints.find((item) => item.id === allocation.aiming_point_id);
                 const remaining = Math.max(0, getRemaining(allocation, drafts));
                 const assigned = allocation.quantity - remaining;

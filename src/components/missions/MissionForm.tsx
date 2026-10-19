@@ -127,16 +127,6 @@ export function MissionForm({
               {DICTIONARY.missions.command.cascade_notice}
             </p>
           ) : null}
-          {/* <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.tasks_title}</h3> */}
-          {/* {readOnly ? null : (
-            <Button
-              className="py-1 h-7 bg-sky-900/50 hover:bg-sky-800/80 transition-all duration-300"
-              onClick={() => onTargetDraftsChange([...targetDrafts, emptyTarget()])}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              {DICTIONARY.missions.add_target}
-            </Button>
-          )} */}
         </div>
         {targetDrafts.map((block) => (
           <TargetAssignmentBlock
@@ -196,20 +186,6 @@ function TargetAssignmentBlock({
       return point.archived_at === null || block.aiming_point_ids.includes(point.id);
     });
   }, [aimingPoints, block.aiming_point_ids, block.target_id, readOnly]);
-  // const assignedPoints = useMemo(() => {
-  //   const fromRows = block.detachments
-  //     .map((row) => row.aiming_point_id)
-  //     .filter((id): id is string => Boolean(id));
-  //   const ids = fromRows.length > 0 ? [...new Set(fromRows)] : block.aiming_point_ids;
-  //   return ids
-  //     .map((id) => points.find((point) => point.id === id))
-  //     .filter((point): point is AimingPoint => Boolean(point));
-  // }, [block.aiming_point_ids, block.detachments, points]);
-
-  // const [assignedPoints, setAssignedPoints] = useState<AimingPoint[]>([]);
-  // useEffect(() => {
-  //   setAssignedPoints(points.filter((point) => block.aiming_point_ids.includes(point.id)) ?? []);
-  // }, [block.aiming_point_ids, points]);
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 p-3">
@@ -233,29 +209,8 @@ function TargetAssignmentBlock({
           {readOnly ? null : <DeleteIconButton onClick={onRemove} />}
         </div>
       </div>
-      {/* {selectedTarget ? (
-        <div className="mb-3 flex items-center gap-1.5 min-h-7">
-          <span className="text-sm text-primitive-neutral-300">{DICTIONARY.missions.assigned_aiming_points}</span>
-          <div className="flex flex-wrap gap-1">
-            {assignedPoints.length === 0 ? (
-              <span className="text-sm text-primitive-neutral-500">—</span>
-            ) : (
-              assignedPoints.map((point) => (
-                <span
-                  key={point.id}
-                  title={`${point.name} — ${point.mgrs}`}
-                  className="rounded-md border border-primitive-neutral-700 px-2 py-1 text-xs text-primitive-neutral-100"
-                >
-                  {point.displayed_id || point.label || "—"} — {point.mgrs}
-                </span>
-              ))
-            )}
-          </div>
-        </div>
-      ) : null} */}
       {selectedTarget ? (
       <div className="flex flex-col gap-2">
-        {/* <h3 className="text-sm font-semibold text-primitive-neutral-0">{DICTIONARY.missions.assignment_title}</h3> */}
         <div>
             {block.detachments.map((row, index) => (
               <div

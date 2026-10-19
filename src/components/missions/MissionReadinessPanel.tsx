@@ -22,12 +22,6 @@ import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 
-// const badgeClassName: Record<DetachmentTone, string> = {
-//   ready: "border border-emerald-800/60 bg-emerald-950/60 text-emerald-300",
-//   needs_allocation: "border border-rose-900/60 bg-rose-950/50 text-rose-300",
-//   progress: "border border-amber-800/60 bg-amber-950/50 text-amber-300",
-// };
-
 interface MissionReadinessPanelProps {
   mission: Mission;
   tasks: Task[];
@@ -46,7 +40,6 @@ export function MissionReadinessPanel({
   aimingPoints,
 }: MissionReadinessPanelProps) {
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-  // const navigate = useNavigate();
   const text = DICTIONARY.missions.command;
   const related = activeMissionTasks(mission, tasks);
   const lines = related.flatMap((task) =>
@@ -116,7 +109,6 @@ export function MissionReadinessPanel({
               total={planned}
               className="text-xs"
             />
-            {/* {`${fillTemplate(text.plan, { total: planned })} │ ${fillTemplate(text.assigned, { assigned, total: planned })} │ ${fillTemplate(text.prepped, { prepped, total: planned })}`} */}
           </p>
           <div
             className="flex h-2 w-full overflow-hidden rounded-full bg-primitive-neutral-800"
@@ -148,15 +140,7 @@ export function MissionReadinessPanel({
             const points = related.filter((item) => item.organization_id === orgId).flatMap((item) => item.allocations).length;
             const orgLines = lines.filter((item) => item.task.organization_id === orgId);
             const orgPlanned = orgLines.reduce((sum, item) => sum + item.line.quantity, 0);
-            // const orgAssigned = orgLines.reduce((sum, item) => sum + assignedQuantity(item.task, item.line, groups), 0);
-            // const orgPrepped = orgLines.reduce(
-            //   (sum, item) => sum + equippedCount(launchesForLine(item.task, item.line, launches)),
-            //   0,
-            // );
-            // const tone = detachmentTone(orgAssigned, orgPrepped, orgPlanned);
             const name = detachmentName(orgId);
-            // const toneLabel =
-            //   tone === "ready" ? text.badge_ready : tone === "needs_allocation" ? text.badge_needs : text.badge_progress;
             return (
               <div key={orgId} className="flex flex-wrap items-center justify-between gap-2 pl-6 mb-3 last:mb-0">
                 <div className="flex min-w-0 items-center gap-x-2 justify-between flex-wrap">
@@ -176,21 +160,7 @@ export function MissionReadinessPanel({
                   <span className="text-sm text-primitive-neutral-500">
                     {fillTemplate(text.detachment_order, {total: orgPlanned, points: points })}
                   </span>
-                  {/* <Badge className={cn("w-fit rounded-md", badgeClassName[tone])} title={toneLabel}>
-                    {fillTemplate(text.detachment_prepped, { done: orgPrepped, total: orgPlanned })}
-                  </Badge> */}
                 </div>
-                {/* {task ? (
-                  <Button
-                    variant="ghost"
-                    className="border border-primitive-neutral-700"
-                    onClick={() => navigate(`/planning/tasks/${task.id}`)}
-                  >
-                    <Link2 className="h-4 w-4" aria-hidden="true" />
-                    {fillTemplate(text.open_task, { label: task.label })}
-                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                ) : null} */}
               </div>
             );
           })}
@@ -209,26 +179,7 @@ export function MissionReadinessPanel({
               total={planned}
               className="text-xs"
             />
-            {/* {`${fillTemplate(text.plan, { total: planned })} │ ${fillTemplate(text.assigned, { assigned, total: planned })} │ ${fillTemplate(text.prepped, { prepped, total: planned })}`} */}
           </p>
-          {/* <div
-            className="flex h-2 w-full overflow-hidden rounded-full bg-primitive-neutral-800"
-            role="img"
-            aria-label={widths.map((segment) => fillTemplate(segment.label, { count: segments.prepped, total: barTotal })).join(", ")}
-          >
-            {barTotal > 0
-              ? widths.map((segment) =>
-                segments.prepped > 0 ? (
-                    <span
-                      key={segment.key}
-                      className={cn("h-full", segment.className)}
-                      style={{ width: `${(segments.prepped / barTotal) * 100}%` }}
-                      title={fillTemplate(segment.label, { count: segments.prepped })}
-                    />
-                  ) : null,
-                )
-              : null}
-          </div> */}
         </div>
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-primitive-neutral-300 flex gap-2 items-center">
@@ -272,24 +223,7 @@ export function MissionReadinessPanel({
                       <span className="text-xs text-primitive-neutral-500">
                         {fillTemplate(DICTIONARY.tasks.details.tracker_count, { ready: row.trackers, total: row.group.uav_quantity })}
                       </span>
-                      {/* <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-primitive-neutral-200">
-                          {fillTemplate(DICTIONARY.tasks.details.prep_count, { ready: row.ready, total: row.group.uav_quantity })}
-                        </span>
-                        <span className="text-xs text-primitive-neutral-200">
-                          {fillTemplate(DICTIONARY.tasks.details.tracker_count, { ready: row.trackers, total: row.group.uav_quantity })}
-                        </span>
-                      </div> */}
                     </div>
-                    {/* <Button
-                      variant="ghost"
-                      className="h-7 bg-primitive-neutral-500 rounded-md px-2"
-                      disabled={row.launches.length === 0}
-                      onClick={() => setOpenGroupId(row.group.id)}
-                    >
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                      {text.open_launches}
-                    </Button> */}
                   </div>
                   <AimingPointBadge label={row.aiming} mgrs={row.mgrs || DICTIONARY.tasks.details.empty_value} />
                 </div>

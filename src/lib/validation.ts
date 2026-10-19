@@ -1,7 +1,5 @@
 import { DICTIONARY } from "@/constants/dictionary";
 
-export const TARGET_DISPLAYED_ID_PATTERN = /^GS\d{4}$/;
-export const AIMING_POINT_DISPLAYED_ID_PATTERN = /^MP\d{2}$/;
 export const MGRS_PATTERN = /^\d{2}\s?[A-Z]{3}\s?\d{2,5}\s?\d{2,5}$/;
 const MGRS_COMPACT_PATTERN = /^\d{2}[A-Z]{3}\d{4,10}$/;
 
@@ -12,14 +10,6 @@ export function isValidMgrs(value: string): boolean {
   }
   const compact = trimmed.replace(/\s+/g, "");
   return MGRS_COMPACT_PATTERN.test(compact);
-}
-
-export function isValidTargetDisplayedId(value: string): boolean {
-  return TARGET_DISPLAYED_ID_PATTERN.test(value.trim());
-}
-
-export function isValidAimingPointDisplayedId(value: string): boolean {
-  return AIMING_POINT_DISPLAYED_ID_PATTERN.test(value.trim());
 }
 
 export function parseRequiredNumber(value: string): number | null {

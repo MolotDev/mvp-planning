@@ -18,7 +18,6 @@ import {
   sameMissionFilters,
 } from "@/lib/missionFilters";
 import { TRANSLATIONS } from "@/lib/translations";
-import { notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useMissionFilterStore, type MissionFilterState } from "@/store/useMissionFilterStore";
 import { filterMissions, getMissionMetrics, useMissionStore } from "@/store/useMissionStore";
@@ -37,8 +36,6 @@ export function MissionsPlanningPage() {
   const setFilters = useMissionFilterStore((state) => state.setFilters);
   const resetFiltersState = useMissionFilterStore((state) => state.reset);
   const missions = useMissionStore((state) => state.missions);
-  const archiveMission = useMissionStore((state) => state.archiveMission);
-  const restoreMission = useMissionStore((state) => state.restoreMission);
   const tasks = useTaskStore((state) => state.tasks);
   const targets = useTargetStore((state) => state.targets);
   const role = useAuthStore((state) => state.role);
@@ -200,16 +197,7 @@ export function MissionsPlanningPage() {
                     mission={mission}
                     tasks={tasks}
                     targets={targets}
-                    aimingPoints={aimingPoints}
                     onPreview={(item) => navigate(`/planning/missions/${item.id}`)}
-                    onArchive={(item) => {
-                      archiveMission(item.id);
-                      notifySuccess(DICTIONARY.missions.toasts.archived);
-                    }}
-                    onRestore={(item) => {
-                      restoreMission(item.id);
-                      notifySuccess(DICTIONARY.missions.toasts.restored);
-                    }}
                   />
                 ) : (
                   <Card className="min-h-60">
@@ -222,7 +210,6 @@ export function MissionsPlanningPage() {
                           setModalMission(null);
                           setPlanningDate(date);
                         }}>
-                          {/* <Plus className="h-4 w-4" aria-hidden="true" /> */}
                           {DICTIONARY.common.actions.create}
                         </Button>
                       ) : null}

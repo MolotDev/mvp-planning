@@ -68,7 +68,6 @@ export function ReportPatternField({
         }}
         className={cn(inputClassName, message ? invalidControlClass : "border-primitive-neutral-100")}
       />
-      {/* {message ? <p className="text-xs text-primitive-red-500">{message}</p> : null} */}
     </div>
   );
 }

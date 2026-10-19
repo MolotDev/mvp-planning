@@ -218,10 +218,6 @@ export function TaskPreviewPage() {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* <Button variant="ghost" className="border border-primitive-neutral-700" onClick={() => setInfoOpen(true)}>
-              <Info className="h-4 w-4" aria-hidden="true" />
-              {text.task_info}
-            </Button> */}
             {role === "CENTER" && report?.status === "submitted" ? (
               <Button variant="ghost" onClick={() => navigate(`/reports/${report.id}`)}>
                 {text.view_report}

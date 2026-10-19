@@ -37,14 +37,6 @@ export function isActiveAssetLabelTaken(assets: Asset[], label: string, excludeI
   );
 }
 
-export function getAssetMetrics(assets: Asset[]) {
-  return {
-    total: assets.length,
-    active: assets.filter((asset) => asset.archived_at === null).length,
-    archived: assets.filter((asset) => asset.archived_at !== null).length,
-  };
-}
-
 export function filterAssets(assets: Asset[], query: string, status: AssetStatusFilter): Asset[] {
   const q = query.trim().toLowerCase();
   return assets

@@ -41,9 +41,7 @@ export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose 
   const scheduledAt = task.scheduled_at || task.created_at;
 
   return (
-    // <div className="fixed inset-0 z-50 flex justify-end" role="presentation">
     <div className="absolute inset-y-0 right-0 z-20 flex w-full flex-col border-l border-primitive-neutral-800 bg-primitive-neutral-900 shadow-2xl" role="presentation">
-      {/* <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" /> */}
       <aside
         role="dialog"
         aria-modal="true"
@@ -63,7 +61,6 @@ export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose 
           >
             <PanelRightClose className="h-4 w-4" aria-hidden="true" />
           </Button>
-          {/* <CloseIconButton onClick={onClose} /> */}
         </header>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
           <section className="flex flex-col gap-1.5">

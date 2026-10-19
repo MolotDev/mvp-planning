@@ -10,7 +10,6 @@ import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
-import { Modal } from "@/components/ui/modal";
 import { DICTIONARY } from "@/constants/dictionary";
 import { DETACHMENT_REFS } from "@/data/crews";
 import { canAdminister, hidesDetachmentFilter, locksDetachmentFilter, reportInScope, withSessionScope } from "@/lib/access";
@@ -46,7 +45,6 @@ export function ReportsPage() {
   const filters = useReportFilterStore((state) => state.filters);
   const setFilters = useReportFilterStore((state) => state.setFilters);
   const reports = useReportStore((state) => state.reports);
-  const submitReport = useReportStore((state) => state.submitReport);
   const archiveReport = useReportStore((state) => state.archiveReport);
   const missions = useMissionStore((state) => state.missions);
   const tasks = useTaskStore((state) => state.tasks);
@@ -54,7 +52,6 @@ export function ReportsPage() {
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const launches = useLaunchStore((state) => state.launches);
   const [createOpen, setCreateOpen] = useState(false);
-  const [submitId, setSubmitId] = useState<string | null>(null);
 
   const activeFilters = withSessionScope(filters, role, entityId);
 
@@ -90,17 +87,6 @@ export function ReportsPage() {
     const scoped = withSessionScope({ ...DEFAULT_REPORT_FILTERS }, role, entityId);
     setFilters(scoped);
     setSearchParams(reportFiltersToSearchParams(scoped), { replace: true });
-  };
-
-  const confirmSubmit = () => {
-    if (!submitId) {
-      return;
-    }
-    const submitted = submitReport(submitId);
-    setSubmitId(null);
-    if (submitted) {
-      notifySuccess(DICTIONARY.reports.toasts.submitted);
-    }
   };
 
   return (
@@ -199,7 +185,6 @@ export function ReportsPage() {
                 key={report.id}
                 report={report}
                 snapshot={snapshot}
-                onSubmit={(item) => setSubmitId(item.id)}
                 onArchive={(item) => {
                   if (archiveReport(item.id)) {
                     notifySuccess(DICTIONARY.reports.toasts.archived);
@@ -211,17 +196,6 @@ export function ReportsPage() {
         )}
       </div>
       {createOpen ? <CreateReportModal onClose={() => setCreateOpen(false)} /> : null}
-      {submitId ? (
-        <Modal
-          title={DICTIONARY.reports.modals.submit_confirm.title}
-          onClose={() => setSubmitId(null)}
-          onConfirm={confirmSubmit}
-          confirmLabel={DICTIONARY.reports.modals.submit_confirm.confirm_button}
-          cancelLabel={DICTIONARY.reports.modals.submit_confirm.cancel_button}
-        >
-          <p className="text-sm text-primitive-neutral-200">{DICTIONARY.reports.modals.submit_confirm.message}</p>
-        </Modal>
-      ) : null}
     </section>
   );
 }

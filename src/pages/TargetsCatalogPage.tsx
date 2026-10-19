@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-// import { MetricCards } from "@/components/targets/MetricCards";
 import { TargetCard } from "@/components/targets/TargetCard";
 import { TargetModal } from "@/components/targets/TargetModal";
 import { Button } from "@/components/ui/button";
@@ -9,14 +8,9 @@ import { Input } from "@/components/ui/input";
 import { StatusToggle } from "@/components/ui/status-toggle";
 import { DICTIONARY } from "@/constants/dictionary";
 import { notifySuccess } from "@/lib/toasts";
-import {
-  filterTargets,
-  // getTargetMetrics,
-  useTargetStore,
-} from "@/store/useTargetStore";
+import { filterTargets, useTargetStore } from "@/store/useTargetStore";
 import { useTargetFilterStore } from "@/store/useTargetFilterStore";
 import type { Target } from "@/types/target";
-// import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 
 export function TargetsCatalogPage() {
   const navigate = useNavigate();
@@ -46,7 +40,6 @@ export function TargetsCatalogPage() {
     );
   }, [searchParams]);
 
-  // const metrics = useMemo(() => getTargetMetrics(filterTargets(targets, query, "all")), [targets, query]);
   const visibleTargets = useMemo(
     () => filterTargets(targets, query, status),
     [targets, query, status],
@@ -59,7 +52,6 @@ export function TargetsCatalogPage() {
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <h1 className="sr-only">{DICTIONARY.targets_catalog.title}</h1>
-      {/* <MetricCards metrics={metrics} /> */}
       <div className="flex flex-col gap-3 lg:flex-row items-center justify-between lg:items-center">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <div className="relative min-w-0 flex-1 max-w-60">
