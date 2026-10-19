@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { Minus, Pencil, Plus, X } from "lucide-react";
+import { Minus, Pencil, Plus, Users, X } from "lucide-react";
 import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
-import { AimingPointBadge, Badge, ProgressBadge } from "@/components/ui/badge";
+import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewsForOrganization } from "@/data/crews";
@@ -83,16 +83,20 @@ function QuantityStepper({
 
   return (
     <div className="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        className="h-8 w-8 px-0"
-        title={allocation.decrease}
-        aria-label={allocation.decrease}
-        disabled={!editing || value <= 1}
-        onClick={() => onChange(value - 1)}
-      >
-        <Minus className="h-4 w-4" aria-hidden="true" />
-      </Button>
+      {editing ? (
+        <Button
+          variant="ghost"
+          className="h-8 w-8 px-0"
+          title={allocation.decrease}
+          aria-label={allocation.decrease}
+          disabled={!editing || value <= 1}
+          onClick={() => onChange(value - 1)}
+        >
+          <Minus className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      ) : (
+        <div className="h-8 w-8" />
+      )}
       <input
         type="text"
         inputMode="numeric"
@@ -104,16 +108,20 @@ function QuantityStepper({
         onBlur={() => setRaw(String(value))}
         className="h-8 w-14 rounded border border-primitive-neutral-700 bg-primitive-neutral-900 px-1 text-center font-mono font-semibold text-primitive-neutral-0 read-only:cursor-default"
       />
-      <Button
-        variant="ghost"
-        className="h-8 w-8 px-0"
-        title={allocation.increase}
-        aria-label={allocation.increase}
-        disabled={!editing || value >= max}
-        onClick={() => onChange(Math.min(max, value + 1))}
-      >
-        <Plus className="h-4 w-4" aria-hidden="true" />
-      </Button>
+      {editing ? (
+        <Button
+          variant="ghost"
+          className="h-8 w-8 px-0"
+          title={allocation.increase}
+          aria-label={allocation.increase}
+          disabled={!editing || value >= max}
+          onClick={() => onChange(Math.min(max, value + 1))}
+        >
+          <Plus className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      ) : (
+        <div className="h-8 w-8" />
+      )}
     </div>
   );
 }
@@ -148,6 +156,13 @@ export function AllocationWorkspace({
   }, [battleGroups, missions, task.id]);
 
   const allocations = task.allocations;
+  const allocationsByTarget = useMemo(() => task.allocations.reduce((acc, allocation) => {
+    const target = targets.find((target) => target.id === allocation.target_id);
+    if (target) {
+      acc[target.id] = [...(acc[target.id] || []), allocation];
+    }
+    return acc;
+  }, {} as Record<string, TaskAllocation[]>), [task, targets]);
   const crewAssetMap = getCrewAssignedAssetMap(drafts, allocations);
   const totalPlanned = allocations.reduce((sum, line) => sum + line.quantity, 0);
   const assignedCount = drafts.reduce((sum, draft) => sum + draft.quantity, 0);
@@ -239,12 +254,12 @@ export function AllocationWorkspace({
           ) : null}
           {editing ? (
             <>
-              <Button onClick={onSave}>
-                {DICTIONARY.common.actions.save}
-              </Button>
               <Button variant="ghost" onClick={onCancel}>
                 <X className="h-4 w-4" aria-hidden="true" />
                 {DICTIONARY.common.actions.cancel}
+              </Button>
+              <Button onClick={onSave}>
+                {DICTIONARY.common.actions.save}
               </Button>
             </>
           ) : null}
@@ -252,90 +267,114 @@ export function AllocationWorkspace({
         {quantityConflicts.map((conflict) => (
           <AllocationConflictBadge key={conflict.lineId} planned={conflict.planned} filled={conflict.filled} />
         ))}
-        {allocations.map((allocation) => {
-          const target = targets.find((item) => item.id === allocation.target_id);
-          const aimingPoint = aimingPoints.find((item) => item.id === allocation.aiming_point_id);
-          const remaining = Math.max(0, getRemaining(allocation, drafts));
-          const assigned = allocation.quantity - remaining;
-          const bucketDrafts = drafts.filter((draft) => draft.allocationId === allocation.id);
-          const options = getAvailableCrewOptions(
-            roster,
-            allocation,
-            bucketDrafts.map((draft) => draft.crewId),
-            crewAssetMap,
-            uavName,
-            occupiedElsewhere,
-          );
-          const status = assigned === 0 ? "error" : remaining === 0 ? "success" : "warning";
-          const statusLabel =
-            assigned === 0
-              ? DICTIONARY.tasks.allocation.crew_unassigned
-              : remaining === 0
-                ? allocationText.complete
-                : fillTemplate(allocationText.bucket_remaining, { remaining });
-          const pointLabel = aimingPoint?.name ?? target?.name ?? DICTIONARY.tasks.allocation.primary_target;
-          const pointMgrs = formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "");
+        {Object.entries(allocationsByTarget).map(([targetId, allocations]) => {
+          const target = targets.find((target) => target.id === targetId);
           return (
-            <article key={allocation.id} className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <AimingPointBadge label={pointLabel} mgrs={pointMgrs} />
-                  <ProgressBadge
-                    label={`${uavName(allocation.asset_id)} × ${allocation.quantity}`}
-                    processed={assigned}
-                    total={allocation.quantity}
+            <article className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center">
+                  <TargetBadge
+                    targetId={target?.id ?? ""}
+                    mgrs={formattingMGRS.spacing(target?.mgrs ?? "")}
+                    label={`${target?.name ?? ""}`}
                   />
+                  <span className="text-sm text-primitive-neutral-300 ml-6">{` (${target?.address ?? ""})`}</span>
                 </div>
-                <Badge className="progress-badge" data-status={status}>
-                  {statusLabel}
-                </Badge>
               </div>
-              <div className="flex flex-col gap-2">
-                {bucketDrafts.map((draft) => {
-                  const max = draft.quantity + remaining;
-                  return (
-                    <div key={draft.crewId} className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-medium text-primitive-neutral-0">
-                        {fillTemplate(text.crew_title, { name: crewName(draft.crewId) })}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <QuantityStepper
-                          value={draft.quantity}
-                          max={max}
-                          editing={editing}
-                          onChange={(next) => updateQuantity(allocation.id, draft.crewId, next)}
-                        />
-                        {editing ? (
-                          <Button
-                            variant="ghost"
-                            className="h-8 w-8 px-0"
-                            title={allocationText.remove_crew}
-                            aria-label={allocationText.remove_crew}
-                            onClick={() => removeCrew(allocation.id, draft.crewId)}
-                          >
-                            <X className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        ) : null}
+              {allocations.map((allocation) => {
+                // const target = targets.find((item) => item.id === allocation.target_id);
+                const aimingPoint = aimingPoints.find((item) => item.id === allocation.aiming_point_id);
+                const remaining = Math.max(0, getRemaining(allocation, drafts));
+                const assigned = allocation.quantity - remaining;
+                const bucketDrafts = drafts.filter((draft) => draft.allocationId === allocation.id);
+                const options = getAvailableCrewOptions(
+                  roster,
+                  allocation,
+                  bucketDrafts.map((draft) => draft.crewId),
+                  crewAssetMap,
+                  uavName,
+                  occupiedElsewhere,
+                );
+                const status = assigned === 0 ? "error" : remaining === 0 ? "success" : "warning";
+                const statusLabel =
+                  assigned === 0
+                    ? DICTIONARY.tasks.allocation.crew_unassigned
+                    : remaining === 0
+                      ? allocationText.complete
+                      : fillTemplate(allocationText.bucket_remaining, { remaining });
+                const pointLabel = aimingPoint?.name ?? target?.name ?? DICTIONARY.tasks.allocation.primary_target;
+                const pointMgrs = formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "");
+                return (
+                  <article key={allocation.id} className="flex flex-col gap-3 rounded-lg bg-primitive-neutral-900">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 ml-2 pl-8 last:border-b">
+                        <div className="flex flex-wrap items-center justify-between">
+                          <div className="flex-1 flex flex-wrap items-center justify-between gap-2">
+                            <AimingPointBadge label={pointLabel} mgrs={pointMgrs} />
+                            <ProgressBadge
+                              label={`${uavName(allocation.asset_id)} × ${allocation.quantity}`}
+                              processed={assigned}
+                              total={allocation.quantity}
+                            />
+                          </div>
+                          <div className="min-w-36 flex items-center justify-end">
+                            <Badge className="progress-badge" data-status={status}>
+                              {statusLabel}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 ml-1.5 pl-8 pb-2">
+                          {bucketDrafts.map((draft) => {
+                            const max = draft.quantity + remaining;
+                            return (
+                              <div key={draft.crewId} className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-medium text-primitive-neutral-0 flex items-center gap-2">
+                                  <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+                                  {fillTemplate(text.crew_title, { name: crewName(draft.crewId) })}
+                                </p>
+                                <div className={`flex items-center gap-2 ${editing ? "" : "mr-10"}`}>
+                                  <QuantityStepper
+                                    value={draft.quantity}
+                                    max={max}
+                                    editing={editing}
+                                    onChange={(next) => updateQuantity(allocation.id, draft.crewId, next)}
+                                  />
+                                  {editing ? (
+                                    <Button
+                                      variant="ghost"
+                                      className="h-8 w-8 px-0"
+                                      title={allocationText.remove_crew}
+                                      aria-label={allocationText.remove_crew}
+                                      onClick={() => removeCrew(allocation.id, draft.crewId)}
+                                    >
+                                      <X className="h-4 w-4" aria-hidden="true" />
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {editing && remaining > 0 ? (
+                            <select
+                              aria-label={text.assign_crew}
+                              value={pickerByAllocation[allocation.id] ?? ""}
+                              onChange={(event) => addCrew(allocation, event.target.value)}
+                              className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md"
+                            >
+                              <option value="">{text.assign_crew}</option>
+                              {options.map((option) => (
+                                <option key={option.id} value={option.id} disabled={option.isDisabled}>
+                                  {option.isDisabled ? `${option.name} [${option.disabledReason}]` : option.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-              {editing && remaining > 0 ? (
-                <select
-                  aria-label={text.assign_crew}
-                  value={pickerByAllocation[allocation.id] ?? ""}
-                  onChange={(event) => addCrew(allocation, event.target.value)}
-                  className="h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md"
-                >
-                  <option value="">{text.assign_crew}</option>
-                  {options.map((option) => (
-                    <option key={option.id} value={option.id} disabled={option.isDisabled}>
-                      {option.isDisabled ? `${option.name} [${option.disabledReason}]` : option.name}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
+                  </article>
+                );
+              })}
             </article>
           );
         })}

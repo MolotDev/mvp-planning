@@ -218,7 +218,7 @@ export function TaskPreviewPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-          <div className="flex h-full w-[60%] flex-col gap-4 overflow-y-auto border-r border-primitive-neutral-800 pr-2">
+          <div className="flex h-full w-[60%] flex-col gap-4 overflow-y-auto pr-2">
             <AllocationWorkspace
               task={task}
               targets={targets}

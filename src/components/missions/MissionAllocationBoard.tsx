@@ -68,7 +68,7 @@ export function MissionAllocationBoard({
           <p className="text-md text-primitive-neutral-300">{mission.description}</p>
         </div>
         {canEdit ? (
-          <Button variant="ghost" className="border border-primitive-neutral-700" onClick={onEdit}>
+          <Button variant="ghost" className="border border-primitive-neutral-700 flex items-center gap-4" onClick={onEdit}>
             <Pencil className="h-4 w-4" aria-hidden="true" />
             {DICTIONARY.missions.edit_toggle}
           </Button>
@@ -87,7 +87,7 @@ export function MissionAllocationBoard({
                 .map((line) => ({ task, line })),
             );
             return (
-              <div key={targetId} className="flex flex-col gap-2 mb-4 last:mb-0 border-b border-primitive-neutral-800">
+              <div key={targetId} className="flex flex-col gap-2 mb-4 last:mb-0 border-b border-primitive-neutral-800 ">
                 <div className="flex flex-wrap items-center">
                   {target ? (
                     <>
@@ -114,7 +114,6 @@ export function MissionAllocationBoard({
                       </thead>
                     <tbody>
                       {rows.map(({ task, line }) => {
-                        console.log({line, task});
                         const point = line.aiming_point_id
                           ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
                           : undefined;

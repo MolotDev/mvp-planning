@@ -143,7 +143,6 @@ export function MissionPreviewPage() {
   const assignedTasks = new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.task_id));
   const crewQuantity = (new Set(battleGroups.filter(item => assignedTasks.has(item.allocation_line_id ?? "")).flatMap(item=> item.lead_crew_id))).size;
   
-  
   const [statsOpen, setStatsOpen] = useState(false);
 
   return (
@@ -174,20 +173,20 @@ export function MissionPreviewPage() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden justify-between">
-        <div className="h-full w-[59%] space-y-2 overflow-y-auto overflow-x-hidden">
-          <div className="flex flex-col rounded-md bg-primitive-neutral-900 p-4 pt-1">
+        <div className="h-full w-[60%] space-y-2 overflow-y-auto overflow-x-hidden pr-2">
+          <div className="flex flex-col rounded-md bg-primitive-neutral-900 p-4">
             <article className="w-full flex justify-between border-b border-primitive-neutral-700 mb-4">
               <div className="flex gap-2 items-center justify-center py-1 px-3">
                 <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
                 <p className="truncate text-sm font-semibold text-zinc-300">
-                  {`${catalogTargets.length} цілі`}
+                  {`${targetDrafts.length} цілі`}
                 </p>
               </div>
               <div className="border-l border-primitive-neutral-700" />
               <div className="flex gap-2 items-center justify-center py-1 px-3">
                 <CrosshairIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
                 <p className="truncate text-sm font-semibold text-zinc-300">
-                  {`${catalogTargets.flatMap(item=> item.aiming_point_ids).length} точ. приц.`}
+                  {`${targetDrafts.flatMap(item=> item.aiming_point_ids).length} точ. приц.`}
                 </p>
               </div>
               <div className="border-l border-primitive-neutral-700" />
