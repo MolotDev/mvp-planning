@@ -226,6 +226,7 @@ export function MissionPreviewPage() {
                   </div>
                 </div>
                 <MissionForm
+                  missionId={mission.id}
                   setDidChange={setDidChange}
                   scheduledAt={scheduledAt}
                   name={name}

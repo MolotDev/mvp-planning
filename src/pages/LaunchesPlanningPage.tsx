@@ -49,6 +49,7 @@ export function LaunchesPlanningPage() {
   const detachmentLocked = locksDetachmentFilter(role);
   const crewLocked = locksCrewFilter(role);
   const hideDetachment = hidesDetachmentFilter(role);
+  const hideCrew = role === "CREW";
   const activeFilters = withSessionScope(filters, role, entityId);
 
   useEffect(() => {
@@ -162,16 +163,18 @@ export function LaunchesPlanningPage() {
             onClear={() => applyFilters({ ...activeFilters, organizationId: "" })}
           />
         )}
-        <FilterSelect
-          className="w-full min-w-0 xl:w-40"
-          label={board.crew}
-          value={activeFilters.crewId}
-          placeholder={board.select_crew}
-          options={CREWS.map((crew) => ({ id: crew.id, name: crew.name }))}
-          disabled={crewLocked}
-          onChange={(crewId) => applyFilters({ ...activeFilters, crewId })}
-          onClear={() => applyFilters({ ...activeFilters, crewId: "" })}
-        />
+        {hideCrew ? null : (
+          <FilterSelect
+            className="w-full min-w-0 xl:w-40"
+            label={board.crew}
+            value={activeFilters.crewId}
+            placeholder={board.select_crew}
+            options={CREWS.map((crew) => ({ id: crew.id, name: crew.name }))}
+            disabled={crewLocked}
+            onChange={(crewId) => applyFilters({ ...activeFilters, crewId })}
+            onClear={() => applyFilters({ ...activeFilters, crewId: "" })}
+          />
+        )}
         <div className="w-full min-w-0 xl:w-[120px]">
           <StatusFilterSelect
             value={filters.status}

@@ -17,6 +17,7 @@ import { extractNumeric } from "@/lib/validation";
 import DatePicker from "react-datepicker";
 
 interface MissionFormProps {
+  missionId?: string;
   scheduledAt: Date | null;
   name: string;
   description: string;
@@ -34,6 +35,7 @@ interface MissionFormProps {
 }
 
 export function MissionForm({
+  missionId,
   scheduledAt,
   name,
   description,
@@ -120,7 +122,7 @@ export function MissionForm({
       </div>
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-end gap-2">
-          {!!targetDrafts.length ? (
+          {missionId && aimingPoints.length ? (
             <p className="rounded-md border border-amber-800/60 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
               {DICTIONARY.missions.command.cascade_notice}
             </p>

@@ -90,6 +90,7 @@ export function CreateEditMissionModal({ mission, onClose, planningDate }: Creat
       className="max-w-3xl min-h-[400px]"
     >
       <MissionForm
+        missionId={mission?.id}
         setDidChange={() => {}}
         scheduledAt={scheduledAt}
         name={name}
