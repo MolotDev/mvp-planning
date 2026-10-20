@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Info, PanelRightOpen } from "lucide-react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AllocationWorkspace } from "@/components/tasks/AllocationWorkspace";
 import { CrewStatsDrawer } from "@/components/tasks/CrewStatsDrawer";
 import { LaunchDetailsModal, type LaunchAimingSection } from "@/components/tasks/LaunchDetailsModal";
@@ -23,6 +23,7 @@ import { formattingMGRS } from "@/lib/formattingMGRS";
 import { matchingReports } from "@/lib/reportAggregation";
 import { groupLaunchesByCrew, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { draftsFromGroups } from "@/lib/taskDashboard";
+import { splitTasksByTarget } from "@/lib/taskView";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -39,6 +40,8 @@ interface LaunchSelection {
 
 export function TaskPreviewPage() {
   const { taskId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const focusTargetId = searchParams.get("targetId") ?? "";
   const navigate = useNavigate();
   const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
   const tasks = useTaskStore((state) => state.tasks);
@@ -110,11 +113,23 @@ export function TaskPreviewPage() {
   const entityState = getEntityState(task);
   const canEdit = role === "DETACHMENT" && canAdminister(role, "tasks") && entityState === "active";
   const scheduledAt = task.scheduled_at || task.created_at;
+  const focused = Boolean(focusTargetId) && !editing;
+  const displayTask = focused
+    ? { ...task, allocations: task.allocations.filter((line) => line.target_id === focusTargetId) }
+    : task;
+  const focusedLineIds = new Set(displayTask.allocations.map((line) => line.id));
+  const displayGroups = focused
+    ? battleGroups.filter((group) => group.allocation_line_id !== null && focusedLineIds.has(group.allocation_line_id))
+    : battleGroups;
+  const focusCard = focusTargetId
+    ? splitTasksByTarget([task], missions, targets).find((card) => card.targetId === focusTargetId)
+    : undefined;
+  const headingLabel = focusCard?.label || task.label || task.id;
   const windowOpen = Boolean(task.scheduled_at) && new Date(task.scheduled_at).getTime() <= Date.now();
   const report = matchingReports(reports, [task.organization_id], task.scheduled_at)[0];
   const roster = crewsForOrganization(task.organization_id);
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
-  const crewGroups = groupLaunchesByCrew(task, battleGroups, launches);
+  const crewGroups = groupLaunchesByCrew(displayTask, displayGroups, launches);
   const serialEntries: LaunchSerialEntry[] = crewGroups.flatMap((group) =>
     group.launches.map((launch, index) => ({
       id: launch.id,
@@ -150,7 +165,7 @@ export function TaskPreviewPage() {
   };
 
   const selectedGroups = launchSelection
-    ? battleGroups.filter(
+    ? displayGroups.filter(
         (group) =>
           group.archived_at === null &&
           group.task_id === task.id &&
@@ -214,7 +229,7 @@ export function TaskPreviewPage() {
             <GoBackIconButton onClick={() => navigate(-1)} />
             <EntityStatusBadge status={entityState} />
             <h1 className="truncate text-lg font-semibold text-primitive-neutral-0">
-              {fillTemplate(text.title_dated, { label: task.label || task.id, date: formatDateUk(scheduledAt) })}
+              {fillTemplate(text.title_dated, { label: headingLabel, date: formatDateUk(scheduledAt) })}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -240,10 +255,10 @@ export function TaskPreviewPage() {
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           <div className="flex h-full w-[60%] flex-col gap-4 overflow-y-auto pr-2">
             <AllocationWorkspace
-              task={task}
+              task={displayTask}
               targets={targets}
               aimingPoints={aimingPoints}
-              battleGroups={battleGroups}
+              battleGroups={displayGroups}
               launches={launches}
               editing={editing && canEdit}
               canEdit={canEdit}
@@ -283,10 +298,10 @@ export function TaskPreviewPage() {
                 <PanelRightOpen className="h-4 w-4 text-primitive-neutral-400" aria-hidden="true" />
               </Button>
               <LaunchSummaryCards
-                task={task}
+                task={displayTask}
                 targets={targets}
                 aimingPoints={aimingPoints}
-                groups={battleGroups}
+                groups={displayGroups}
                 launches={launches}
                 onOpen={setLaunchSelection}
               />
@@ -303,7 +318,7 @@ export function TaskPreviewPage() {
             ) : null}
             {infoOpen ? (
               <TaskInfoDrawer
-                task={task}
+                task={displayTask}
                 missions={missions}
                 targets={targets}
                 aimingPoints={aimingPoints}

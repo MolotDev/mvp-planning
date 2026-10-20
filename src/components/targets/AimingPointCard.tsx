@@ -20,7 +20,7 @@ export function AimingPointCard({ point, onPreview, onArchive, onRestore }: Aimi
   return (
     <Card
       className="min-w-0 hover:cursor-pointer"
-      onDoubleClick={() => onPreview(point)}
+      onClick={() => onPreview(point)}
     >
       <CardHeader>
         <div className="flex min-w-0 items-center gap-2">
@@ -33,7 +33,7 @@ export function AimingPointCard({ point, onPreview, onArchive, onRestore }: Aimi
             0
           </Badge>
         </div>
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div onClick={(event) => event.stopPropagation()}>
           <PreviewIconButton onClick={() => onPreview(point)} />
         </div>
       </CardHeader>
@@ -52,7 +52,7 @@ export function AimingPointCard({ point, onPreview, onArchive, onRestore }: Aimi
         </p>
       </CardBody>
       <CardFooter>
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div onClick={(event) => event.stopPropagation()}>
           {isArchived ? (
             <ResetIconButton onClick={() => onRestore(point)} />
           ) : (

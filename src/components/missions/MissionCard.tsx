@@ -36,6 +36,9 @@ interface MissionCardProps {
   tasks: Task[];
   targets: Target[];
   onPreview: (mission: Mission) => void;
+  focusTargetId?: string;
+  displayLabel?: string;
+  displayTitle?: string;
 }
 
 export function MissionCard({
@@ -43,6 +46,9 @@ export function MissionCard({
   tasks,
   targets,
   onPreview,
+  focusTargetId = "",
+  displayLabel,
+  displayTitle,
 }: MissionCardProps) {
   const reports = useReportStore((state) => state.reports);
   const launches = useLaunchStore((state) => state.launches);
@@ -54,7 +60,8 @@ export function MissionCard({
   );
   const detachments = [...new Set(linkedTasks.map((task) => task.organization_id).filter(Boolean))] as string[];
   const isArchived = mission.archived_at !== null;
-  const title = mission.name ?? mission.label;
+  const title = displayTitle ?? mission.name ?? mission.label;
+  const label = displayLabel ?? mission.label;
   const missionDate = mission.scheduled_at;
   const currentMissionReports = matchingReports(reports, detachments, missionDate);
 
@@ -62,7 +69,7 @@ export function MissionCard({
     const dataByTarget = new Map<string, TargetData>();
     linkedTasks.forEach((task) => {
       task.allocations
-        .filter((line) => line.mission_id === mission.id)
+        .filter((line) => line.mission_id === mission.id && (!focusTargetId || line.target_id === focusTargetId))
         .forEach((line) => {
       const targetId = line.target_id || "unknown";
       const target = linkedTargets.find((item) => item.id === targetId);
@@ -141,7 +148,7 @@ export function MissionCard({
         };
       })
     }
-  }, [linkedTasks, linkedTargets, launches, mission.id, currentMissionReports]);
+  }, [focusTargetId, linkedTasks, linkedTargets, launches, mission.id, currentMissionReports]);
 
   return (
     <Card
@@ -153,8 +160,8 @@ export function MissionCard({
     >
       <CardHeader>
         <div className="flex items-center min-w-0 gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-primitive-neutral-0" title={`${mission.label} ${title}`}>
-            {mission.label}
+          <p className="text-sm font-semibold text-primitive-neutral-0" title={`${label} ${title}`}>
+            {label}
           </p>
           {mission.confirmed_at !== null ? (
             <Badge style={entityStatusBadgeStyle("reported")}>
@@ -172,8 +179,8 @@ export function MissionCard({
             "text-lg text-primitive-neutral-200 overflow-hidden text-ellipsis whitespace-nowrap line-clamp-2",
             isToday(new Date(mission.scheduled_at)) ? "text-primitive-neutral-0" : ""
           )}
-          title={title?.trim() || mission.label}>
-          {title?.trim() || mission.label}
+          title={title?.trim() || label}>
+          {title?.trim() || label}
           </p>
           <p className="text-sm text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap line-clamp-2" title={mission.description}>
             {mission.description}

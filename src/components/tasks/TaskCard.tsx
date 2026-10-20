@@ -35,6 +35,9 @@ interface TaskCardProps {
   onPreview: (task: Task) => void;
   onRestore: (task: Task) => void;
   reportId: string;
+  focusTargetId?: string;
+  displayLabel?: string;
+  displayTitle?: string;
 }
 
 interface TargetGroup {
@@ -47,7 +50,19 @@ interface MissionGroup {
   targets: TargetGroup[];
 }
 
-export function TaskCard({ task, missions, reportId, targets, battleGroups, aimingPoints, onPreview, onRestore }: TaskCardProps) {
+export function TaskCard({
+  task,
+  missions,
+  reportId,
+  targets,
+  battleGroups,
+  aimingPoints,
+  onPreview,
+  onRestore,
+  focusTargetId = "",
+  displayLabel,
+  displayTitle,
+}: TaskCardProps) {
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.role);
   const managesTasks = canAdminister(role, "tasks");
@@ -58,8 +73,11 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
   const assignedGroups = visibleBattleGroups(task, battleGroups);
   const scheduledAt = task.scheduled_at || task.created_at;
   const groupedMissions = useMemo(() => {
+    const allocations = focusTargetId
+      ? task.allocations.filter((line) => line.target_id === focusTargetId)
+      : task.allocations;
     const missionsMap: Record<string, { missionId: string; targets: Record<string, TargetGroup> }> = {};
-    (task.allocations || []).forEach((alloc) => {
+    allocations.forEach((alloc) => {
       if (!missionsMap[alloc.mission_id]) {
         missionsMap[alloc.mission_id] = {
           missionId: alloc.mission_id,
@@ -78,9 +96,12 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
       missionId: group.missionId,
       targets: Object.values(group.targets),
     }));
-  }, [task.allocations]);
+  }, [focusTargetId, task.allocations]);
 
-  const assetTotals = task.allocations.reduce((totals, line) => {
+  const visibleAllocations = focusTargetId
+    ? task.allocations.filter((line) => line.target_id === focusTargetId)
+    : task.allocations;
+  const assetTotals = visibleAllocations.reduce((totals, line) => {
     totals.set(line.asset_id, (totals.get(line.asset_id) ?? 0) + line.quantity);
     return totals;
   }, new Map<string, number>());
@@ -92,19 +113,22 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
     : undefined;
 
   return (
-    <Card className={cn(entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")} onDoubleClick={() => onPreview(task)}>
+    <Card
+      className={cn(entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")}
+      onClick={() => onPreview(task)}
+    >
       <CardHeader>
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-sm font-semibold text-primitive-neutral-200" title={task.label}>
-            {task.label}
+          <p className="truncate text-sm font-semibold text-primitive-neutral-200" title={displayLabel ?? task.label}>
+            {displayLabel ?? task.label}
           </p>
           <EntityStatusBadge status={entityState} />
         </div>
         {role === "CENTER" ? (
           <p className="font-medium text-primitive-neutral-0">{detachmentName(task.organization_id)}</p>
         ) : null}
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
-          {role === "CENTER" ? (
+        <div onClick={(event) => event.stopPropagation()}>
+          {role === "CENTER" || focusTargetId ? (
             <PreviewIconButton onClick={() => onPreview(task)} />
           ) : assignedGroups.length > 0 ? (
             <PreviewIconButton onClick={() => navigate(`/planning/tasks/${task.id}`)} />
@@ -119,10 +143,13 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
             {groupedMissions.length === 1 && mainMission && (
               <>
                 <span className="text-muted-foreground/40">•</span>
-                {role === "CENTER" ? (
+                {role === "CENTER" && !displayTitle ? (
                   <button
                     type="button"
-                    onClick={() => navigate(`/planning/missions/${mainMission.id}`)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      navigate(`/planning/missions/${mainMission.id}`);
+                    }}
                     title={`Перейти до вогневого завдання ${mainMission.label}`}
                     className="group inline-flex items-center gap-1 font-medium text-zinc-400 hover:text-zinc-300 transition-colors cursor-pointer"
                   >
@@ -132,8 +159,8 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
                     <ArrowUpRight className="w-3.5 h-3.5 text-sky-400/70 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
                   </button>
                 ) : (
-                  <p className="truncate text-md font-medium text-zinc-400" title={`${mainMission.label} — ${mainMission.name}`}>
-                    {mainMission.label} — {mainMission.name}
+                  <p className="truncate text-md font-medium text-zinc-400" title={displayTitle ?? `${mainMission.label} — ${mainMission.name}`}>
+                    {displayTitle ?? `${mainMission.label} — ${mainMission.name}`}
                   </p>
                 )}
               </>
@@ -154,7 +181,7 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
                     {missionLabel}
                   </p>
                   {canOpenMission && mission ? (
-                    <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+                    <div onClick={(event) => event.stopPropagation()}>
                       <PreviewActionButton
                         label={DICTIONARY.common.actions.preview_mission}
                         onClick={() => navigate(`/planning/missions/${mission.id}`)}
@@ -214,14 +241,13 @@ export function TaskCard({ task, missions, reportId, targets, battleGroups, aimi
         ) : null}
         <div className="flex items-center justify-between gap-2">
           {managesTasks && entityState === "archived" ? (
-            <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+            <div onClick={(event) => event.stopPropagation()}>
               <ResetIconButton onClick={() => onRestore(task)} />
             </div>
           ) : <span />}
           <div
             className="flex flex-1 justify-end gap-2"
             onClick={(event) => event.stopPropagation()}
-            onDoubleClick={(event) => event.stopPropagation()}
           >
             {role === "DETACHMENT" && entityState === "active" && !assignedGroups.length ? (
               <Button className="h-7" onClick={() => navigate(`/planning/tasks/${task.id}?isEditMode=true`)}>

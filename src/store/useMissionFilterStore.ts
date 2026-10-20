@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import type { MissionViewMode } from "@/lib/missionView";
 import type { MissionStatusFilter } from "@/types/mission";
 
 export const MISSION_FILTER_STORE_KEY = "military_crm_mission_filter_store";
@@ -9,6 +10,7 @@ export interface MissionFilterState {
   status: MissionStatusFilter;
   dateFrom: string | null;
   dateTo: string | null;
+  viewMode: MissionViewMode;
 }
 
 export const DEFAULT_MISSION_FILTERS: MissionFilterState = {
@@ -16,6 +18,7 @@ export const DEFAULT_MISSION_FILTERS: MissionFilterState = {
   status: "all",
   dateFrom: null,
   dateTo: null,
+  viewMode: "daily",
 };
 
 const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "all"];
@@ -41,6 +44,7 @@ export function normalizeMissionFilters(value: Partial<MissionFilterState> | und
       : DEFAULT_MISSION_FILTERS.status,
     dateFrom: dateParam(value?.dateFrom),
     dateTo: dateParam(value?.dateTo),
+    viewMode: value?.viewMode === "target" ? "target" : "daily",
   };
 }
 

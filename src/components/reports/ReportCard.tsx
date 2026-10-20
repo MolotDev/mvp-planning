@@ -43,7 +43,7 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
   };
 
   return (
-    <Card className={cn(report.status === "archived" ? "opacity-60" : "hover:cursor-pointer")} onDoubleClick={openReport}>
+    <Card className={cn(report.status === "archived" ? "opacity-60" : "hover:cursor-pointer")} onClick={openReport}>
       <CardHeader>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold text-primitive-neutral-0" title={detachmentName(report.organization_id)}>
@@ -54,7 +54,7 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
             {statusLabel}
           </Badge>
         </div>
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div onClick={(event) => event.stopPropagation()}>
           {managesReports && !reportLocked ? (
             <EditIconButton onClick={openReport} />
           ) : (
@@ -96,7 +96,7 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
         ) : null}
       </CardBody>
       <CardFooter>
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div onClick={(event) => event.stopPropagation()}>
           {report.status !== "draft" || !managesReports ? null : <ArchiveIconButton onClick={() => onArchive(report)} />}
         </div>
       </CardFooter>

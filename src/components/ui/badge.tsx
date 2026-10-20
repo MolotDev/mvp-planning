@@ -23,7 +23,7 @@ export function TargetIdBadgeLink({ className, id: targetId, ...props }: HTMLAtt
 }
 export function TargetBadgeLink({ className, id: targetId, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
-    <a onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} href={`#/catalogs/targets/${targetId}`} title="Перглянути ціль" className="group text-ellipsis whitespace-nowrap flex items-center">
+    <a onClick={(e) => e.stopPropagation()} href={`#/catalogs/targets/${targetId}`} title="Перглянути ціль" className="group text-ellipsis whitespace-nowrap flex items-center">
       <Badge 
         className={cn("min-w-fit tracking-widest text-sky-300 underline underline-offset-2 font-semibold bg-sky-950 hover:shadow-[0_0_10px_rgba(2,132,199,0.5)] hover:bg-primitive-neutral-800",
           className || "text-md")}

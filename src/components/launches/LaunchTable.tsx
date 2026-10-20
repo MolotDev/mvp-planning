@@ -307,7 +307,7 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                     >
                       <button
                         type="button" 
-                        onDoubleClick={() => {
+                        onClick={() => {
                           if (target) {
                             navigate(`/catalogs/targets/${target.id}`);
                           }

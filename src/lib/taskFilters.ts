@@ -37,7 +37,8 @@ export function hasTaskFilterParams(params: URLSearchParams): boolean {
     params.has("to") ||
     params.has("status") ||
     params.has("detachment") ||
-    params.has("targetId")
+    params.has("targetId") ||
+    params.has("view")
   );
 }
 
@@ -66,6 +67,7 @@ export function taskFiltersFromSearchParams(
     dateFrom,
     dateTo,
     organizationId: params.get("detachment") ?? "",
+    viewMode: params.get("view") === "target" ? "target" : "daily",
   };
 }
 
@@ -89,6 +91,9 @@ export function taskFiltersToSearchParams(
   if (filters.organizationId) {
     params.detachment = filters.organizationId;
   }
+  if (filters.viewMode === "target") {
+    params.view = "target";
+  }
   if (extra?.targetId) {
     params.targetId = extra.targetId;
   }
@@ -108,6 +113,7 @@ export function sameTaskFilters(left: TaskFilterState, right: TaskFilterState): 
     left.status === right.status &&
     left.dateFrom === right.dateFrom &&
     left.dateTo === right.dateTo &&
-    left.organizationId === right.organizationId
+    left.organizationId === right.organizationId &&
+    left.viewMode === right.viewMode
   );
 }

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
-import { ClipboardList, Search, X } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { Calendar, ClipboardList, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TaskCard } from "@/components/tasks/TaskCard";
-import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardBody } from "@/components/ui/card";
 import { AppDateRangePicker } from "@/components/ui/date-picker";
 import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
 import { hidesDetachmentFilter, locksDetachmentFilter, taskInScope, withSessionScope } from "@/lib/access";
-import { formatIsoDate } from "@/lib/dates";
+import { formatIsoDate, calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, getDaysArray, isLessThanOneDay, isMoreThanOneDay, isToday } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import {
   sameTaskFilters,
@@ -29,6 +30,8 @@ import { notifySuccess } from "@/lib/toasts";
 import { DETACHMENT_REFS } from "@/data/crews";
 import { useReportStore } from "@/store/useReportStore";
 import { matchingReports } from "@/lib/reportAggregation";
+import type { MissionViewMode } from "@/lib/missionView";
+import { splitTasksByTarget } from "@/lib/taskView";
 
 export function TasksPlanningPage() {
   const navigate = useNavigate();
@@ -61,6 +64,22 @@ export function TasksPlanningPage() {
     }
   }, [searchParams, missions, setFilters, setSearchParams, role, entityId]);
 
+  useEffect(() => {
+    if (filters.dateFrom !== null) {
+      return;
+    }
+    const today = calculateDateOffset(new Date(), 0).split("T")[0];
+    if (filters.viewMode === "target") {
+      setFilters({ ...filters, dateFrom: today, dateTo: null });
+      return;
+    }
+    setFilters({
+      ...filters,
+      dateFrom: calculateDateOffset(new Date(), -2).split("T")[0],
+      dateTo: calculateDateOffset(new Date(), 2).split("T")[0],
+    });
+  }, [filters, setFilters]);
+
   const applyFilters = (next: TaskFilterState) => {
     const scoped = withSessionScope(next, role, entityId);
     setFilters(scoped);
@@ -71,6 +90,25 @@ export function TasksPlanningPage() {
     const scoped = withSessionScope({ ...DEFAULT_TASK_FILTERS }, role, entityId);
     setFilters(scoped);
     setSearchParams(taskFiltersToSearchParams(scoped), { replace: true });
+  };
+
+  const handleViewModeChange = (viewMode: MissionViewMode) => {
+    const today = calculateDateOffset(new Date(), 0).split("T")[0];
+    if (viewMode === "daily") {
+      applyFilters({
+        ...activeFilters,
+        viewMode,
+        dateFrom: calculateDateOffset(new Date(), -2).split("T")[0],
+        dateTo: calculateDateOffset(new Date(), 2).split("T")[0],
+      });
+      return;
+    }
+    applyFilters({
+      ...activeFilters,
+      viewMode,
+      dateFrom: today,
+      dateTo: null,
+    });
   };
 
   const [from, to] = taskFilterRange(activeFilters);
@@ -86,7 +124,22 @@ export function TasksPlanningPage() {
     null,
     activeFilters.organizationId || null,
   );
-  const metrics = getTaskMetrics(visibleTasks);
+  const dayColumns = useMemo(() => {
+    if (activeFilters.viewMode !== "daily" || !from || !to) {
+      return [];
+    }
+    return getDaysArray(from.toISOString(), to.toISOString()).map((date) => ({
+      date,
+      tasks: visibleTasks.filter(
+        (task) => formatDateUk(task.scheduled_at || task.created_at) === formatDateUk(date.toString()),
+      ),
+    }));
+  }, [activeFilters.viewMode, from, to, visibleTasks]);
+  const targetCards = useMemo(
+    () => (activeFilters.viewMode === "target" ? splitTasksByTarget(visibleTasks, missions, targets).slice(0, 5) : []),
+    [activeFilters.viewMode, missions, targets, visibleTasks],
+  );
+  const metrics = getTaskMetrics(activeFilters.viewMode === "target" ? targetCards.map((card) => card.task) : visibleTasks);
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4">
@@ -177,9 +230,80 @@ export function TasksPlanningPage() {
           />
         </div>
         <ResetFiltersIconButton onClick={resetFilters} />
+        <div className="flex items-center gap-1 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900/90 p-1">
+          <button
+            type="button"
+            aria-pressed={activeFilters.viewMode === "daily"}
+            onClick={() => handleViewModeChange("daily")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:cursor-pointer hover:shadow-md",
+              activeFilters.viewMode === "daily"
+                ? "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-0 shadow-sm"
+                : "text-primitive-neutral-500 hover:text-primitive-neutral-200",
+            )}
+          >
+            {DICTIONARY.missions.view_daily}
+          </button>
+          <button
+            type="button"
+            aria-pressed={activeFilters.viewMode === "target"}
+            onClick={() => handleViewModeChange("target")}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:cursor-pointer hover:shadow-md",
+              activeFilters.viewMode === "target"
+                ? "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-0 shadow-sm"
+                : "text-primitive-neutral-500 hover:text-primitive-neutral-200",
+            )}
+          >
+            {DICTIONARY.missions.view_target}
+          </button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
-        {visibleTasks.length === 0 ? (
+        {activeFilters.viewMode === "target" ? (
+          targetCards.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <Card className="w-full items-center gap-3 text-center justify-center">
+                <ClipboardList className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
+                <p className="text-sm text-primitive-neutral-300">{DICTIONARY.tasks.empty}</p>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-5 gap-3">
+              {targetCards.map((card) => {
+                const currentMissionReports = matchingReports(reports, [card.task.organization_id], card.task.scheduled_at);
+                const reportId = currentMissionReports.find((report) => report.organization_id === card.task.organization_id)?.id ?? "";
+                return (
+                  <TaskCard
+                    key={`${card.task.id}:${card.targetId || card.label}`}
+                    task={card.task}
+                    missions={missions}
+                    reportId={reportId}
+                    targets={targets}
+                    aimingPoints={aimingPoints}
+                    battleGroups={battleGroups.filter(
+                      (group) => group.task_id === card.task.id || card.task.battle_groups_ids.includes(group.id),
+                    )}
+                    focusTargetId={card.targetId}
+                    displayLabel={card.label}
+                    displayTitle={card.title}
+                    onPreview={(item) =>
+                      navigate(
+                        card.targetId
+                          ? `/planning/tasks/${item.id}?targetId=${card.targetId}`
+                          : `/planning/tasks/${item.id}`,
+                      )
+                    }
+                    onRestore={(item) => {
+                      restoreTask(item.id);
+                      notifySuccess(DICTIONARY.tasks.toasts.task_restored);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )
+        ) : dayColumns.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Card className="w-full items-center gap-3 text-center justify-center">
               <ClipboardList className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
@@ -187,29 +311,55 @@ export function TasksPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 3xl:grid-cols-3">
-            {visibleTasks.map((task) => {
-              const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
-              const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? ""
-              return (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  missions={missions}
-                  reportId={reportId}
-                  targets={targets}
-                  aimingPoints={aimingPoints}
-                  battleGroups={battleGroups.filter(
-                    (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
-                  )}
-                  onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
-                  onRestore={(item) => {
-                    restoreTask(item.id);
-                    notifySuccess(DICTIONARY.tasks.toasts.task_restored);
-                  }}
-                />
-              )
-            })}
+          <div className="grid grid-cols-5 gap-3">
+            {dayColumns.map(({ date, tasks: dayTasks }) => (
+              <div
+                key={date.toISOString()}
+                className={cn(
+                  "flex w-full flex-col gap-2 opacity-70",
+                  isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
+                  isToday(date) ? "scale-[102%] opacity-100" : "",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <Badge className={cn("flex items-center bg-primitive-neutral-800 text-sm", isToday(date) ? "" : "bg-primitive-neutral-700")}>
+                    <Calendar className="mr-1 h-3 w-3 shrink-0" aria-hidden="true" />
+                    {convertDateToDdMmDayOfWeek(date)}
+                  </Badge>
+                  <span className="text-sm">{isToday(date) ? DICTIONARY.missions.today : ""}</span>
+                </div>
+                {dayTasks.length > 0 ? (
+                  dayTasks.map((task) => {
+                    const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
+                    const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? "";
+                    return (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        missions={missions}
+                        reportId={reportId}
+                        targets={targets}
+                        aimingPoints={aimingPoints}
+                        battleGroups={battleGroups.filter(
+                          (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
+                        )}
+                        onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
+                        onRestore={(item) => {
+                          restoreTask(item.id);
+                          notifySuccess(DICTIONARY.tasks.toasts.task_restored);
+                        }}
+                      />
+                    );
+                  })
+                ) : (
+                  <Card className="min-h-60">
+                    <CardBody className="justify-center gap-3 text-center">
+                      <p className="text-sm text-primitive-neutral-300 opacity-60">{DICTIONARY.tasks.no_tasks}</p>
+                    </CardBody>
+                  </Card>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ import {
 } from "@/store/useMissionFilterStore";
 
 export function hasMissionFilterParams(params: URLSearchParams): boolean {
-  return params.has("q") || params.has("from") || params.has("to") || params.has("status");
+  return params.has("q") || params.has("from") || params.has("to") || params.has("status") || params.has("view");
 }
 
 export function missionFiltersFromSearchParams(params: URLSearchParams): MissionFilterState | null {
@@ -18,6 +18,7 @@ export function missionFiltersFromSearchParams(params: URLSearchParams): Mission
     status: (params.get("status") ?? undefined) as MissionFilterState["status"] | undefined,
     dateFrom: params.get("from"),
     dateTo: params.get("to"),
+    viewMode: params.get("view") === "target" ? "target" : "daily",
   });
 }
 
@@ -35,6 +36,9 @@ export function missionFiltersToSearchParams(filters: MissionFilterState): Recor
   if (filters.status !== DEFAULT_MISSION_FILTERS.status) {
     params.status = filters.status;
   }
+  if (filters.viewMode === "target") {
+    params.view = "target";
+  }
   return params;
 }
 
@@ -43,7 +47,8 @@ export function sameMissionFilters(left: MissionFilterState, right: MissionFilte
     left.query === right.query &&
     left.status === right.status &&
     left.dateFrom === right.dateFrom &&
-    left.dateTo === right.dateTo
+    left.dateTo === right.dateTo &&
+    left.viewMode === right.viewMode
   );
 }
 

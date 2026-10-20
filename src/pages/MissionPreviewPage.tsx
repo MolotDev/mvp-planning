@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { CrosshairIcon, MapPinned, PanelRightClose, PanelRightOpen, PlaneIcon, Users, X } from "lucide-react";
 import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
@@ -23,6 +23,7 @@ import {
   toTaskDrafts,
   type TargetDraft,
 } from "@/lib/missionForm";
+import { splitMissionsByTarget } from "@/lib/missionView";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -35,6 +36,8 @@ import { MissionForm } from "@/components/missions/MissionForm";
 
 export function MissionPreviewPage() {
   const { missionId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const focusTargetId = searchParams.get("targetId") ?? "";
   const navigate = useNavigate();
   const mission = useMissionStore((state) => state.missions.find((item) => item.id === missionId));
   const tasks = useTaskStore((state) => state.tasks);
@@ -97,7 +100,22 @@ export function MissionPreviewPage() {
   const planningLocked = isMissionPlanningLocked(mission, tasks, reports);
   const canEdit = managesMissions && !planningLocked && !isArchived;
   const canConfirm = managesMissions && !isConfirmed && !isArchived && allMissionReportsSubmitted(mission, tasks, reports);
-  const title = mission.name ? `${mission.label} — ${mission.name}` : mission.label;
+  const focusCard = focusTargetId
+    ? splitMissionsByTarget([mission], tasks, targets).find((card) => card.targetId === focusTargetId)
+    : undefined;
+  const title = focusCard?.title ?? (mission.name ? `${mission.label} — ${mission.name}` : mission.label);
+  const heading = focusCard?.label ?? mission.label;
+  const summaryDrafts = focusTargetId && !editing
+    ? targetDrafts.filter((draft) => draft.target_id === focusTargetId)
+    : targetDrafts;
+  const scopedTasks = focusTargetId
+    ? tasks.map((task) => ({
+        ...task,
+        allocations: task.allocations.filter(
+          (line) => line.mission_id !== mission.id || line.target_id === focusTargetId,
+        ),
+      }))
+    : tasks;
   const scheduledIso = getScheduledIso(scheduledAt);
   const dateError = getDateError(scheduledIso, mission.created_at);
   const descriptionError = description.trim() ? null : DICTIONARY.targets_catalog.validation.required;
@@ -138,9 +156,9 @@ export function MissionPreviewPage() {
     setDidChange(false);
   };
 
-  const assetQuantity = targetDrafts.flatMap(item => item.detachments).reduce((sum, item) => sum += Number(item.quantity), 0);
-  const detachmentQuantity = (new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.organization_id))).size;
-  const assignedTasks = new Set(targetDrafts.flatMap(item => item.detachments).map(item=> item.task_id));
+  const assetQuantity = summaryDrafts.flatMap(item => item.detachments).reduce((sum, item) => sum += Number(item.quantity), 0);
+  const detachmentQuantity = (new Set(summaryDrafts.flatMap(item => item.detachments).map(item=> item.organization_id))).size;
+  const assignedTasks = new Set(summaryDrafts.flatMap(item => item.detachments).map(item=> item.task_id));
   const crewQuantity = (new Set(battleGroups.filter(item => assignedTasks.has(item.allocation_line_id ?? "")).flatMap(item=> item.lead_crew_id))).size;
   
   const [statsOpen, setStatsOpen] = useState(false);
@@ -158,7 +176,7 @@ export function MissionPreviewPage() {
             <EntityStatusBadge status={entityState} />
           )}
           <h2 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
-            {mission.label}
+            {heading}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -179,14 +197,14 @@ export function MissionPreviewPage() {
               <div className="flex gap-2 items-center justify-center py-1 px-3">
                 <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
                 <p className="truncate text-sm font-semibold text-zinc-300">
-                  {`${targetDrafts.length} цілі`}
+                  {`${summaryDrafts.length} цілі`}
                 </p>
               </div>
               <div className="border-l border-primitive-neutral-700" />
               <div className="flex gap-2 items-center justify-center py-1 px-3">
                 <CrosshairIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
                 <p className="truncate text-sm font-semibold text-zinc-300">
-                  {`${targetDrafts.flatMap(item=> item.aiming_point_ids).length} точ. приц.`}
+                  {`${summaryDrafts.flatMap(item=> item.aiming_point_ids).length} точ. приц.`}
                 </p>
               </div>
               <div className="border-l border-primitive-neutral-700" />
@@ -257,7 +275,7 @@ export function MissionPreviewPage() {
               <>
                 <MissionAllocationBoard
                   mission={mission}
-                  tasks={tasks}
+                  tasks={editing ? tasks : scopedTasks}
                   launches={launches}
                   targets={targets}
                   aimingPoints={aimingPoints}
@@ -280,7 +298,7 @@ export function MissionPreviewPage() {
             </Button>
             <MissionReadinessPanel
               mission={mission}
-              tasks={tasks}
+              tasks={scopedTasks}
               groups={battleGroups}
               launches={launches}
               targets={targets}
@@ -309,7 +327,7 @@ export function MissionPreviewPage() {
                     <PanelRightClose className="h-4 w-4" aria-hidden="true" />
                   </Button>
                 </header>
-                <MissionAnalyticsColumn mission={mission} tasks={tasks} groups={battleGroups} launches={launches} />
+                <MissionAnalyticsColumn mission={mission} tasks={scopedTasks} groups={battleGroups} launches={launches} />
               </aside>
             </div>
           ) : null}

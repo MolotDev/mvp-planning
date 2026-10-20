@@ -17,6 +17,7 @@ import {
   missionFiltersToSearchParams,
   sameMissionFilters,
 } from "@/lib/missionFilters";
+import { splitMissionsByTarget, type MissionViewMode } from "@/lib/missionView";
 import { TRANSLATIONS } from "@/lib/translations";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useMissionFilterStore, type MissionFilterState } from "@/store/useMissionFilterStore";
@@ -54,12 +55,18 @@ export function MissionsPlanningPage() {
     }
   }, [searchParams, setFilters]);
   useEffect(() => {
-    if (filters.dateFrom === null) {
-      const dateFrom = calculateDateOffset(new Date(), -2).split('T')[0];
-      const dateTo = calculateDateOffset(new Date(), 2).split('T')[0];
-      setFilters({ ...filters, dateFrom, dateTo });
+    if (filters.dateFrom !== null) {
+      return;
     }
-  }, [filters.dateFrom, filters.dateTo, setFilters]);
+    const today = calculateDateOffset(new Date(), 0).split("T")[0];
+    if (filters.viewMode === "target") {
+      setFilters({ ...filters, dateFrom: today, dateTo: null });
+      return;
+    }
+    const dateFrom = calculateDateOffset(new Date(), -2).split("T")[0];
+    const dateTo = calculateDateOffset(new Date(), 2).split("T")[0];
+    setFilters({ ...filters, dateFrom, dateTo });
+  }, [filters, setFilters]);
 
   const applyFilters = (next: MissionFilterState) => {
     setFilters(next);
@@ -69,6 +76,25 @@ export function MissionsPlanningPage() {
   const resetFilters = () => {
     resetFiltersState();
     setSearchParams({}, { replace: true });
+  };
+
+  const handleViewModeChange = (viewMode: MissionViewMode) => {
+    const today = calculateDateOffset(new Date(), 0).split("T")[0];
+    if (viewMode === "daily") {
+      applyFilters({
+        ...filters,
+        viewMode,
+        dateFrom: calculateDateOffset(new Date(), -2).split("T")[0],
+        dateTo: calculateDateOffset(new Date(), 2).split("T")[0],
+      });
+      return;
+    }
+    applyFilters({
+      ...filters,
+      viewMode,
+      dateFrom: today,
+      dateTo: null,
+    });
   };
 
   const [from, to] = missionFilterRange(filters);
@@ -92,7 +118,14 @@ export function MissionsPlanningPage() {
     [filteredMissions, from, to],
   );
 
-  const metrics = useMemo(() => getMissionMetrics(filteredMissions), [filteredMissions]);
+  const targetCards = useMemo(
+    () => (filters.viewMode === "target" ? splitMissionsByTarget(filteredMissions, tasks, targets).slice(0, 5) : []),
+    [filters.viewMode, filteredMissions, tasks, targets],
+  );
+  const metrics = useMemo(
+    () => getMissionMetrics(filters.viewMode === "target" ? targetCards.map((card) => card.mission) : filteredMissions),
+    [filters.viewMode, filteredMissions, targetCards],
+  );
   const [planningDate, setPlanningDate] = useState<Date | null>(null);
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
@@ -151,6 +184,34 @@ export function MissionsPlanningPage() {
               onChange={(value) => applyFilters({ ...filters, status: value as MissionStatusFilter })}
             />
           </div>
+          <div className="flex items-center gap-1 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900/90 p-1">
+            <button
+              type="button"
+              aria-pressed={filters.viewMode === "daily"}
+              onClick={() => handleViewModeChange("daily")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:cursor-pointer hover:shadow-md",
+                filters.viewMode === "daily"
+                  ? "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-0 shadow-sm"
+                  : "text-primitive-neutral-500 hover:text-primitive-neutral-200",
+              )}
+            >
+              {DICTIONARY.missions.view_daily}
+            </button>
+            <button
+              type="button"
+              aria-pressed={filters.viewMode === "target"}
+              onClick={() => handleViewModeChange("target")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-all hover:cursor-pointer hover:shadow-md",
+                filters.viewMode === "target"
+                  ? "border border-primitive-neutral-700 bg-primitive-neutral-800 text-primitive-neutral-0 shadow-sm"
+                  : "text-primitive-neutral-500 hover:text-primitive-neutral-200",
+              )}
+            >
+              {DICTIONARY.missions.view_target}
+            </button>
+          </div>
           <ResetFiltersIconButton onClick={resetFilters} />
         </div>
         {managesMissions ? (
@@ -161,7 +222,39 @@ export function MissionsPlanningPage() {
         ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
-        {visibleMissions.length === 0 ? (
+        {filters.viewMode === "target" ? (
+          targetCards.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <Card className="w-full items-center gap-3 text-center justify-center">
+                <LandPlot className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
+                <p className="text-sm text-primitive-neutral-300">
+                  {DICTIONARY.missions.empty_state}
+                </p>
+              </Card>
+            </div>
+          ) : (
+            <div className="grid grid-cols-5 gap-3">
+              {targetCards.map((card) => (
+                <MissionCard
+                  key={`${card.mission.id}:${card.targetId || card.label}`}
+                  mission={card.mission}
+                  tasks={tasks}
+                  targets={targets}
+                  focusTargetId={card.targetId}
+                  displayLabel={card.label}
+                  displayTitle={card.title}
+                  onPreview={(item) =>
+                    navigate(
+                      card.targetId
+                        ? `/planning/missions/${item.id}?targetId=${card.targetId}`
+                        : `/planning/missions/${item.id}`,
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )
+        ) : visibleMissions.length === 0 ? (
           <div className="flex h-full items-center justify-center">
             <Card className="w-full items-center gap-3 text-center justify-center">
               <LandPlot className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
@@ -171,7 +264,7 @@ export function MissionsPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-5 gap-3">
             {visibleMissions.map(({date, mission}) => (
               <div className={cn(
                 "w-full flex flex-col gap-0.5 opacity-70",
@@ -188,7 +281,7 @@ export function MissionsPlanningPage() {
                   </Badge>
                   
                   <span className="text-sm">
-                    {date.getDate() === new Date().getDate() ? "Сьогодні" : ""}
+                    {isToday(date) ? DICTIONARY.missions.today : ""}
                   </span>
                 </div>
                 {mission ? (

@@ -26,7 +26,7 @@ export function TargetCard({ target, onPreview, onArchive, onRestore }: TargetCa
   return (
     <Card
       className="hover:cursor-pointer"
-      onDoubleClick={() => onPreview(target)}
+      onClick={() => onPreview(target)}
     >
       <CardHeader>
         <div className="flex min-w-0 items-center gap-2">
@@ -39,7 +39,7 @@ export function TargetCard({ target, onPreview, onArchive, onRestore }: TargetCa
             0
           </Badge>
         </div>
-        <div className="flex items-center" onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center" onClick={(event) => event.stopPropagation()}>
           <PreviewIconButton onClick={() => onPreview(target)} />
         </div>
       </CardHeader>
@@ -61,7 +61,7 @@ export function TargetCard({ target, onPreview, onArchive, onRestore }: TargetCa
         <span className="text-sm text-primitive-neutral-300">
           {DICTIONARY.targets_catalog.aiming_points_count}: {activePoints}
         </span>
-        <div onClick={(event) => event.stopPropagation()} onDoubleClick={(event) => event.stopPropagation()}>
+        <div onClick={(event) => event.stopPropagation()}>
           {isArchived ? (
             <ResetIconButton onClick={() => onRestore(target)} />
           ) : (

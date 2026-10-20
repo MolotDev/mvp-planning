@@ -102,13 +102,15 @@ function LaunchScopeCard({
   });
 
   return (
-    <Card className="min-w-[320px] hover:cursor-pointer" onDoubleClick={() => onPreview(scope)}>
+    <Card className="min-w-[320px] hover:cursor-pointer" onClick={() => onPreview(scope)}>
       <CardHeader>
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-sm font-semibold text-primitive-neutral-0">{scope.task.label}</span>
           <EntityStatusBadge status={entityState} />
         </div>
-        <PreviewIconButton onClick={() => onPreview(scope)} />
+        <div onClick={(event) => event.stopPropagation()}>
+          <PreviewIconButton onClick={() => onPreview(scope)} />
+        </div>
       </CardHeader>
       <CardBody className="gap-3">
         <p className="flex flex-wrap items-center gap-1 text-primitive-neutral-200">
