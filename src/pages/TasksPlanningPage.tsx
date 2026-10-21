@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Calendar, ClipboardList, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TaskCard } from "@/components/tasks/TaskCard";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { AppDateRangePicker } from "@/components/ui/date-picker";
@@ -11,7 +12,7 @@ import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
 import { hidesDetachmentFilter, locksDetachmentFilter, taskInScope, withSessionScope } from "@/lib/access";
-import { formatIsoDate, calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, getDaysArray, isLessThanOneDay, isMoreThanOneDay, isToday } from "@/lib/dates";
+import { formatIsoDate, calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, getDaysArray, isBeforeToday, isLessThanOneDay, isMoreThanOneDay, isToday, startOfDay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import {
   sameTaskFilters,
@@ -316,7 +317,7 @@ export function TasksPlanningPage() {
               <div
                 key={date.toISOString()}
                 className={cn(
-                  "flex w-full flex-col gap-2 opacity-70",
+                  "flex w-full flex-col gap-2 opacity-70 hover:opacity-100 transition-all duration-100",
                   isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
                   isToday(date) ? "scale-[102%] opacity-100" : "",
                 )}
@@ -355,6 +356,15 @@ export function TasksPlanningPage() {
                   <Card className="min-h-60">
                     <CardBody className="justify-center gap-3 text-center">
                       <p className="text-sm text-primitive-neutral-300 opacity-60">{DICTIONARY.tasks.no_tasks}</p>
+                      {role === "DETACHMENT" && entityId && !isBeforeToday(date) ? (
+                        <Button
+                          variant="outline"
+                          className="text-xs"
+                          onClick={() => navigate(`/planning/tasks/new?date=${formatIsoDate(startOfDay(date))}`)}
+                        >
+                          {DICTIONARY.tasks.details.create_and_assign}
+                        </Button>
+                      ) : null}
                     </CardBody>
                   </Card>
                 )}

@@ -1,5 +1,6 @@
-import { Eye } from "lucide-react";
+import { Eye, RadarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
@@ -17,6 +18,9 @@ interface LaunchSummaryCardsProps {
   groups: BattleGroup[];
   launches: Launch[];
   onOpen: (selection: { crewId: string; assetId: string }) => void;
+  routesEditable?: boolean;
+  routeDrafts?: Record<string, string>;
+  onRouteChange?: (launchId: string, value: string) => void;
 }
 
 interface AimingSummary {
@@ -35,6 +39,7 @@ interface CrewAssetSummary {
   trackers: number;
   total: number;
   points: AimingSummary[];
+  launchIds: string[];
 }
 
 export function LaunchSummaryCards({
@@ -44,6 +49,9 @@ export function LaunchSummaryCards({
   groups,
   launches,
   onOpen,
+  routesEditable = false,
+  routeDrafts,
+  onRouteChange,
 }: LaunchSummaryCardsProps) {
   const text = DICTIONARY.tasks.details;
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
@@ -68,6 +76,7 @@ export function LaunchSummaryCards({
         trackers: 0,
         total: 0,
         points: [],
+        launchIds: [],
       };
       const ready = groupLaunches.filter(isLaunchEquipped).length;
       const pointId = point?.id ?? allocation?.target_id ?? group.id;
@@ -79,7 +88,7 @@ export function LaunchSummaryCards({
         current.points.push({
           id: pointId,
           label: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-          mgrs: point?.mgrs ?? target?.mgrs ?? "",
+          mgrs: point?.label ?? target?.mgrs ?? "",
           ready,
           total: groupLaunches.length,
         });
@@ -87,6 +96,11 @@ export function LaunchSummaryCards({
       current.ready += ready;
       current.trackers += groupLaunches.filter((launch) => Boolean(launch.tracker_model_serial_number?.trim())).length;
       current.total += groupLaunches.length;
+      groupLaunches.forEach((launch) => {
+        if (!current.launchIds.includes(launch.id)) {
+          current.launchIds.push(launch.id);
+        }
+      });
       summaryMap.set(key, current);
     });
   const summaries = [...summaryMap.values()];
@@ -106,14 +120,14 @@ export function LaunchSummaryCards({
             <h3 className="text-sm font-medium text-primitive-neutral-300">
               {fillTemplate(text.crew_summary_heading, {crew: crewName(summary.crewId)})}
             </h3>
-            <ProgressBadge label={`${uavName(summary.assetId)} • ${summary.ready} / ${summary.total}`} processed={summary.ready} total={summary.total} />
+            {/* <ProgressBadge label={`${uavName(summary.assetId)} • ${summary.ready} / ${summary.total}`} processed={summary.ready} total={summary.total} />
             <span className="py-1 text-xs text-primitive-neutral-300">
               {fillTemplate(text.tracker_count, { ready: summary.trackers, total: summary.total })}
-            </span>
+            </span> */}
             <div className="flex justify-end">
               <Button
                 variant="ghost"
-                className="border border-primitive-neutral-700 h-8"
+                className="border border-primitive-neutral-700 h-7"
                 disabled={summary.total === 0}
                 onClick={() =>
                   onOpen({
@@ -127,32 +141,57 @@ export function LaunchSummaryCards({
               </Button>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             {summary.points.map((point) => (
-              <div key={point.id} className="flex flex-wrap items-center justify-between gap-2">
+              <div key={point.id} className="flex justify-between gap-2">
                 <AimingPointBadge mgrs={point.mgrs} label={point.label} />
                 <ProgressBadge
                   label={`${uavName(summary.assetId)} • ${point.ready} / ${point.total}`}
                   processed={point.ready}
                   total={point.total}
+                  className="w-fit whitespace-nowrap h-fit"
                 />
               </div>
             ))}
           </div>
-          <details open className="border border-primitive-neutral-800 rounded-md flex flex-col">
+          <div className="flex flex-wrap items-center gap-2">
+            <RadarIcon className="h-4 w-4 text-zinc-300/50 mt-1" />
+            <span className="text-sm text-primitive-neutral-300">
+              {fillTemplate(text.tracker_count, { ready: summary.trackers, total: summary.total })}
+            </span>
+          </div>
+          <details className="border border-primitive-neutral-800 rounded-md flex flex-col">
             <summary className="text-md text-primitive-neutral-300 cursor-pointer bg-primitive-neutral-800 px-2 rounded-md">
-              {fillTemplate(text.trajectories, { ready: 0, total: 3 })}
+              {fillTemplate(text.trajectories, {
+                ready: summary.launchIds.filter((launchId) => {
+                  const stored = launches.find((launch) => launch.id === launchId)?.trajectory_name ?? "";
+                  return (routeDrafts?.[launchId] ?? stored).trim().length > 0;
+                }).length,
+                total: 3,
+              })}
             </summary>
             <div className="flex flex-col gap-2 p-3">
-              <span className="rounded border border-primitive-neutral-700 px-2 py-1 text-xs text-primitive-neutral-200">
-                Маршрут 1: 
-              </span>
-              <span className="rounded border border-primitive-neutral-700 px-2 py-1 text-xs text-primitive-neutral-200">
-                Маршрут 2:
-              </span>
-              <span className="rounded border border-primitive-neutral-700 px-2 py-1 text-xs text-primitive-neutral-200">
-                Маршрут 3:
-              </span>
+              {[0, 1, 2].map((index) => {
+                const launchId = summary.launchIds[index];
+                const launch = launches.find((item) => item.id === launchId);
+                const label = fillTemplate(text.route_label, { index: index + 1 });
+                const value = launch ? (routeDrafts?.[launch.id] ?? launch.trajectory_name ?? "") : "";
+                if (routesEditable && launch && onRouteChange) {
+                  return (
+                    <Input
+                      key={launch.id}
+                      aria-label={label}
+                      value={value}
+                      onChange={(event) => onRouteChange(launch.id, event.target.value)}
+                    />
+                  );
+                }
+                return (
+                  <span key={launchId ?? `route-${index}`} className="rounded border border-primitive-neutral-700 px-2 py-1 text-xs text-primitive-neutral-200">
+                    {`${label} ${value}`}
+                  </span>
+                );
+              })}
             </div>
           </details>
         </article>

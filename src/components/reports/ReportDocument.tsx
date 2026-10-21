@@ -147,7 +147,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
     }
     return description;
   };
-  
+
   return (
     <article className="mx-auto flex w-full max-w-[920px] flex-col gap-6 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4 pl-12">
       
@@ -1049,7 +1049,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
       </section>
 
       
-      {!locked && report.status === "draft" && (
+      {!locked && !readOnly && (
         <footer className="flex flex-wrap justify-end gap-3">
           <Button variant="ghost" disabled={readOnly} onClick={onClear}>
             {text.clear_report}

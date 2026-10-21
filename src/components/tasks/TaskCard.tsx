@@ -1,19 +1,17 @@
 import { useMemo } from "react";
-import { ArrowUpRight, Calendar, Users } from "lucide-react";
+import { CrosshairIcon, MapPinned, PlaneIcon, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ViewReportButton } from "@/components/reports/ViewReportButton";
 import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
-import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
+import { AimingPointBadge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardFooter, CardHeader } from "@/components/ui/card";
-import { PreviewIconButton, ResetIconButton } from "@/components/ui/icon-buttons";
+import { ResetIconButton } from "@/components/ui/icon-buttons";
 import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAccess, canAdminister } from "@/lib/access";
 import { crewName, uavName, visibleBattleGroups } from "@/lib/battleGroup";
-import { fillTemplate } from "@/lib/battleGroupCapacity";
-import { formatDateUk } from "@/lib/dates";
 import { detachmentName } from "@/lib/detachments";
 import { getEntityState } from "@/lib/entityState";
 import { formattingMGRS } from "@/lib/formattingMGRS";
@@ -60,18 +58,14 @@ export function TaskCard({
   onPreview,
   onRestore,
   focusTargetId = "",
-  displayLabel,
-  displayTitle,
 }: TaskCardProps) {
   const navigate = useNavigate();
   const role = useAuthStore((state) => state.role);
   const managesTasks = canAdminister(role, "tasks");
-  const canOpenMission = canAccess(role, "missions");
   const canOpenLaunches = canAccess(role, "launches");
   const launches = useLaunchStore((state) => state.launches);
   const entityState = getEntityState(task);
   const assignedGroups = visibleBattleGroups(task, battleGroups);
-  const scheduledAt = task.scheduled_at || task.created_at;
   const groupedMissions = useMemo(() => {
     const allocations = focusTargetId
       ? task.allocations.filter((line) => line.target_id === focusTargetId)
@@ -106,7 +100,6 @@ export function TaskCard({
     return totals;
   }, new Map<string, number>());
   const totalQuantity = [...assetTotals.values()].reduce((sum, quantity) => sum + quantity, 0);
-  const totalAssets = [...assetTotals.entries()].map(([assetId, quantity]) => `${uavName(assetId)} × ${quantity}`).join(", ");
 
   const mainMission = groupedMissions[0]
     ? missions.find((item) => item.id === groupedMissions[0].missionId)
@@ -114,68 +107,89 @@ export function TaskCard({
 
   return (
     <Card
-      className={cn(entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")}
+      className={cn("overflow-hidden", entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")}
       onClick={() => onPreview(task)}
     >
       <CardHeader>
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate text-sm font-semibold text-primitive-neutral-200" title={displayLabel ?? task.label}>
-            {displayLabel ?? task.label}
-          </p>
-          <EntityStatusBadge status={entityState} />
+          {role === "DETACHMENT" && mainMission ? (
+            <>
+              <p
+                className="truncate text-md font-medium text-zinc-400"
+                title={mainMission?.label ?? ""}
+              >
+                {mainMission?.label ? `${mainMission?.label} •` : ""}
+              </p>
+              <p className="truncate text-sm font-semibold text-primitive-neutral-200" title={task.label}>
+                {task.label}
+              </p>
+              <EntityStatusBadge status={entityState} />
+            </>
+          ) : null}
+          {/* {role === "CENTER" && mainMission ? (
+            <>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/planning/missions/${mainMission.id}`);
+                }}
+                title={`Перейти до вогневого завдання ${mainMission.label}`}
+                className="group flex items-center gap-1 font-medium text-zinc-400 hover:text-zinc-300 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="underline underline-offset-4">
+                  {mainMission.label}
+                </span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-sky-400/70 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+              </button>
+              <span className="text-muted-foreground/40">•</span>
+            </>
+          ) : (
+            <p
+              className="truncate text-md font-medium text-zinc-400"
+              title={mainMission?.label ?? ""}
+            >
+              {mainMission?.label ? `${mainMission?.label} • ` : ""}
+            </p>
+          )} */}
         </div>
         {role === "CENTER" ? (
           <p className="font-medium text-primitive-neutral-0">{detachmentName(task.organization_id)}</p>
         ) : null}
         <div onClick={(event) => event.stopPropagation()}>
-          {role === "CENTER" || focusTargetId ? (
+          {/* {role === "CENTER" || focusTargetId ? (
             <PreviewIconButton onClick={() => onPreview(task)} />
           ) : assignedGroups.length > 0 ? (
             <PreviewIconButton onClick={() => navigate(`/planning/tasks/${task.id}`)} />
-          ) : null}
+          ) : null} */}
         </div>
       </CardHeader>
       <CardBody className="gap-3">
-        <div className="flex flex-col gap-2 p-2">
+        {/* <div className="flex flex-col gap-2 p-2">
           <div className="flex items-center gap-1 text-sm text-primitive-neutral-200">
-            <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(scheduledAt)}</Badge>
             {groupedMissions.length === 1 && mainMission && (
               <>
+                <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(scheduledAt)}</Badge>
                 <span className="text-muted-foreground/40">•</span>
-                {role === "CENTER" && !displayTitle ? (
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      navigate(`/planning/missions/${mainMission.id}`);
-                    }}
-                    title={`Перейти до вогневого завдання ${mainMission.label}`}
-                    className="group inline-flex items-center gap-1 font-medium text-zinc-400 hover:text-zinc-300 transition-colors cursor-pointer"
-                  >
-                    <span className="underline underline-offset-4">
-                      {mainMission.label} — {mainMission.name}
-                    </span>
-                    <ArrowUpRight className="w-3.5 h-3.5 text-sky-400/70 group-hover:text-sky-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                  </button>
-                ) : (
-                  <p className="truncate text-md font-medium text-zinc-400" title={displayTitle ?? `${mainMission.label} — ${mainMission.name}`}>
-                    {displayTitle ?? `${mainMission.label} — ${mainMission.name}`}
-                  </p>
-                )}
               </>
             )}
           </div>
-        </div>
+        </div> */}
         {groupedMissions.map((group) => {
-          const mission = missions.find((item) => item.id === group.missionId);
-          const missionName = mission?.name?.trim() || "";
-          const missionLabel = missionName && mission?.label && missionName !== mission.label
-            ? `${mission.label} — ${missionName}`
-            : missionName || mission?.label || "";
+          // const mission = missions.find((item) => item.id === group.missionId);
+          // const missionName = mission?.name?.trim() || "";
+          // const missionLabel = missionName && mission?.label && missionName !== mission.label
+          //   ? `${mission.label} — ${missionName}`
+          //   : missionName || mission?.label || "";
+          const targetQuantity = group.targets.reduce((total) => total + 1, 0);
+          const pointsQuantity = group.targets.reduce((total, targetGroup) => total + targetGroup.allocations.length, 0);
+          const crewIds = battleGroups.map((item) => item.lead_crew_id);
+          // const crewNames = crewIds.map((crewId) => crewName(crewId)).join(" • ");
+          // console.log({crewNames})
           return (
             <div key={group.missionId} className="flex flex-col gap-2">
-              {groupedMissions.length > 1 && (
+              {/* {groupedMissions.length > 1 && (
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate text-sm font-medium text-primitive-neutral-0" title={missionLabel}>
                     {missionLabel}
@@ -189,8 +203,32 @@ export function TaskCard({
                     </div>
                   ) : null}
                 </div>
+              )} */}
+              {group.targets.length > 1 && (
+                <div className="flex flex-col gap-3 mt-2">
+                  <p className="flex items-center gap-1 text-sm text-primitive-neutral-0">
+                    <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
+                    <span className="text-sm text-primitive-neutral-300">Цілей: </span>
+                    {targetQuantity}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-primitive-neutral-0">
+                    <CrosshairIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
+                    <span className="text-sm text-primitive-neutral-300">Точок прицілювання: </span>
+                    {pointsQuantity}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-primitive-neutral-0">
+                    <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
+                    <span className="text-sm text-primitive-neutral-300">Екіпажів: </span>
+                    {crewIds.length}
+                  </p>
+                  <p className="flex items-center gap-1 text-sm text-primitive-neutral-0">
+                    <PlaneIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
+                    <span className="text-sm text-primitive-neutral-300">Засобів: </span>
+                    {totalQuantity}
+                  </p>
+                </div>
               )}
-              {group.targets.map((targetGroup) => {
+              {group.targets.length === 1 && group.targets.map((targetGroup) => {
                 const target = targets.find((item) => item.id === targetGroup.targetId);
                 return (
                   <div key={targetGroup.targetId} className="flex flex-col gap-2 mb-3 last:mb-0">
@@ -208,7 +246,8 @@ export function TaskCard({
                           <div key={line.id} className="flex flex-wrap items-center gap-2 ml-2">
                             <AimingPointBadge
                               label={aimingPoint?.name ?? DICTIONARY.tasks.allocation.primary_target}
-                              mgrs={formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "")}
+                              // mgrs={formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "")}
+                              mgrs={aimingPoint?.label ?? ""}
                             />
                             <ProgressBadge
                               className="text-sm ml-auto"
@@ -231,14 +270,14 @@ export function TaskCard({
         })}
       </CardBody>
       <CardFooter className="flex-col items-stretch gap-2">
-        {totalQuantity > 0 ? (
+        {/* {totalQuantity > 0 ? (
           <p className="text-sm text-zinc-400 text-center border border-primitive-neutral-700 rounded-md p-2">
             {fillTemplate(DICTIONARY.tasks.allocation.total_assets, {
               quantity: totalQuantity,
               assets: totalAssets,
             })}
           </p>
-        ) : null}
+        ) : null} */}
         <div className="flex items-center justify-between gap-2">
           {managesTasks && entityState === "archived" ? (
             <div onClick={(event) => event.stopPropagation()}>

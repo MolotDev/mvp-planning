@@ -77,6 +77,10 @@ export function convertDateToDdMmDayOfWeek(date: Date): string {
     weekday: "short",
   }).format(date).split(", ").reverse().join(" • ").toUpperCase();
 }
+export function isBeforeToday(date: Date): boolean {
+  return startOfDay(date).getTime() < startOfDay(new Date()).getTime();
+}
+
 export function isToday(date: Date): boolean {
   return date.getDate() === new Date().getDate();
 }

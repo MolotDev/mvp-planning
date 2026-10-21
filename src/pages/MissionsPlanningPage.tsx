@@ -267,7 +267,7 @@ export function MissionsPlanningPage() {
           <div className="grid grid-cols-5 gap-3">
             {visibleMissions.map(({date, mission}) => (
               <div className={cn(
-                "w-full flex flex-col gap-0.5 opacity-70",
+                "w-full flex flex-col gap-0.5 opacity-70 hover:opacity-100 transition-all",
                 isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
                 isToday(date) ? "opacity-100 scale-[102%]" : ""
               )} key={`${date}-${mission?.id}`}>

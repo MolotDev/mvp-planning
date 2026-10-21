@@ -5,7 +5,9 @@ import { taskTargetIds } from "@/lib/taskAllocations";
 import { allMissionReportsSubmitted, missionHasSubmittedReport } from "@/lib/missionConfirmation";
 import { notifyCrossTab } from "@/services/crossTabSync";
 import { readAllocatedReports, registerMissionSchedule } from "@/store/storeBridge";
-import { isDateInRange } from "@/lib/dates";
+import { operationalDay } from "@/lib/battleGroup";
+import { assignSequentialMissionLabels, nextMissionNumber } from "@/lib/missionLabel";
+import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import type { TaskDraft } from "@/store/useTaskStore";
 import { normalizeTask, useTaskStore } from "@/store/useTaskStore";
@@ -30,6 +32,8 @@ export interface MissionStoreState {
   markMissionsReported: (ids: string[], reportedAt: string) => void;
   confirmMission: (id: string) => boolean;
   unlockMissionReports: (id: string) => boolean;
+  ensureDailyMission: (scheduledAt: string) => Mission | null;
+  linkTask: (missionId: string, taskId: string) => void;
 }
 
 function normalizeMission(mission: Mission): Mission {
@@ -51,6 +55,8 @@ function cloneSeed(): { missions: Mission[]; missionSeq: number } {
 function createId(): string {
   return crypto.randomUUID();
 }
+
+let dateLabelsNeedPersist = false;
 
 export function getMissionMetrics(missions: Mission[]): MissionMetrics {
   return {
@@ -131,9 +137,10 @@ export const useMissionStore = create<MissionStoreState>()(
         const now = new Date().toISOString();
         const id = createId();
         const createdTasks = useTaskStore.getState().createTasksForMission(id, input.scheduled_at, taskDrafts);
+        const number = nextMissionNumber(get().missions, get().missionSeq);
         const mission: Mission = {
           id,
-          label: `MN-${get().missionSeq + 1}`,
+          label: `MN-${number}`,
           name: input.name?.trim() ? input.name.trim() : null,
           scheduled_at: input.scheduled_at,
           description: input.description.trim(),
@@ -146,7 +153,7 @@ export const useMissionStore = create<MissionStoreState>()(
         };
         set((state) => ({
           missions: [mission, ...state.missions],
-          missionSeq: state.missionSeq + 1,
+          missionSeq: number,
         }));
         notifyCrossTab("SYNC_MISSIONS", "SYNC_TASKS", "SYNC_LAUNCHES");
         return mission;
@@ -236,6 +243,51 @@ export const useMissionStore = create<MissionStoreState>()(
         notifyCrossTab("SYNC_MISSIONS");
         return true;
       },
+      ensureDailyMission: (scheduledAt) => {
+        const day = operationalDay(scheduledAt);
+        const found = get().missions.find(
+          (mission) =>
+            mission.archived_at === null && day !== null && operationalDay(mission.scheduled_at) === day,
+        );
+        if (found) {
+          return found;
+        }
+        if (!day || isBeforeToday(startOfDay(new Date(scheduledAt)))) {
+          return null;
+        }
+        const now = new Date().toISOString();
+        const number = nextMissionNumber(get().missions, get().missionSeq);
+        const mission: Mission = {
+          id: createId(),
+          label: `MN-${number}`,
+          name: null,
+          scheduled_at: startOfDay(new Date(scheduledAt)).toISOString(),
+          description: "",
+          task_ids: [],
+          created_at: now,
+          updated_at: now,
+          reported_at: null,
+          confirmed_at: null,
+          archived_at: null,
+        };
+        set((state) => ({
+          missions: [mission, ...state.missions],
+          missionSeq: number,
+        }));
+        notifyCrossTab("SYNC_MISSIONS");
+        return mission;
+      },
+      linkTask: (missionId, taskId) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          missions: state.missions.map((mission) =>
+            mission.id === missionId && !mission.task_ids.includes(taskId)
+              ? { ...mission, task_ids: [...mission.task_ids, taskId], updated_at: now }
+              : mission,
+          ),
+        }));
+        notifyCrossTab("SYNC_MISSIONS");
+      },
     }),
     {
       name: MISSION_STORE_KEY,
@@ -248,15 +300,24 @@ export const useMissionStore = create<MissionStoreState>()(
         const persisted = persistedState as
           | Partial<Pick<MissionStoreState, "missions" | "missionSeq">>
           | undefined;
-        const missions = persisted?.missions ?? currentState.missions;
+        const missions = (persisted?.missions ?? currentState.missions).map((mission) => normalizeMission(mission));
+        const labels = assignSequentialMissionLabels(missions, persisted?.missionSeq ?? currentState.missionSeq);
+        if (labels.changed) {
+          dateLabelsNeedPersist = true;
+        }
         return {
           ...currentState,
           ...persisted,
-          missions: missions.map((mission) => normalizeMission(mission)),
-          missionSeq: persisted?.missionSeq ?? currentState.missionSeq,
+          missions: labels.missions,
+          missionSeq: labels.missionSeq,
         };
       },
       onRehydrateStorage: () => () => {
+        if (dateLabelsNeedPersist) {
+          const current = useMissionStore.getState();
+          useMissionStore.setState({ missions: current.missions, missionSeq: current.missionSeq });
+          dateLabelsNeedPersist = false;
+        }
         queueMicrotask(() => {
           useTaskStore.setState({
             tasks: useTaskStore.getState().tasks.map((task) => normalizeTask(task)),

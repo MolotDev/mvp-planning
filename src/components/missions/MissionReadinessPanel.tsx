@@ -225,7 +225,7 @@ export function MissionReadinessPanel({
                       </span>
                     </div>
                   </div>
-                  <AimingPointBadge label={row.aiming} mgrs={row.mgrs || DICTIONARY.tasks.details.empty_value} />
+                  <AimingPointBadge label={row.aiming} mgrs={row.mgrs ?? ""} />
                 </div>
               </div>
             ))

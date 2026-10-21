@@ -13,6 +13,7 @@ interface SingleDatePickerProps {
   className?: string;
   tabIndex?: number;
   selected: Date | null;
+  minDate?: Date | null;
   onChange: (date: Date | null) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -30,6 +31,7 @@ export function AppDatePicker({
   disabled = false,
   isError = false,
   inputRef,
+  minDate,
 }: SingleDatePickerProps) {
   return (
     <DatePicker
@@ -38,6 +40,7 @@ export function AppDatePicker({
       autoComplete="off"
       id={id}
       locale="uk"
+      minDate={minDate ?? undefined}
       tabIndex={tabIndex}
       selected={selected}
       onChange={onChange}
@@ -48,6 +51,7 @@ export function AppDatePicker({
       calendarClassName="crm-datepicker"
       popperClassName="crm-datepicker-popper"
       wrapperClassName="w-full"
+      dayClassName={(date) => minDate && date < minDate ? "!text-gray-500 !cursor-not-allowed hidden-day-state" : ""}
     />
   );
 }

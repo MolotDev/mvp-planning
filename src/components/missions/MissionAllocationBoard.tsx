@@ -106,7 +106,7 @@ export function MissionAllocationBoard({
                         const point = line.aiming_point_id
                           ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
                           : undefined;
-                        const mgrs = formattingMGRS.spacing(point?.mgrs || target?.mgrs || "");
+                        // const mgrs = formattingMGRS.spacing(point?.mgrs || target?.mgrs || "");
                         const detachment =
                           DETACHMENT_REFS.find((item) => item.id === task.organization_id)?.name ?? task.organization_id;
                         const lineLaunches = launchesForLine(task, line, launches);
@@ -115,7 +115,8 @@ export function MissionAllocationBoard({
                             <td className="py-2">
                               <AimingPointBadge
                                 label={point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target}
-                                mgrs={mgrs || DICTIONARY.tasks.details.empty_value}
+                                // mgrs={mgrs || DICTIONARY.tasks.details.empty_value}
+                                mgrs={point?.label ?? ""}
                               />
                             </td>
                             <td className="py-2 !w-20">

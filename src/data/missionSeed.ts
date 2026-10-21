@@ -21,6 +21,8 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       id: TASK_1_ID,
       label: "TK-1",
       organization_id: "detachment_3",
+      mission_id: null,
+      source: "center",
       scheduled_at: calculateDateOffset(now, -2),
       allocations: [],
       battle_groups_ids: [BATTLE_GROUP_3_ID],
@@ -35,6 +37,8 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       id: TASK_2_ID,
       label: "TK-2",
       organization_id: "detachment_2",
+      mission_id: MISSION_2_ID,
+      source: "center",
       scheduled_at: calculateDateOffset(now, -1),
       allocations: [
         {
@@ -58,6 +62,8 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       id: TASK_3_ID,
       label: "TK-3",
       organization_id: "detachment_1",
+      mission_id: MISSION_3_ID,
+      source: "center",
       scheduled_at: calculateDateOffset(now, 0),
       allocations: [
         {

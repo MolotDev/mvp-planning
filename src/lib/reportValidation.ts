@@ -11,7 +11,7 @@ export function isEventComplete(event: ActualEvent): boolean {
 }
 
 export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot): boolean {
-  if (report.status !== "draft" || report.archived_at !== null) {
+  if (report.archived_at !== null) {
     return false;
   }
   if (!report.analysis_timestamp || Number.isNaN(new Date(report.analysis_timestamp).getTime())) {

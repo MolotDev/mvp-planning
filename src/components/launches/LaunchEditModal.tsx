@@ -411,7 +411,7 @@ export function LaunchEditor({
             <details open={openSections.has(section.id || "target") || index === 0} key={section.id || "target"} className="flex flex-col gap-2">
               <summary onClick={() => toggleOpenSection(section.id)} className="flex flex-wrap items-center justify-between gap-1 text-[20px] text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md px-2 rounded-lg bg-primitive-neutral-800">
                 {section.point ? (
-                  <AimingPointBadge label={section.point.name} mgrs={formattingMGRS.spacing(section.point.mgrs)} />
+                  <AimingPointBadge label={section.point.name} mgrs={section.point.label ?? ""} />
                 ) : null}
                 <ChevronDown className={cn("h-4 w-4 transition-transform", !openSections.has(section.id || "target") ? "rotate-180" : "")} aria-hidden="true" />
               </summary>

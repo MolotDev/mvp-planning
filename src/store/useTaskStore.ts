@@ -1,8 +1,10 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createMissionSeed } from "@/data/missionSeed";
+import { DICTIONARY } from "@/constants/dictionary";
 import { operationalDay } from "@/lib/battleGroup";
-import { isDateInRange, startOfDay } from "@/lib/dates";
+import { allocationsFromBlocks, isPlanReady, type PlanTargetBlock } from "@/lib/detachmentPlan";
+import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import { cascadeMissionAllocation } from "@/lib/missionCascade";
 import { notifyCrossTab } from "@/services/crossTabSync";
@@ -22,7 +24,7 @@ type StoredTask = Partial<Task> & {
   organization_id?: string;
   created_at: string;
   updated_at: string;
-  mission_id?: string;
+  mission_id?: string | null;
   target_ids?: string[];
   aiming_point_id?: string | null;
   aiming_point_ids?: string[];
@@ -50,6 +52,8 @@ export interface TaskStoreState {
   archiveTask: (id: string) => void;
   restoreTask: (id: string) => void;
   markTasksReported: (ids: string[], reportedAt: string) => void;
+  createDetachmentTask: (input: { missionId: string; organizationId: string; scheduledAt: string }) => Task | null;
+  saveDetachmentPlan: (taskId: string, plan: PlanTargetBlock[]) => string | null;
 }
 
 function scheduledDayIso(iso: string): string {
@@ -107,6 +111,8 @@ export function normalizeTask(task: StoredTask): Task {
     id: task.id,
     label: task.label,
     organization_id: task.organization_id ?? "",
+    mission_id: task.mission_id || allocations[0]?.mission_id || null,
+    source: task.source === "detachment" ? "detachment" : "center",
     scheduled_at: scheduledAt ? scheduledDayIso(scheduledAt) : "",
     allocations,
     battle_groups_ids: Array.isArray(task.battle_groups_ids) ? [...task.battle_groups_ids] : [],
@@ -217,7 +223,7 @@ export function filterTasks(
   organizationId?: string | null,
 ): Task[] {
   return tasks.filter((task) => {
-    if (missionId && !task.allocations.some((line) => line.mission_id === missionId)) {
+    if (missionId && task.mission_id !== missionId && !task.allocations.some((line) => line.mission_id === missionId)) {
       return false;
     }
     if (targetId && !task.allocations.some((line) => line.target_id === targetId)) {
@@ -293,6 +299,8 @@ export const useTaskStore = create<TaskStoreState>()(
               id: createId(),
               label: `TK-${seq}`,
               organization_id: organizationId,
+              mission_id: missionId,
+              source: "center",
               scheduled_at: scheduledDayIso(scheduledAt),
               allocations: [],
               battle_groups_ids: [],
@@ -427,6 +435,72 @@ export const useTaskStore = create<TaskStoreState>()(
           ),
         }));
         notifyCrossTab("SYNC_TASKS");
+      },
+      createDetachmentTask: ({ missionId, organizationId, scheduledAt }) => {
+        if (!missionId || isBeforeToday(startOfDay(new Date(scheduledAt)))) {
+          return null;
+        }
+        const now = new Date().toISOString();
+        const seq = get().taskSeq + 1;
+        const task: Task = {
+          id: createId(),
+          label: `TK-${seq}`,
+          organization_id: organizationId,
+          mission_id: missionId,
+          source: "detachment",
+          scheduled_at: scheduledDayIso(scheduledAt),
+          allocations: [],
+          battle_groups_ids: [],
+          fact_submitted_at: null,
+          fact_notes: null,
+          created_at: now,
+          updated_at: now,
+          reported_at: null,
+          archived_at: null,
+        };
+        set((state) => ({
+          tasks: [task, ...state.tasks],
+          taskSeq: seq,
+        }));
+        notifyCrossTab("SYNC_TASKS");
+        return task;
+      },
+      saveDetachmentPlan: (taskId, plan) => {
+        const task = get().tasks.find((item) => item.id === taskId);
+        if (!task || task.source !== "detachment" || task.archived_at !== null || task.reported_at !== null) {
+          return DICTIONARY.tasks.not_found;
+        }
+        const missionId = task.mission_id || task.allocations[0]?.mission_id || "";
+        if (!missionId || !isPlanReady(plan)) {
+          return DICTIONARY.targets_catalog.validation.required;
+        }
+        const catalog = useTargetStore.getState();
+        const known = plan.every((block) => {
+          const target = catalog.targets.find((item) => item.id === block.targetId && item.archived_at === null);
+          if (!target) {
+            return false;
+          }
+          return block.rows.every((row) => {
+            if (!row.aimingPointId) {
+              return true;
+            }
+            return catalog.aimingPoints.some(
+              (point) => point.id === row.aimingPointId && point.target_id === target.id,
+            );
+          });
+        });
+        if (!known) {
+          return DICTIONARY.targets_catalog.validation.required;
+        }
+        const now = new Date().toISOString();
+        const allocations = allocationsFromBlocks(plan, missionId);
+        set((state) => ({
+          tasks: state.tasks.map((item) =>
+            item.id === taskId ? { ...item, mission_id: missionId, allocations, updated_at: now } : item,
+          ),
+        }));
+        notifyCrossTab("SYNC_TASKS");
+        return null;
       },
     }),
     {

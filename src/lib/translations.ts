@@ -26,7 +26,9 @@ export const PATH_SEGMENT_LABELS: Record<string, string> = {
 export function getPathSegments(pathname: string): string[] {
   const uuidPattern =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  return pathname.split("/").filter((segment) => Boolean(segment) && !uuidPattern.test(segment));
+  return pathname
+    .split("/")
+    .filter((segment) => Boolean(segment) && segment !== "new" && !uuidPattern.test(segment));
 }
 
 export function getPageTitle(pathname: string): string {

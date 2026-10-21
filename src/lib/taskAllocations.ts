@@ -8,8 +8,11 @@ export function sameOperationalDay(left: string | null | undefined, right: strin
   return Boolean(leftDay) && leftDay === rightDay;
 }
 
-export function taskMissionIds(task: Pick<Task, "allocations">): string[] {
+export function taskMissionIds(task: Pick<Task, "allocations"> & { mission_id?: string | null }): string[] {
   const ids: string[] = [];
+  if (task.mission_id && !ids.includes(task.mission_id)) {
+    ids.push(task.mission_id);
+  }
   task.allocations.forEach((line) => {
     if (line.mission_id && !ids.includes(line.mission_id)) {
       ids.push(line.mission_id);

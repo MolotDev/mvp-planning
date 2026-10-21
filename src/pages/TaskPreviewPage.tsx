@@ -15,7 +15,7 @@ import { canAccess, canAdminister, homePath, taskInScope } from "@/lib/access";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
-import { formatDateUk } from "@/lib/dates";
+import { formatDateUk, isBeforeToday, parseIsoDate, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly } from "@/lib/launches";
@@ -23,6 +23,14 @@ import { formattingMGRS } from "@/lib/formattingMGRS";
 import { matchingReports } from "@/lib/reportAggregation";
 import { groupLaunchesByCrew, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { draftsFromGroups } from "@/lib/taskDashboard";
+import {
+  allocationsFromBlocks,
+  crewDraftsFromBlocks,
+  emptyPlanTarget,
+  isPlanReady,
+  planBlocksFromTask,
+  type PlanTargetBlock,
+} from "@/lib/detachmentPlan";
 import { splitTasksByTarget } from "@/lib/taskView";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -32,6 +40,7 @@ import { useMissionStore } from "@/store/useMissionStore";
 import { useReportStore } from "@/store/useReportStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
+import type { Task } from "@/types/mission";
 
 interface LaunchSelection {
   crewId: string;
@@ -40,10 +49,10 @@ interface LaunchSelection {
 
 export function TaskPreviewPage() {
   const { taskId = "" } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const focusTargetId = searchParams.get("targetId") ?? "";
   const navigate = useNavigate();
-  const task = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
+  const storedTask = useTaskStore((state) => state.tasks.find((item) => item.id === taskId));
   const tasks = useTaskStore((state) => state.tasks);
   const missions = useMissionStore((state) => state.missions);
   const targets = useTargetStore((state) => state.targets);
@@ -53,11 +62,43 @@ export function TaskPreviewPage() {
   const reports = useReportStore((state) => state.reports);
   const role = useAuthStore((state) => state.role);
   const entityId = useAuthStore((state) => state.entityId);
+  const creating = taskId === "new";
+  const requestedDay = searchParams.get("date") ?? "";
+  const requestedDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) ? parseIsoDate(requestedDay) : null;
+  const createDate =
+    requestedDate && !Number.isNaN(requestedDate.getTime()) ? startOfDay(requestedDate) : null;
+  const canCreate =
+    creating && role === "DETACHMENT" && Boolean(entityId) && createDate !== null && !isBeforeToday(createDate);
+  const draftTask = useMemo<Task | undefined>(() => {
+    if (!canCreate || !createDate || !entityId) {
+      return undefined;
+    }
+    const now = new Date().toISOString();
+    return {
+      id: "new",
+      label: "",
+      organization_id: entityId,
+      mission_id: null,
+      source: "detachment",
+      scheduled_at: createDate.toISOString(),
+      allocations: [],
+      battle_groups_ids: [],
+      fact_submitted_at: null,
+      fact_notes: null,
+      created_at: now,
+      updated_at: now,
+      reported_at: null,
+      archived_at: null,
+    };
+  }, [canCreate, createDate, entityId]);
+  const task = creating ? draftTask : storedTask;
   const storedDrafts = useMemo(
-    () => (task ? draftsFromGroups(task, battleGroups) : []),
-    [battleGroups, task],
+    () => (storedTask ? draftsFromGroups(storedTask, battleGroups) : []),
+    [battleGroups, storedTask],
   );
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(taskId === "new");
+  const [plan, setPlan] = useState<PlanTargetBlock[]>(taskId === "new" ? [emptyPlanTarget()] : []);
+  const [routeDrafts, setRouteDrafts] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<CrewAssignmentDraft[]>(storedDrafts);
   const [infoOpen, setInfoOpen] = useState(false);
   const [highlightedCrewId, setHighlightedCrewId] = useState<string | null>(null);
@@ -71,22 +112,45 @@ export function TaskPreviewPage() {
   }, [editing, storedDrafts]);
 
   useEffect(() => {
-    setEditing(false);
+    if (taskId === "new") {
+      setEditing(true);
+      setInfoOpen(false);
+      setLaunchSelection(null);
+      setHighlightedCrewId(null);
+      setStatsOpen(false);
+      setRouteDrafts({});
+      setPlan((current) => (current.length > 0 ? current : [emptyPlanTarget()]));
+      return;
+    }
+    const startEditing = searchParams.get("edit") === "1";
+    const current = useTaskStore.getState().tasks.find((item) => item.id === taskId);
+    setEditing(startEditing);
     setInfoOpen(false);
     setLaunchSelection(null);
     setHighlightedCrewId(null);
     setStatsOpen(false);
-  }, [taskId]);
+    setRouteDrafts({});
+    if (startEditing && current?.source === "detachment") {
+      const next = planBlocksFromTask(current, useBattleGroupStore.getState().battleGroups);
+      setPlan(next.length > 0 ? next : [emptyPlanTarget()]);
+    } else {
+      setPlan([]);
+    }
+  }, [searchParams, taskId]);
 
   if (role === "CREW") {
     return <Navigate to={homePath(role)} replace />;
+  }
+
+  if (creating && !canCreate) {
+    return <Navigate to="/planning/tasks" replace />;
   }
 
   if (task && !taskInScope(task, role, entityId)) {
     return <Navigate to={homePath(role)} replace />;
   }
 
-  if (!task || !task.allocations[0]) {
+  if (!task) {
     return (
       <section className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -97,8 +161,9 @@ export function TaskPreviewPage() {
     );
   }
 
-  const mission = missions.find((item) => item.id === task.allocations[0].mission_id);
-  if (!mission) {
+  const missionId = task.allocations[0]?.mission_id || task.mission_id;
+  const mission = creating ? undefined : missions.find((item) => item.id === missionId);
+  if (!creating && !mission) {
     return (
       <section className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -117,6 +182,10 @@ export function TaskPreviewPage() {
   const displayTask = focused
     ? { ...task, allocations: task.allocations.filter((line) => line.target_id === focusTargetId) }
     : task;
+  const workspaceTask =
+    editing && task.source === "detachment"
+      ? { ...displayTask, allocations: allocationsFromBlocks(plan, mission?.id ?? "") }
+      : displayTask;
   const focusedLineIds = new Set(displayTask.allocations.map((line) => line.id));
   const displayGroups = focused
     ? battleGroups.filter((group) => group.allocation_line_id !== null && focusedLineIds.has(group.allocation_line_id))
@@ -155,13 +224,64 @@ export function TaskPreviewPage() {
   };
 
   const saveAllocation = () => {
-    const error = useBattleGroupStore.getState().saveCrewDistribution(task.id, drafts);
+    const crewDrafts = task.source === "detachment" ? crewDraftsFromBlocks(plan) : drafts;
+    if (creating) {
+      if (!createDate || !entityId || isBeforeToday(createDate)) {
+        notifyError(DICTIONARY.missions.toasts.date_error);
+        return;
+      }
+      const scheduledAt = createDate.toISOString();
+      const dailyMission = useMissionStore.getState().ensureDailyMission(scheduledAt);
+      const created = dailyMission
+        ? useTaskStore.getState().createDetachmentTask({
+            missionId: dailyMission.id,
+            organizationId: entityId,
+            scheduledAt,
+          })
+        : null;
+      if (!dailyMission || !created) {
+        notifyError(DICTIONARY.missions.toasts.date_error);
+        return;
+      }
+      useMissionStore.getState().linkTask(dailyMission.id, created.id);
+      const planError = useTaskStore.getState().saveDetachmentPlan(created.id, plan);
+      if (planError) {
+        notifyError(planError);
+        navigate(`/planning/tasks/${created.id}?edit=1`, { replace: true });
+        return;
+      }
+      const distributionError = useBattleGroupStore.getState().saveCrewDistribution(created.id, crewDrafts);
+      if (distributionError) {
+        notifyError(distributionError);
+        navigate(`/planning/tasks/${created.id}?edit=1`, { replace: true });
+        return;
+      }
+      notifySuccess(DICTIONARY.tasks.toasts.request_saved);
+      navigate(`/planning/tasks/${created.id}`, { replace: true });
+      return;
+    }
+    if (task.source === "detachment") {
+      const planError = useTaskStore.getState().saveDetachmentPlan(task.id, plan);
+      if (planError) {
+        notifyError(planError);
+        return;
+      }
+    }
+    const error = useBattleGroupStore.getState().saveCrewDistribution(task.id, crewDrafts);
     if (error) {
       notifyError(error);
       return;
     }
-    notifySuccess(DICTIONARY.tasks.crew_allocation.saved);
+    Object.entries(routeDrafts).forEach(([launchId, value]) => {
+      useLaunchStore.getState().updateLaunch(launchId, { trajectory_name: value.trim() ? value.trim() : null });
+    });
+    notifySuccess(task.source === "detachment" ? DICTIONARY.tasks.toasts.request_saved : DICTIONARY.tasks.crew_allocation.saved);
     setEditing(false);
+    if (searchParams.get("edit") === "1") {
+      const next = new URLSearchParams(searchParams);
+      next.delete("edit");
+      setSearchParams(next, { replace: true });
+    }
   };
 
   const selectedGroups = launchSelection
@@ -188,7 +308,7 @@ export function TaskPreviewPage() {
     const section = sectionMap.get(id) ?? {
       id,
       label: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-      mgrs: formattingMGRS.spacing(point?.mgrs || target?.mgrs || ""),
+      mgrs: point?.label || formattingMGRS.spacing(target?.mgrs || ""),
       launchIds: [],
     };
     section.launchIds.push(launch.id);
@@ -227,19 +347,21 @@ export function TaskPreviewPage() {
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <GoBackIconButton onClick={() => navigate(-1)} />
-            <EntityStatusBadge status={entityState} />
+            {creating ? null : <EntityStatusBadge status={entityState} />}
             <h1 className="truncate text-lg font-semibold text-primitive-neutral-0">
-              {fillTemplate(text.title_dated, { label: headingLabel, date: formatDateUk(scheduledAt) })}
+              {creating
+                ? fillTemplate(text.create_title, { date: formatDateUk(scheduledAt) })
+                : fillTemplate(text.title_dated, { label: headingLabel, date: formatDateUk(scheduledAt) })}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {role === "CENTER" && report?.status === "submitted" ? (
+            {!creating && role === "CENTER" && report?.status === "submitted" ? (
               <Button variant="ghost" onClick={() => navigate(`/reports/${report.id}`)}>
                 {text.view_report}
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             ) : null}
-            {role === "DETACHMENT" && canAccess(role, "reports") ? (
+            {!creating && role === "DETACHMENT" && canAccess(role, "reports") ? (
               <Button
                 variant="ghost"
                 disabled={!windowOpen || entityState === "archived"}
@@ -253,30 +375,54 @@ export function TaskPreviewPage() {
           </div>
         </header>
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-          <div className="flex h-full w-[60%] flex-col gap-4 overflow-y-auto pr-2">
+          <div className="flex h-full w-[65%] flex-col gap-4 overflow-y-auto pr-2">
             <AllocationWorkspace
-              task={displayTask}
+              task={workspaceTask}
               targets={targets}
               aimingPoints={aimingPoints}
               battleGroups={displayGroups}
               launches={launches}
               editing={editing && canEdit}
               canEdit={canEdit}
+              canSave={(creating || task.source === "detachment") ? isPlanReady(plan) : true}
+              plan={plan}
+              onPlanChange={setPlan}
               drafts={drafts}
               onDraftsChange={setDrafts}
               onStartEdit={() => {
+                if (task.source === "detachment") {
+                  const next = planBlocksFromTask(task, battleGroups);
+                  setPlan(next.length > 0 ? next : [emptyPlanTarget()]);
+                }
+                const routes: Record<string, string> = {};
+                launches
+                  .filter((launch) => launch.archived_at === null && launch.task_id === task.id)
+                  .forEach((launch) => {
+                    routes[launch.id] = launch.trajectory_name ?? "";
+                  });
+                setRouteDrafts(routes);
                 setDrafts(storedDrafts);
                 setEditing(true);
               }}
               onCancel={() => {
+                if (creating) {
+                  navigate("/planning/tasks");
+                  return;
+                }
                 setDrafts(storedDrafts);
                 setEditing(false);
+                setRouteDrafts({});
+                if (searchParams.get("edit") === "1") {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete("edit");
+                  setSearchParams(next, { replace: true });
+                }
               }}
               onSave={saveAllocation}
               onHighlightCrew={highlightCrew}
             />
           </div>
-          <div className="relative flex h-full w-[40%] flex-col overflow-hidden bg-primitive-neutral-900/40">
+          <div className="relative flex h-full w-[35%] flex-col overflow-hidden bg-primitive-neutral-900/40">
             <div className="flex h-full flex-col gap-4 overflow-y-auto pl-2">
               <Button
                 variant="ghost"
@@ -303,6 +449,9 @@ export function TaskPreviewPage() {
                 aimingPoints={aimingPoints}
                 groups={displayGroups}
                 launches={launches}
+                routesEditable={editing && canEdit}
+                routeDrafts={routeDrafts}
+                onRouteChange={(launchId, value) => setRouteDrafts((current) => ({ ...current, [launchId]: value }))}
                 onOpen={setLaunchSelection}
               />
             </div>

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export interface FormSelectOption {
   value: string;
   label: string;
+  disabled?: boolean;
 }
 
 interface FormSelectProps {
@@ -212,7 +213,7 @@ export function NativeFormSelect({
     >
       <option value="">{placeholder}</option>
       {options.map((option) => (
-        <option key={option.value} value={option.value}>
+        <option key={option.value} value={option.value} disabled={option.disabled}>
           {option.label}
         </option>
       ))}

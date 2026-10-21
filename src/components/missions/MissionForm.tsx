@@ -80,6 +80,8 @@ export function MissionForm({
               placeholder={DICTIONARY.missions.fields.scheduled_at}
               disabled={readOnly}
               isError={!!dateError}
+              minDate={new Date()}
+                        
             />
           </FormField>
           <FormField id="mission_name" label={DICTIONARY.missions.fields.name}

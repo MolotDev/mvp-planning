@@ -21,6 +21,8 @@ function task(id: string, organizationId: string, lines: TaskAllocation[]): Task
     id,
     label: id,
     organization_id: organizationId,
+    mission_id: lines[0]?.mission_id || null,
+    source: "center",
     scheduled_at: NOW,
     allocations: lines,
     battle_groups_ids: [],

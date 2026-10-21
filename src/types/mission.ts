@@ -19,6 +19,8 @@ export interface Mission {
   archived_at: string | null;
 }
 
+export type TaskSource = "center" | "detachment";
+
 export interface TaskAllocation {
   id: string;
   mission_id: string;
@@ -32,6 +34,8 @@ export interface Task {
   id: string;
   label: string;
   organization_id: string;
+  mission_id: string | null;
+  source: TaskSource;
   scheduled_at: string;
   allocations: TaskAllocation[];
   battle_groups_ids: string[];

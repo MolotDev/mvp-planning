@@ -1,6 +1,6 @@
 import { type HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { ArrowUpRight, CrosshairIcon, MapPinned } from "lucide-react";
+import { ArrowUpRight, CrosshairIcon, LockIcon, MapPinned } from "lucide-react";
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
@@ -68,17 +68,21 @@ export function AimingPointBadge({label, mgrs, className = "" }: { label: string
     </div>
   );
 }
-export function TargetBadge({targetId, mgrs, label, wrapperClasses = "", targetClasses = "" }: { targetId: string, mgrs: string, label: string, wrapperClasses?: string, targetClasses?: string }) {
+export function TargetBadge({targetId, mgrs, label, address = "", wrapperClasses = "", targetClasses = "", isTargetLocked = false }: { targetId: string, mgrs: string, label: string, address?: string, wrapperClasses?: string, targetClasses?: string, isTargetLocked?: boolean }) {
   return (
-    <div className={cn("flex items-center gap-2 w-full", wrapperClasses)}>
-      <div className="flex h-6 items-center justify-center">
-        <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
-      </div>
-      <div className="flex flex-wrap items-center gap-1 w-full">
-        <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-sm")} id={targetId} title={mgrs}>
-          {mgrs}
-        </TargetBadgeLink>      
-        <p title={label} className="w-fit font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
+    <div className={cn("flex gap-1 w-full", isTargetLocked ? "opacity-80" : "", wrapperClasses)}>
+      <div className="flex h-6 items-center gap-1">
+        <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
+      </div> 
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-sm")} id={targetId} title={mgrs}>
+            {mgrs}
+          </TargetBadgeLink>  
+          <p title={label} className="w-fit font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
+          {isTargetLocked ? <LockIcon className="h-4 w-4 shrink-0 text-amber-700 ml-2" aria-hidden="true" /> : null}
+        </div>
+        <span className="ml-6 text-sm text-primitive-neutral-300 w-full">{address ?? ""}</span>
       </div>
     </div>
   );
