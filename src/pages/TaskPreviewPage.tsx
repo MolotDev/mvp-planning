@@ -11,7 +11,7 @@ import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewsForOrganization } from "@/data/crews";
-import { canAccess, canAdminister, homePath, taskInScope } from "@/lib/access";
+import { canAdminister, homePath, taskInScope } from "@/lib/access";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
@@ -361,10 +361,10 @@ export function TaskPreviewPage() {
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </Button>
             ) : null}
-            {!creating && role === "DETACHMENT" && canAccess(role, "reports") ? (
+            {!creating && role === "DETACHMENT" ? (
               <Button
                 variant="ghost"
-                disabled={!windowOpen || entityState === "archived"}
+                // disabled={!windowOpen || entityState === "archived"}
                 title={!windowOpen ? text.report_not_yet : undefined}
                 onClick={openReport}
               >

@@ -1054,7 +1054,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
           <Button variant="ghost" disabled={readOnly} onClick={onClear}>
             {text.clear_report}
           </Button>
-          <Button disabled={readOnly || !canSubmit} onClick={onSubmit}>
+          <Button disabled={readOnly || !canSubmit} onClick={onSubmit} title={!canSubmit ? DICTIONARY.tasks.details.report_not_yet : undefined}>
             {text.submit_report}
           </Button>
         </footer>

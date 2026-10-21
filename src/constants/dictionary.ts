@@ -326,7 +326,7 @@ export const DICTIONARY = {
       units: "{done} / {total} од.",
       percent: "{value}%",
       edit_distribution: "Редагувати розподіл",
-      enter_report: "Внести звіт",
+      enter_report: "Перейти до звіту",
       view_report: "Переглянути звіт",
       report_not_yet: "Звіт можна внести з планової дати виконання",
       mission_link: "Перейти до вогневого завдання {label}",

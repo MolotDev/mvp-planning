@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
 import { DICTIONARY } from "@/constants/dictionary";
-import { canAdminister, homePath, reportInScope } from "@/lib/access";
+import { canAccess, canAdminister, homePath, reportInScope } from "@/lib/access";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatReportDate } from "@/lib/reportFormat";
 import { isReportLockedByConfirmation } from "@/lib/missionConfirmation";
@@ -79,7 +79,7 @@ export function ReportPreviewPage() {
     report.status === "archived" ||
     isReportLockedByConfirmation(report, missions, tasks);
   const editing = managesReports && editMode && !locked;
-  const canSubmit = isReportSubmittable(report, snapshot);
+  const canSubmit = isReportSubmittable(report, snapshot) && canAccess(role, "reports");
   const statusLabel =
     report.status === "submitted"
       ? DICTIONARY.reports.statuses.submitted
