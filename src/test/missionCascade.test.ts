@@ -256,7 +256,43 @@ describe("cascadeMissionAllocation", () => {
     expect(result.launches.every((item) => item.archived_at === null)).toBe(true);
     expect(filledBoardCount(result.launches)).toBe(5);
     expect(result.groups[0].archived_at).toBeNull();
-    expect(result.groups[0].uav_quantity).toBe(5);
+    expect(result.groups[0].uav_quantity).toBe(3);
+  });
+
+  it("keeps a launch that only has a route when quantity decreases", () => {
+    const result = cascadeMissionAllocation({
+      beforeTasks: [task("task-1", "detachment_1", [allocation({ id: "line-1", asset_id: "uav_1", quantity: 2 })])],
+      afterTasks: [task("task-1", "detachment_1", [allocation({ id: "line-1", asset_id: "uav_1", quantity: 1 })])],
+      archivedTaskIds: [],
+      now: NOW,
+      launches: [
+        launch({ id: "routed", asset_serial_number: "", trajectory_name: "Т-1", created_at: "2026-10-17T09:00:01.000Z" }),
+        launch({ id: "empty", asset_serial_number: "", trajectory_name: null, created_at: "2026-10-17T09:00:02.000Z" }),
+      ],
+      groups: [group({ uav_quantity: 2 })],
+      targets: [target],
+      aimingPoints: [aimingPoint("ap-1", "36UEV1111111111")],
+    });
+    const active = result.launches.filter((item) => item.archived_at === null);
+    expect(active.map((item) => item.id)).toEqual(["routed"]);
+    expect(result.groups[0].uav_quantity).toBe(1);
+  });
+
+  it("archives launches of a removed target instead of moving them to another target", () => {
+    const removed = allocation({ id: "line-1", asset_id: "uav_1", quantity: 1, target_id: "target-1" });
+    const kept = allocation({ id: "line-2", asset_id: "uav_1", quantity: 1, target_id: "target-2" });
+    const result = cascadeMissionAllocation({
+      beforeTasks: [task("task-1", "detachment_1", [removed, kept])],
+      afterTasks: [task("task-1", "detachment_1", [kept])],
+      archivedTaskIds: [],
+      now: NOW,
+      launches: [launch({ id: "launch-1", asset_serial_number: "VR-101", trajectory_name: "Т-1" })],
+      groups: [group()],
+      targets: [target],
+      aimingPoints: [aimingPoint("ap-1", "36UEV1111111111")],
+    });
+    expect(result.launches[0].archived_at).toBe(NOW);
+    expect(result.groups[0].archived_at).toBe(NOW);
   });
 
   it("archives only empty launches when quantity decreases and some boards are unfilled", () => {

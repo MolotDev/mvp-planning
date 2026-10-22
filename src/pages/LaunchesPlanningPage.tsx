@@ -14,7 +14,7 @@ import { CREWS, DETACHMENT_REFS } from "@/data/crews";
 import { hidesDetachmentFilter, launchInScope, locksCrewFilter, locksDetachmentFilter, withSessionScope } from "@/lib/access";
 import { formatIsoDate } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
-import { filterLaunchRows, getLaunchStateMetrics } from "@/lib/launchBoard";
+import { filterLaunchRows, getLaunchStateMetrics, launchBelongsToCurrentRequest } from "@/lib/launchBoard";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -98,6 +98,7 @@ export function LaunchesPlanningPage() {
     activeFilters.crewId,
     true,
   ).filter((row) => activeFilters.status === "all" || getEntityState(row.launch) === activeFilters.status)
+    .filter((row) => launchBelongsToCurrentRequest(row))
     .filter((row) => launchInScope(role, entityId, row.task, row.battleGroup));
   const metrics = getLaunchStateMetrics(rows.map((row) => row.launch));
   const board = DICTIONARY.tasks.launch_board;

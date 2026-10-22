@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { CrosshairIcon, MapPinned, PlaneIcon, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ViewReportButton } from "@/components/reports/ViewReportButton";
-import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
+import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { AimingPointBadge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Button } from "@/components/ui/button";
@@ -16,13 +16,13 @@ import { detachmentName } from "@/lib/detachments";
 import { getEntityState } from "@/lib/entityState";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { countProcessedLaunches } from "@/lib/launches";
-import { filledBoardCount } from "@/lib/missionCascade";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
+import { isToday } from "@/lib/dates";
 
 interface TaskCardProps {
   task: Task;
@@ -107,7 +107,9 @@ export function TaskCard({
 
   return (
     <Card
-      className={cn("overflow-hidden", entityState === "archived" ? "opacity-60" : "hover:cursor-pointer")}
+      className={cn("overflow-hidden", entityState === "archived" ? "opacity-60" : "hover:cursor-pointer",
+        isToday(new Date(task.scheduled_at)) ? "border-primitive-neutral-500 hover:shadow-[0_0_10px_rgba(255,255,255,0.2)] hover:border-primitive-neutral-100 transition-all duration-300" : "")
+      }
       onClick={() => onPreview(task)}
     >
       <CardHeader>
@@ -232,7 +234,9 @@ export function TaskCard({
                 const target = targets.find((item) => item.id === targetGroup.targetId);
                 return (
                   <div key={targetGroup.targetId} className="flex flex-col gap-2 mb-3 last:mb-0">
-                    {target ? <TargetBadge targetId={target.id} mgrs={formattingMGRS.spacing(target.mgrs)} label={target.name} /> : null}
+                    {target ? <TargetBadge targetId={target.id} mgrs={formattingMGRS.spacing(target.mgrs)} label={target.name}
+                  targetClasses="text-xs"
+                  wrapperClasses="items-start" /> : null}
                     <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 bg-primitive-neutral-850/40 py-1 pl-3 pr-2">
                       {targetGroup.allocations.map((line) => {
                         const aimingPoint = aimingPoints.find((item) => item.id === line.aiming_point_id);
@@ -241,13 +245,13 @@ export function TaskCard({
                         );
                         const assignedCrews = assignedGroups.filter((item) => item.asset_id === line.asset_id).map((item) => crewName(item.lead_crew_id));
                         const distributed = countProcessedLaunches(lineLaunches).total;
-                        const filledBoards = filledBoardCount(lineLaunches);
                         return (
                           <div key={line.id} className="flex flex-wrap items-center gap-2 ml-2">
                             <AimingPointBadge
-                              label={aimingPoint?.name ?? DICTIONARY.tasks.allocation.primary_target}
+                              label={aimingPoint?.name ?? target?.name ?? DICTIONARY.tasks.allocation.primary_target}
                               // mgrs={formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "")}
-                              mgrs={aimingPoint?.label ?? ""}
+                              mgrs={aimingPoint?.label ?? formattingMGRS.spacing(target?.mgrs ?? "")}
+                              className="text-[10px]"
                             />
                             <ProgressBadge
                               className="text-sm ml-auto"
@@ -255,8 +259,8 @@ export function TaskCard({
                               processed={distributed}
                               total={line.quantity}
                             />
-                            {filledBoards > line.quantity ? (
-                              <AllocationConflictBadge planned={line.quantity} filled={filledBoards} />
+                            {lineLaunches.length > line.quantity ? (
+                              <QuantityDiscrepancy planned={line.quantity} actual={lineLaunches.length} />
                             ) : null}
                           </div>
                         );

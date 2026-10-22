@@ -494,12 +494,28 @@ export const useTaskStore = create<TaskStoreState>()(
         }
         const now = new Date().toISOString();
         const allocations = allocationsFromBlocks(plan, missionId);
-        set((state) => ({
-          tasks: state.tasks.map((item) =>
-            item.id === taskId ? { ...item, mission_id: missionId, allocations, updated_at: now } : item,
-          ),
+        const beforeTasks = get().tasks.map((item) => ({
+          ...item,
+          allocations: item.allocations.map((line) => ({ ...line })),
+          battle_groups_ids: [...item.battle_groups_ids],
         }));
-        notifyCrossTab("SYNC_TASKS");
+        const afterTasks = beforeTasks.map((item) =>
+          item.id === taskId ? { ...item, mission_id: missionId, allocations, updated_at: now } : item,
+        );
+        const cascaded = cascadeMissionAllocation({
+          beforeTasks,
+          afterTasks,
+          archivedTaskIds: [],
+          now,
+          launches: useLaunchStore.getState().launches,
+          groups: useBattleGroupStore.getState().battleGroups,
+          targets: catalog.targets,
+          aimingPoints: catalog.aimingPoints,
+        });
+        useLaunchStore.setState({ launches: cascaded.launches });
+        useBattleGroupStore.setState({ battleGroups: cascaded.groups });
+        set({ tasks: afterTasks });
+        notifyCrossTab("SYNC_TASKS", "SYNC_LAUNCHES");
         return null;
       },
     }),

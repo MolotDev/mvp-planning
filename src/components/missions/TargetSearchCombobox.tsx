@@ -38,7 +38,13 @@ export function TargetSearchCombobox({
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [menuBox, setMenuBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [menuBox, setMenuBox] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+    listMaxHeight: number;
+  } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -58,9 +64,20 @@ export function TargetSearchCombobox({
       if (!rect) {
         return;
       }
+      const gap = 4;
+      const pad = 8;
       const width = Math.max(rect.width, 320);
-      const left = Math.min(rect.left, Math.max(8, window.innerWidth - width - 8));
-      setMenuBox({ top: rect.bottom + 4, left, width });
+      const left = Math.min(Math.max(pad, rect.left), Math.max(pad, window.innerWidth - width - pad));
+      const spaceBelow = window.innerHeight - rect.bottom - gap - pad;
+      const spaceAbove = rect.top - gap - pad;
+      const openUpward = spaceBelow < 180 && spaceAbove > spaceBelow;
+      const available = Math.max(0, openUpward ? spaceAbove : spaceBelow);
+      const listMaxHeight = Math.min(192, Math.max(40, available - 56));
+      setMenuBox(
+        openUpward
+          ? { bottom: window.innerHeight - rect.top + gap, left, width, listMaxHeight }
+          : { top: rect.bottom + gap, left, width, listMaxHeight },
+      );
     };
     place();
     window.addEventListener("resize", place);
@@ -140,8 +157,13 @@ export function TargetSearchCombobox({
             <div
               ref={menuRef}
               id={listId}
-              style={{ top: menuBox.top, left: menuBox.left, width: menuBox.width }}
-              className="fixed w-full z-[80] rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 py-2 shadow-md"
+              style={{
+                top: menuBox.top,
+                bottom: menuBox.bottom,
+                left: menuBox.left,
+                width: menuBox.width,
+              }}
+              className="fixed z-[80] rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 py-2 shadow-md"
             >
               <div className="px-2 pb-2">
                 <Input
@@ -160,7 +182,12 @@ export function TargetSearchCombobox({
                   </Button>
                 </div>
               ) : (
-                <ul role="listbox" aria-labelledby={id} className="max-h-48 overflow-y-auto">
+                <ul
+                  role="listbox"
+                  aria-labelledby={id}
+                  style={{ maxHeight: menuBox.listMaxHeight }}
+                  className="overflow-y-auto overscroll-contain"
+                >
                   {matches.map((target) => (
                     <li key={target.id} role="none">
                       <button

@@ -181,7 +181,7 @@ function TargetBlock({
                         .filter((point) => point.archived_at === null || point.id === row.aimingPointId)
                         .map((point) => ({ value: point.id, label: `${point.name} - ${point.mgrs}` }))}
                       onChange={(aimingPointId) => onChange(assignPlanAimingPoint(block, row.key, aimingPointId))}
-                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField
@@ -207,7 +207,7 @@ function TargetBlock({
                         };
                         onChange(lockedAsset ? assignPlanAsset(withCrew, row.key, lockedAsset) : withCrew);
                       }}
-                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <FormField
@@ -236,7 +236,7 @@ function TargetBlock({
                           ? onChangeAll(assignCrewAsset(blocks, row.crewId, assetId))
                           : onChange(assignPlanAsset(block, row.key, assetId))
                       }
-                      className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-7 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </FormField>
                   <div className="flex items-end gap-1">
@@ -259,7 +259,7 @@ function TargetBlock({
                             ),
                           })
                         }
-                        className="h-8 max-w-16"
+                        className="h-7 max-w-16"
                       />
                     </FormField>
                     <DeleteIconButton

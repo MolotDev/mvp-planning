@@ -188,7 +188,7 @@ export function TaskPreviewPage() {
       : displayTask;
   const focusedLineIds = new Set(displayTask.allocations.map((line) => line.id));
   const displayGroups = focused
-    ? battleGroups.filter((group) => group.allocation_line_id !== null && focusedLineIds.has(group.allocation_line_id))
+    ? battleGroups.filter((group) => group.task_id === task.id && group.allocation_line_id !== null && focusedLineIds.has(group.allocation_line_id))
     : battleGroups;
   const focusCard = focusTargetId
     ? splitTasksByTarget([task], missions, targets).find((card) => card.targetId === focusTargetId)
@@ -394,13 +394,7 @@ export function TaskPreviewPage() {
                   const next = planBlocksFromTask(task, battleGroups);
                   setPlan(next.length > 0 ? next : [emptyPlanTarget()]);
                 }
-                const routes: Record<string, string> = {};
-                launches
-                  .filter((launch) => launch.archived_at === null && launch.task_id === task.id)
-                  .forEach((launch) => {
-                    routes[launch.id] = launch.trajectory_name ?? "";
-                  });
-                setRouteDrafts(routes);
+                setRouteDrafts({});
                 setDrafts(storedDrafts);
                 setEditing(true);
               }}

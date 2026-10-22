@@ -16,8 +16,9 @@ import { canEditLaunchField, canEditLaunchFields } from "@/lib/access";
 import { ammosForAsset, defaultAmmoId } from "@/lib/assets";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
-import { isLaunchReadOnly, launchLockKind, processedTransitionPatch, trackerName } from "@/lib/launches";
+import { isLaunchReadOnly, launchLockKind, processedTransitionPatch, quantityDiscrepancy, trackerName } from "@/lib/launches";
 import { duplicateValueMessage, groupLaunchesByCrew } from "@/lib/taskCrewMatrix";
+import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -403,6 +404,12 @@ export function LaunchEditor({
           });
           return (
             <>
+              {battleGroups.map((group) => {
+                const discrepancy = quantityDiscrepancy(group.uav_quantity, storedLaunches, group.id);
+                return discrepancy ? (
+                  <QuantityDiscrepancy key={group.id} planned={discrepancy.planned} actual={discrepancy.actual} />
+                ) : null;
+              })}
               {sameCrew && battleGroups[0] && role !== "CREW" ? <BattleGroupCrewLine group={battleGroups[0]} /> : null}
               {sections.map((section, index) => {
           const rows = section.rows;
@@ -452,7 +459,13 @@ export function LaunchEditor({
                         !rowDisabled &&
                         (trackerLabel !== "" || draft.tracker_model_serial_number.trim() !== "");
                       return (
-                        <tr key={launch.id} className="w-full border-t border-primitive-neutral-800">
+                        <tr
+                          key={launch.id}
+                          className={cn(
+                            "w-full border-t border-primitive-neutral-800",
+                            canRemoveExcess && "bg-primitive-red-500/10",
+                          )}
+                        >
                           <td className="text-center">
                             {index + 1}
                           </td>
@@ -599,7 +612,7 @@ export function LaunchEditor({
                             />
                           </td>
                           <td className="px-2 py-2">
-                            {!locked && !crewLimited && canRemoveExcess && !rowLocked(stored) ? (
+                            {!locked && canRemoveExcess && !rowLocked(stored) ? (
                               <DeleteIconButton
                                 tabIndex={-1}
                                 onClick={() => setPendingDeleteId(launch.id)}

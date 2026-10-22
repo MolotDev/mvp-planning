@@ -99,7 +99,7 @@ table {
 tr, td {
   width: max-content !important;
   vertical-align: middle !important;
-  height: 100% !important;
+  z-index: 0;
 }
 .remove-column-button {
   visibility: hidden;
@@ -184,6 +184,35 @@ textarea[data-error="true"]:hover {
 }
 
 tr:hover {
-  background-color: #26262640;
+  background-color: #26262640 !important;
   transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
+
+.launch-sticked-column {
+  position: sticky;
+  z-index: 10;
+}
+.launch-sticked-column:nth-child(1) {
+  position: sticky;
+  left: 0;
+  width: 146px;
+  min-width: 146px;
+}
+
+.launch-sticked-column:nth-child(2) {
+  left: 146px;
+  width: 108px;
+  min-width: 108px;
+}
+.launch-sticked-column:nth-child(3) {
+  left: 254px;
+  width: 100px;
+  min-width: 100px;
+}
+.launch-sticked-column:nth-child(4) {
+  left: 354px;
+  width: 128px;
+  min-width: 128px;
+  border-right: 2px solid #ccccd0;
+}
+

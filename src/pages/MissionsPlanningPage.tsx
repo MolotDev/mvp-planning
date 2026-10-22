@@ -264,7 +264,7 @@ export function MissionsPlanningPage() {
             </Card>
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 gap-3 min-w-[1160px]">
             {visibleMissions.map(({date, mission}) => (
               <div className={cn(
                 "w-full flex flex-col gap-0.5 opacity-70 hover:opacity-100 transition-all",

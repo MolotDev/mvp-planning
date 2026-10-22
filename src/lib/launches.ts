@@ -1,4 +1,5 @@
 import { createLaunchRecord } from "@/data/launchSeed";
+import { launchHasEnteredPlanData } from "@/lib/missionCascade";
 import { applyDefaultAimingMgrs } from "@/lib/launchAiming";
 import { LAUNCH_STATUSES, PLANNED_LAUNCH_STATUS_ID, TRACKERS, AMMOS } from "@/data/launchCatalog";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -145,8 +146,7 @@ export function quantityDiscrepancy(
   const active = launches.filter(
     (launch) => launch.battle_group_id === battleGroupId && launch.archived_at === null,
   );
-  const processed = active.filter((launch) => !isPlannedUnprocessed(launch)).length;
-  if (processed <= planned) {
+  if (active.length <= planned) {
     return null;
   }
   return { planned, actual: active.length };
@@ -302,7 +302,7 @@ export function syncLaunchesWithGroup(
   if (active.length > group.uav_quantity) {
     const excess = active.length - group.uav_quantity;
     const victims = active
-      .filter((launch) => isPlannedUnprocessed(launch))
+      .filter((launch) => launch.reported_at === null && !launchHasEnteredPlanData(launch))
       .sort((left, right) => right.created_at.localeCompare(left.created_at) || right.id.localeCompare(left.id))
       .slice(0, excess)
       .map((launch) => launch.id);

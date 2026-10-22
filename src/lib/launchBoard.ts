@@ -2,6 +2,7 @@ import { crewName, uavName } from "@/lib/battleGroup";
 import { isDateInRange } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import { allocationForLaunch, resolveLaunchAimingPoint } from "@/lib/launchAiming";
+import { launchHasEnteredPlanData } from "@/lib/missionCascade";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, MissionMetrics, Task } from "@/types/mission";
@@ -63,6 +64,20 @@ export function buildLaunchContext(
   const target = targets.find((item) => item.id === line?.target_id);
   const aimingPoint = resolveLaunchAimingPoint(task, launch, battleGroup, aimingPoints);
   return { launch, task, mission, target, aimingPoint, battleGroup };
+}
+
+export function launchBelongsToCurrentRequest(context: LaunchRowContext): boolean {
+  if (context.launch.archived_at !== null && !launchHasEnteredPlanData(context.launch)) {
+    return false;
+  }
+  const task = context.task;
+  if (!task || task.archived_at !== null) {
+    return true;
+  }
+  if (!context.battleGroup || context.battleGroup.archived_at !== null) {
+    return false;
+  }
+  return Boolean(allocationForLaunch(task, context.launch, context.battleGroup));
 }
 
 export function launchMatchesQuery(context: LaunchRowContext, query: string): boolean {

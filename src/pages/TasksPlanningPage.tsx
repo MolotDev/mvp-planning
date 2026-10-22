@@ -322,12 +322,12 @@ export function TasksPlanningPage() {
               </Card>
             </div>
           ) : (
-            <div className="grid grid-cols-5 gap-3 min-w-[1160px] overflow-x-auto overflow-y-hidden">
+            <div className="grid grid-cols-5 gap-3 min-w-[1160px]">
               {dayColumns.map(({ date, tasks: dayTasks }) => (
                 <div
                   key={date.toISOString()}
                   className={cn(
-                    "flex w-full flex-col gap-2 opacity-70 hover:opacity-100 transition-all duration-100",
+                    "flex w-full flex-col gap-0.5 opacity-85 hover:opacity-100 transition-all duration-100",
                     isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
                     isToday(date) ? "scale-[102%] opacity-100" : "",
                   )}

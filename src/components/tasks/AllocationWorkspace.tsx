@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { MapPinned, Pencil, Plus, Users, X, CrosshairIcon, PlaneIcon, Minus } from "lucide-react";
-import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
+import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { DetachmentPlanForm } from "@/components/tasks/DetachmentPlanForm";
 import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,6 @@ import {
 } from "@/lib/crewAllocation";
 import { crewDraftsFromBlocks, externalAimingUsage, type PlanTargetBlock } from "@/lib/detachmentPlan";
 import { formattingMGRS } from "@/lib/formattingMGRS";
-import { filledBoardCount } from "@/lib/missionCascade";
 import { crewClearanceAssetIds, parseAllocationQuantity } from "@/lib/taskDashboard";
 import { useAssetStore } from "@/store/useAssetStore";
 import { useMissionStore } from "@/store/useMissionStore";
@@ -112,7 +111,7 @@ function QuantityStepper({
         value={raw}
         onChange={(event) => commit(event.target.value)}
         onBlur={() => setRaw(String(value))}
-        className="h-8 w-14 rounded border border-primitive-neutral-700 bg-primitive-neutral-900 px-1 text-center font-mono font-semibold text-primitive-neutral-0 read-only:cursor-default"
+        className="h-6 w-14 rounded border border-primitive-neutral-700 bg-primitive-neutral-900 px-1 text-center font-mono font-semibold text-primitive-neutral-0 read-only:cursor-default"
       />
       {editing ? (
         <Button
@@ -168,7 +167,7 @@ export function AllocationWorkspace({
       sameDay,
     );
   }, [battleGroups, missions, task.id]);
-
+  const dailyTasks = useMemo(() => peerTasks.filter((item) => item.scheduled_at === task.scheduled_at), [peerTasks, task.scheduled_at]);
   const allocations = task.allocations;
   const allocationsByTarget = useMemo(() => task.allocations.reduce((acc, allocation) => {
     const target = targets.find((target) => target.id === allocation.target_id);
@@ -186,8 +185,8 @@ export function AllocationWorkspace({
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
   // const progress = totalPlanned === 0 ? 0 : Math.round((Math.min(assignedCount, totalPlanned) / totalPlanned) * 100);
   const quantityConflicts = allocations.flatMap((line) => {
-    const filled = filledBoardCount(taskLaunches.filter((launch) => launch.allocation_line_id === line.id));
-    return filled > line.quantity ? [{ lineId: line.id, planned: line.quantity, filled }] : [];
+    const actual = taskLaunches.filter((launch) => launch.allocation_line_id === line.id).length;
+    return actual > line.quantity ? [{ lineId: line.id, planned: line.quantity, actual }] : [];
   });
 
   const updateQuantity = (allocationId: string, crewId: string, next: number) => {
@@ -219,7 +218,7 @@ export function AllocationWorkspace({
   );
   const targetQuantity = new Set(allocations.map(item=> item.target_id)).size;
   const pointQuantity = new Set(allocations.map(item=> item.aiming_point_id)).size;
-console.log({task})
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <section className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-3">
@@ -325,7 +324,7 @@ console.log({task})
           </div>
         </div>
         {quantityConflicts.map((conflict) => (
-          <AllocationConflictBadge key={conflict.lineId} planned={conflict.planned} filled={conflict.filled} />
+          <QuantityDiscrepancy key={conflict.lineId} planned={conflict.planned} actual={conflict.actual} />
         ))}
         {planEditing && plan && onPlanChange ? (
           <DetachmentPlanForm
@@ -334,7 +333,7 @@ console.log({task})
             aimingPoints={aimingPoints}
             crews={roster}
             assets={assets}
-            tasks={peerTasks}
+            tasks={dailyTasks}
             organizationId={task.organization_id}
             occupiedCrewIds={occupiedElsewhere}
             onChange={onPlanChange}
@@ -389,7 +388,7 @@ console.log({task})
                           <div className="flex-1 flex flex-wrap items-center justify-between gap-2">
                             <AimingPointBadge label={pointLabel} mgrs={aimingPoint?.label ?? target?.mgrs ?? ""} />
                             {selectedAllocationId === allocation.id && allocation.aiming_point_id
-                              ? externalAimingUsage(peerTasks, allocation.aiming_point_id, task.organization_id, uavName).map((item) => (
+                              ? externalAimingUsage(dailyTasks, allocation.aiming_point_id, task.organization_id, uavName).map((item) => (
                                   <span
                                     key={`${item.detachmentId}:${item.droneModel}`}
                                     className="rounded border border-amber-600/50 bg-amber-950/40 px-2 py-0.5 text-[11px] font-medium text-amber-300"

@@ -38,6 +38,12 @@ export function launchHasBoardIdentity(launch: Pick<Launch, "asset_serial_number
   return Boolean(launch.asset_serial_number.trim() || (launch.tracker_model_serial_number ?? "").trim());
 }
 
+export function launchHasEnteredPlanData(
+  launch: Pick<Launch, "asset_serial_number" | "trajectory_name">,
+): boolean {
+  return Boolean(launch.asset_serial_number.trim() || (launch.trajectory_name ?? "").trim());
+}
+
 export function filledBoardCount(launches: Launch[]): number {
   return launches.filter((launch) => launch.archived_at === null && launchHasBoardIdentity(launch)).length;
 }
@@ -185,12 +191,30 @@ export function cascadeMissionAllocation(input: CascadeInput): { launches: Launc
         (launch) =>
           belongsToLine(launch, placement, groupIds) &&
           canRetire(launch) &&
-          !launchHasBoardIdentity(launch) &&
+          !launchHasEnteredPlanData(launch) &&
           !retireLaunchIds.has(launch.id),
       )
       .sort(byCreatedAt)
       .slice(0, removed);
     unfilled.forEach((launch) => retireLaunchIds.add(launch.id));
+    const owners = groups.filter(
+      (group) => groupIds.has(group.id) && group.archived_at === null && !retireGroupIds.has(group.id),
+    );
+    if (owners.length === 1) {
+      const ownerId = owners[0].id;
+      const remaining = launches.filter(
+        (launch) =>
+          launch.battle_group_id === ownerId && launch.archived_at === null && !retireLaunchIds.has(launch.id),
+      ).length;
+      if (remaining <= 0) {
+        retireGroupIds.add(ownerId);
+        return;
+      }
+      groups = groups.map((group) =>
+        group.id === ownerId ? { ...group, uav_quantity: placement.line.quantity, updated_at: input.now } : group,
+      );
+      return;
+    }
     const touchedGroups = new Set(unfilled.map((launch) => launch.battle_group_id));
     groups = groups.map((group) => {
       if (!touchedGroups.has(group.id) || group.archived_at !== null) {
@@ -260,7 +284,7 @@ export function cascadeMissionAllocation(input: CascadeInput): { launches: Launc
         item.task.organization_id === previous.task.organization_id &&
         item.line.asset_id === previous.line.asset_id,
     );
-    const continuation = pool.find((item) => item.line.target_id === previous.line.target_id) ?? pool[0];
+    const continuation = pool.find((item) => item.line.target_id === previous.line.target_id);
     if (!continuation) {
       retireLine(previous);
       return;

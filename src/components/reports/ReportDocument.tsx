@@ -1,47 +1,33 @@
-import { useState, type ReactElement } from "react";
+import { useState } from "react";
 import { FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeFormSelect } from "@/components/ui/form-select";
 import { FormSelect } from "@/components/ui/form-select";
 import { Textarea } from "@/components/ui/textarea";
-import { ReportPatternField } from "@/components/reports/ReportPatternField";
 import { invalidControlClass } from "@/components/ui/control-class";
 import { DICTIONARY } from "@/constants/dictionary";
 import { CAUSE_LAUNCH_PROBLEMS, LAUNCH_STATUSES, PLANNED_LAUNCH_STATUS_ID, TRACKERS } from "@/data/launchCatalog";
-import { antennaName, assetName } from "@/lib/assets";
+import { assetName } from "@/lib/assets";
 import { crewName } from "@/lib/battleGroup";
-import { formattingMGRS } from "@/lib/formattingMGRS";
 import {
-  crewRate,
-  dayTargetRoles,
-  summarizeLaunchesByCrew,
   type DaySlice,
   type PlanningSnapshot,
 } from "@/lib/reportAggregation";
 import {
   combineDateAndTime,
   formatDateInput,
-  formatHeight,
-  formatStampFromIso,
   formatTimeInput,
-  parseStamp,
-  STAMP_PATTERN,
 } from "@/lib/reportFormat";
 import { sliceForReport } from "@/lib/reportValidation";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import { cn } from "@/lib/utils";
-import { useAssetStore } from "@/store/useAssetStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useReportStore } from "@/store/useReportStore";
-import type { Asset } from "@/types/asset";
-import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
-import type { Report, Trajectory } from "@/types/report";
-import type { Target } from "@/types/target";
+import type { Report } from "@/types/report";
 import { MultiSelect } from "../ui/multi-select";
 
 const selectClass =
@@ -49,8 +35,8 @@ const selectClass =
 const cell = "border border-primitive-neutral-700 px-2 py-2 align-top text-sm text-primitive-neutral-0";
 const baseLabelCell =
   "border border-primitive-neutral-700 bg-primitive-neutral-850 px-2 py-2 text-left text-sm font-medium text-primitive-neutral-200";
-const labelCell = cn(baseLabelCell, "min-w-48 w-48");
-const tarjectoryLabelCell = cn(baseLabelCell, "min-w-48 w-48");
+// const labelCell = cn(baseLabelCell, "min-w-48 w-48");
+// const tarjectoryLabelCell = cn(baseLabelCell, "min-w-48 w-48");
 
 interface ReportDocumentProps {
   report: Report;
@@ -63,30 +49,30 @@ interface ReportDocumentProps {
 }
 
 export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, onClear, onSubmit }: ReportDocumentProps) {
-  const assets = useAssetStore((state) => state.assets);
-  const updateReport = useReportStore((state) => state.updateReport);
+  // const assets = useAssetStore((state) => state.assets);
+  // const updateReport = useReportStore((state) => state.updateReport);
   const addEvent = useReportStore((state) => state.addEvent);
   const removeEvent = useReportStore((state) => state.removeEvent);
   const updateEvent = useReportStore((state) => state.updateEvent);
   const setLaunchLink = useReportStore((state) => state.setLaunchLink);
-  const addImages = useReportStore((state) => state.addImages);
-  const removeImage = useReportStore((state) => state.removeImage);
+  // const addImages = useReportStore((state) => state.addImages);
+  // const removeImage = useReportStore((state) => state.removeImage);
   const updateLaunch = useLaunchStore((state) => state.patchLaunchFromReport);
   const clearLaunchTracker = useLaunchStore((state) => state.clearLaunchTrackerFromReport);
   const slice = sliceForReport(report, snapshot);
   const text = DICTIONARY.reports;
-  const { primary: mainTarget, additional: additionalTargets } = dayTargetRoles(slice);
+  // const { primary: mainTarget, additional: additionalTargets } = dayTargetRoles(slice);
   const orderedLaunches = chronologicalLaunches(slice, report);
   const [statusOffer, setStatusOffer] = useState<{ launchId: string; statusId: string; anchor: HTMLElement } | null>(null);
-  const tableIds = report.trajectories.reduce<string[]>((ids, trajectory) => {
-    if (trajectory.archived_at === null && !ids.includes(trajectory.table_id)) {
-      ids.push(trajectory.table_id);
-    }
-    return ids;
-  }, []);
-  const descriptions = slice.missions
-    .map((mission) => mission.description.trim())
-    .filter(Boolean)
+  // const tableIds = report.trajectories.reduce<string[]>((ids, trajectory) => {
+  //   if (trajectory.archived_at === null && !ids.includes(trajectory.table_id)) {
+  //     ids.push(trajectory.table_id);
+  //   }
+  //   return ids;
+  // }, []);
+  // const descriptions = slice.missions
+  //   .map((mission) => mission.description.trim())
+  //   .filter(Boolean)
     // .join("\n\n");
 
   const clearTracker = (launch: Launch) => {
@@ -97,34 +83,34 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
     }
   };
 
-  const readImages = (files: FileList | null) => {
-    if (!files || readOnly) {
-      return;
-    }
-    const images = [...files].filter((file) => file.type.startsWith("image/"));
-    Promise.all(
-      images.map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result ?? ""));
-            reader.onerror = () => reject(reader.error);
-            reader.readAsDataURL(file);
-          }),
-      ),
-    )
-      .then((urls) => {
-        addImages(
-          report.id,
-          urls.filter((url) => url),
-        );
-      })
-      .catch(() => {
-        notifyError(DICTIONARY.common.error);
-      });
-  };
+  // const readImages = (files: FileList | null) => {
+  //   if (!files || readOnly) {
+  //     return;
+  //   }
+  //   const images = [...files].filter((file) => file.type.startsWith("image/"));
+  //   Promise.all(
+  //     images.map(
+  //       (file) =>
+  //         new Promise<string>((resolve, reject) => {
+  //           const reader = new FileReader();
+  //           reader.onload = () => resolve(String(reader.result ?? ""));
+  //           reader.onerror = () => reject(reader.error);
+  //           reader.readAsDataURL(file);
+  //         }),
+  //     ),
+  //   )
+  //     .then((urls) => {
+  //       addImages(
+  //         report.id,
+  //         urls.filter((url) => url),
+  //       );
+  //     })
+  //     .catch(() => {
+  //       notifyError(DICTIONARY.common.error);
+  //     });
+  // };
 
-  const [isLaunchAssetFolded, setIsLaunchAssetFolded] = useState(false);
+  const [isLaunchAssetFolded, setIsLaunchAssetFolded] = useState(true);
   const [isLaunchProblemsFolded, setIsLaunchProblemsFolded] = useState(false);
 
   const eventCrewOptions = slice.battleGroups.map((group) => ({
@@ -149,9 +135,9 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
   };
 
   return (
-    <article className="mx-auto flex w-full max-w-[920px] flex-col gap-6 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4 pl-12">
+    <article className="flex w-full max-w-full flex-col gap-6 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
       
-      {readOnly ? (
+      {/* {readOnly ? (
         <header className="flex flex-col gap-3">
           <h6 className="text-base font-semibold text-primitive-neutral-0">{text.sections.document_title}</h6>
           <div className="rounded-md border border-primitive-neutral-700">
@@ -224,11 +210,11 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
               inputClassName="h-7"
             />
           </div>
-        </header>)}
+        </header>)} */}
       
           <>
             {/* What was planned section */}
-            <section className="flex flex-col gap-3 w-full">
+            {/* <section className="flex flex-col gap-3 w-full">
               <h2 className="text-2xl font-bold text-primitive-neutral-0">{text.sections.what_was_planned}</h2>
               {mainTarget ? (
                 <div className="flex flex-col gap-2 max-w-[520px]">
@@ -244,10 +230,10 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   ))}
                 </div>
               ) : null}
-            </section>
+            </section> */}
       
             {/* Trajectories section */}
-            <section className="flex flex-col">
+            {/* <section className="flex flex-col">
               <h2 className="text-2xl font-bold text-primitive-neutral-0">{text.sections.trajectories}</h2>
               {tableIds.map((tableId) => {
                 const columns = report.trajectories.filter(
@@ -461,10 +447,10 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   </div>
                 ) : null}
               </div>
-            </section>
+            </section> */}
             
             {/* Forces and assets section */}
-            <section className="flex flex-col gap-3">
+            {/* <section className="flex flex-col gap-3">
               <h2 className="text-2xl font-bold text-primitive-neutral-0">{text.sections.forces_and_assets}</h2>
               <div className="overflow-x-auto">
                 <table className="w-fit border-collapse">
@@ -523,10 +509,10 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   </tbody>
                 </table>
               </div>
-            </section>
+            </section> */}
       
             {/* Participants section */}
-            <section className="flex flex-col gap-3">
+            {/* <section className="flex flex-col gap-3">
               <h2 className="text-2xl font-bold text-primitive-neutral-0">{text.sections.participants}</h2>
               <table className="w-fit border-collapse">
                 <tbody>
@@ -576,14 +562,14 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                   </tr>
                 </tbody>
               </table>
-            </section>
+            </section> */}
           </>
 
       {/* Events log & Launches order sections */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-2xl font-bold text-primitive-neutral-0">{text.sections.what_actually_happened}</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <h2 className="text-xl font-bold text-primitive-neutral-0">{text.sections.what_actually_happened}</h2>
+        <div className="overflow-x-auto w-fit">
+          <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr>
                 <th className={`${baseLabelCell} w-20 ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.time}</th>
@@ -722,14 +708,14 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
         {/* Launches order section */}
           <div>
             <h3 className="text-lg font-bold text-primitive-neutral-0">{text.sections.launches_order}</h3>
-            <div className="overflow-x-auto p-4 w-full">
-              <table className="w-full border-collapse">
+            <div className="overflow-x-auto pt-4 pr-4 w-full">
+              <table className="w-full border-separate border-spacing-0">
                 <thead>
                   <tr>
-                    <th className={baseLabelCell}>{text.tables.launches_results.launch_date}</th>
-                    <th className={baseLabelCell}>{text.tables.launches_results.launch_time}</th>
-                    <th className={baseLabelCell}>{text.tables.launches_results.launch_number}</th>
-                    <th className={baseLabelCell}>{text.tables.launches_results.trajectory}</th>
+                    <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_date}</th>
+                    <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_time}</th>
+                    <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_number}</th>
+                    <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_grouped.asset_sn}</th>
                     <th  className={`${baseLabelCell} relative`}>
                       <div className="absolute top-[-16px] z-10 right-[-12px]">
                         <Button variant="icon" size="icon"
@@ -748,20 +734,20 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                     </th>
                     {isLaunchAssetFolded && (
                       <>
-                        <th data-table="column-border-dashed" className={`${baseLabelCell} relative`}>{text.tables.launches_grouped.asset_sn}</th>
+                        <th data-table="column-border-dashed" className={`${baseLabelCell} relative`}>{text.tables.launches_results.trajectory}</th>
                         <th data-table="column-border-dashed" className={`${baseLabelCell} relative`}>{DICTIONARY.common.tracker}</th>
                         <th data-table="column-border-dashed" className={`${baseLabelCell} relative`}>{text.tables.launches_grouped.tracker_sn}</th>
                       </>
                     )}
                     <th className={baseLabelCell}>{text.tables.launches_results.crew}</th>
-                    <th className={`${baseLabelCell} relative`}>
+                    <th className={`${baseLabelCell} relative min-w-48`}>
                       <div className="absolute top-[-16px] z-10 right-[-12px]">
                         <Button variant="icon" size="icon"
                           tabIndex={-1}
                           title={isLaunchProblemsFolded ? DICTIONARY.common.actions.fold : DICTIONARY.common.actions.unfold}
                           aria-label={isLaunchProblemsFolded ? DICTIONARY.common.actions.fold : DICTIONARY.common.actions.unfold}
                           className="h-5 w-6 p-0.5"
-                          onClick={() => setIsLaunchProblemsFolded(!isLaunchProblemsFolded)}>
+                          onClick={() => {setIsLaunchAssetFolded(isLaunchProblemsFolded); setIsLaunchProblemsFolded(!isLaunchProblemsFolded);}}>
                             {!isLaunchProblemsFolded
                               ? <UnfoldHorizontal className="h-full w-full" aria-hidden="true" />
                               : <FoldHorizontal className="h-full w-full" aria-hidden="true" />
@@ -787,7 +773,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                     const trackerModelName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
                     return (
                       <tr key={launch.id}>
-                        <td className={`${cell} relative`} data-table="row-border-dashed" >
+                        <td className={`${cell} relative  launch-sticked-column bg-primitive-neutral-900`}> {/* data-table="row-border-dashed" */}
                           <Input
                             type="date"
                             required
@@ -807,7 +793,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             className={cn("h-7 px-2 min-w-32 max-w-32", formatDateInput(launchedAt) ? undefined : invalidControlClass)}
                           />
                         </td>
-                        <td className={cell}>
+                        <td className={`${cell} launch-sticked-column bg-primitive-neutral-900`}>
                           <Input
                             type="time"
                             required
@@ -827,7 +813,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             className={cn("h-7 px-2 min-w-20", formatTimeInput(launchedAt) ? undefined : invalidControlClass)}
                           />
                         </td>
-                        <td className={cell}>
+                        <td className={`${cell} launch-sticked-column bg-primitive-neutral-900`}>
                           <Input
                             type="text"
                             // min={1}
@@ -849,10 +835,16 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             )}
                           />
                         </td>
-                        <td className={cell}>
-                          {launch.trajectory_name?.trim()
-                            ? launch.trajectory_name
-                            : (<span className="text-sm text-primitive-red-500">-</span>)}
+                        <td className={`${cell} launch-sticked-column bg-primitive-neutral-900`}>
+                          <Input
+                            value={launch.asset_serial_number}
+                            disabled={readOnly}
+                            aria-label={text.tables.launches_grouped.asset_sn}
+                            onChange={(event) =>
+                              updateLaunch(launch.id, { asset_serial_number: event.target.value })
+                            }
+                            className='h-7 px-2 min-w-28 max-w-[200px]'
+                          />
                         </td>
                         <td className={`${cell} min-w-24`}>
                           {assetName(launch.asset_id)}
@@ -860,15 +852,9 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                         {isLaunchAssetFolded && (
                           <>
                             <td className={cell}>
-                              <Input
-                                value={launch.asset_serial_number}
-                                disabled={readOnly}
-                                aria-label={text.tables.launches_grouped.asset_sn}
-                                onChange={(event) =>
-                                  updateLaunch(launch.id, { asset_serial_number: event.target.value })
-                                }
-                                className='h-7 px-2 min-w-28 max-w-[200px]'
-                              />
+                              {launch.trajectory_name?.trim()
+                                ? launch.trajectory_name
+                                : (<span className="text-sm text-primitive-red-500">-</span>)}
                             </td>
                             <td className={cn(cell, "group/tracker")}>
                               <div className="flex items-center justify-between min-w-20">
@@ -1012,8 +998,8 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
             </div>
           </div>
 
-        {readOnly  && (<>
           {/* Summary by crews section */}
+        {/* {readOnly  && (<>
           <h3 className="text-lg font-bold text-primitive-neutral-0">{text.sections.by_crews}</h3>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
@@ -1045,7 +1031,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
               </tbody>
             </table>
           </div>
-        </>)}
+        </>)} */}
       </section>
 
       
@@ -1063,85 +1049,85 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
   );
 }
 
-function TargetFacts({ target }: { target: Target }) {
-  const rows = [
-    [DICTIONARY.reports.tables.targets.id, target.displayed_id, false],
-    [DICTIONARY.reports.tables.targets.object, target.name, false],
-    [DICTIONARY.reports.tables.targets.type, target.type, false],
-    [DICTIONARY.reports.tables.targets.address, target.address, false],
-    [
-      DICTIONARY.reports.tables.targets.distance_to_hot_line,
-      `${target.distance_from_hot_line} ${DICTIONARY.common.units.km}`,
-      false,
-    ],
-    [DICTIONARY.reports.tables.targets.coordinates, formattingMGRS.spacing(target.mgrs), true],
-  ] as const;
+// function TargetFacts({ target }: { target: Target }) {
+//   const rows = [
+//     [DICTIONARY.reports.tables.targets.id, target.displayed_id, false],
+//     [DICTIONARY.reports.tables.targets.object, target.name, false],
+//     [DICTIONARY.reports.tables.targets.type, target.type, false],
+//     [DICTIONARY.reports.tables.targets.address, target.address, false],
+//     [
+//       DICTIONARY.reports.tables.targets.distance_to_hot_line,
+//       `${target.distance_from_hot_line} ${DICTIONARY.common.units.km}`,
+//       false,
+//     ],
+//     [DICTIONARY.reports.tables.targets.coordinates, formattingMGRS.spacing(target.mgrs), true],
+//   ] as const;
 
-  return (
-    <table className="w-full border-collapse">
-      <tbody>
-        {rows.map(([label, value, asBadge]) => (
-          <tr key={label}>
-            <th className={labelCell}>{label}</th>
-            <td className={cell}>
-              <div className="flex items-center gap-1">
-                {asBadge ? (
-                  <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{value}</Badge>
-                ) : (
-                  value
-                )}
-              </div>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
+//   return (
+//     <table className="w-full border-collapse">
+//       <tbody>
+//         {rows.map(([label, value, asBadge]) => (
+//           <tr key={label}>
+//             <th className={labelCell}>{label}</th>
+//             <td className={cell}>
+//               <div className="flex items-center gap-1">
+//                 {asBadge ? (
+//                   <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{value}</Badge>
+//                 ) : (
+//                   value
+//                 )}
+//               </div>
+//             </td>
+//           </tr>
+//         ))}
+//       </tbody>
+//     </table>
+//   );
+// }
 
-function MetricRow({
-  label,
-  className,
-  columns,
-  render,
-}: {
-  label: string;
-  className: string;
-  columns: Trajectory[];
-  render: (trajectory: Trajectory) => string;
-}) {
-  return (
-    <tr>
-      <th className={tarjectoryLabelCell}>{label}</th>
-      {columns.map((trajectory) => (
-        <td key={trajectory.id} className={`${cell} ${className}`}>
-          {render(trajectory)}
-        </td>
-      ))}
-    </tr>
-  );
-}
+// function MetricRow({
+//   label,
+//   className,
+//   columns,
+//   render,
+// }: {
+//   label: string;
+//   className: string;
+//   columns: Trajectory[];
+//   render: (trajectory: Trajectory) => string;
+// }) {
+//   return (
+//     <tr>
+//       <th className={tarjectoryLabelCell}>{label}</th>
+//       {columns.map((trajectory) => (
+//         <td key={trajectory.id} className={`${cell} ${className}`}>
+//           {render(trajectory)}
+//         </td>
+//       ))}
+//     </tr>
+//   );
+// }
 
-function FieldRow({
-  label,
-  columns,
-  children,
-}: {
-  label: string;
-  columns: Trajectory[];
-  children: (trajectory: Trajectory) => ReactElement;
-}) {
-  return (
-    <tr>
-      <th className={tarjectoryLabelCell}>{label}</th>
-      {columns.map((trajectory) => (
-        <td key={trajectory.id} className={cell}>
-          {children(trajectory)}
-        </td>
-      ))}
-    </tr>
-  );
-}
+// function FieldRow({
+//   label,
+//   columns,
+//   children,
+// }: {
+//   label: string;
+//   columns: Trajectory[];
+//   children: (trajectory: Trajectory) => ReactElement;
+// }) {
+//   return (
+//     <tr>
+//       <th className={tarjectoryLabelCell}>{label}</th>
+//       {columns.map((trajectory) => (
+//         <td key={trajectory.id} className={cell}>
+//           {children(trajectory)}
+//         </td>
+//       ))}
+//     </tr>
+//   );
+// }
 
 // function assetOptions(trajectory: Trajectory, slice: DaySlice) {
 //   if (trajectory.battle_group_id) {
@@ -1156,26 +1142,26 @@ function FieldRow({
 //   }));
 // }
 
-function assetQuantities(slice: DaySlice): { assetId: string; quantity: number }[] {
-  const totals = new Map<string, number>();
-  slice.tasks.forEach((task) => {
-    task.allocations.forEach((line) => {
-      if (!line.asset_id || line.quantity <= 0) {
-        return;
-      }
-      totals.set(line.asset_id, (totals.get(line.asset_id) ?? 0) + line.quantity);
-    });
-  });
-  return [...totals.entries()].map(([assetId, quantity]) => ({ assetId, quantity }));
-}
+// function assetQuantities(slice: DaySlice): { assetId: string; quantity: number }[] {
+//   const totals = new Map<string, number>();
+//   slice.tasks.forEach((task) => {
+//     task.allocations.forEach((line) => {
+//       if (!line.asset_id || line.quantity <= 0) {
+//         return;
+//       }
+//       totals.set(line.asset_id, (totals.get(line.asset_id) ?? 0) + line.quantity);
+//     });
+//   });
+//   return [...totals.entries()].map(([assetId, quantity]) => ({ assetId, quantity }));
+// }
 
-function executionCrews(slice: DaySlice): string[] {
-  return [
-    ...new Set(
-      slice.battleGroups.flatMap((group) => [group.lead_crew_id, ...group.support_crew_ids].filter(Boolean)),
-    ),
-  ];
-}
+// function executionCrews(slice: DaySlice): string[] {
+//   return [
+//     ...new Set(
+//       slice.battleGroups.flatMap((group) => [group.lead_crew_id, ...group.support_crew_ids].filter(Boolean)),
+//     ),
+//   ];
+// }
 
 function isEventTimeValid(value: string): boolean {
   return /^\d{2}:\d{2}$/.test(value);
@@ -1189,59 +1175,59 @@ function isLaunchNumberValid(value: number | undefined): boolean {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-function LaunchGroupRows({
-  groupLabel,
-  launches,
-  group,
-  assets,
-}: {
-  groupLabel: string;
-  launches: Launch[];
-  group: BattleGroup;
-  assets: Asset[];
-}) {
-  return (
-    <>
-      <tr>
-        <td className={cell} colSpan={7}>
-          <span className="font-semibold">{groupLabel}</span>
-        </td>
-      </tr>
-      {launches.map((launch) => {
-        const asset = assets.find((item) => item.id === launch.asset_id);
-        return (
-          <tr key={launch.id}>
-            <td className={cell}>{crewName(group.lead_crew_id)}</td>
-            <td className={cell}>
-              {launch.trajectory_name?.trim() ? (
-                launch.trajectory_name
-              ) : (
-                <span className="text-sm text-primitive-red-500">-</span>
-              )}
-            </td>
-            <td className={cell}>
-              {launch.aiming_point_mgrs ? (
-                <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">
-                  {formattingMGRS.spacing(launch.aiming_point_mgrs)}
-                </Badge>
-              ) : (
-                <span className="text-sm text-primitive-red-500">-</span>
-              )}
-            </td>
-            <td className={cell}>{assetName(launch.asset_id)}</td>
-            <td className={cell}>
-              <span className={`text-sm ${!launch.asset_serial_number ? "text-primitive-red-500" : ""}`}>{launch.asset_serial_number ?? "-"}</span>
-            </td>
-            <td className={cn(cell, "group/tracker")}>
-              <span className={`text-sm ${!launch.tracker_model_serial_number ? "text-primitive-red-500" : ""}`}>{launch.tracker_model_serial_number ?? "-"}</span>
-            </td>
-            <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
-          </tr>
-        );
-      })}
-    </>
-  );
-}
+// function LaunchGroupRows({
+//   groupLabel,
+//   launches,
+//   group,
+//   assets,
+// }: {
+//   groupLabel: string;
+//   launches: Launch[];
+//   group: BattleGroup;
+//   assets: Asset[];
+// }) {
+//   return (
+//     <>
+//       <tr>
+//         <td className={cell} colSpan={7}>
+//           <span className="font-semibold">{groupLabel}</span>
+//         </td>
+//       </tr>
+//       {launches.map((launch) => {
+//         const asset = assets.find((item) => item.id === launch.asset_id);
+//         return (
+//           <tr key={launch.id}>
+//             <td className={cell}>{crewName(group.lead_crew_id)}</td>
+//             <td className={cell}>
+//               {launch.trajectory_name?.trim() ? (
+//                 launch.trajectory_name
+//               ) : (
+//                 <span className="text-sm text-primitive-red-500">-</span>
+//               )}
+//             </td>
+//             <td className={cell}>
+//               {launch.aiming_point_mgrs ? (
+//                 <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">
+//                   {formattingMGRS.spacing(launch.aiming_point_mgrs)}
+//                 </Badge>
+//               ) : (
+//                 <span className="text-sm text-primitive-red-500">-</span>
+//               )}
+//             </td>
+//             <td className={cell}>{assetName(launch.asset_id)}</td>
+//             <td className={cell}>
+//               <span className={`text-sm ${!launch.asset_serial_number ? "text-primitive-red-500" : ""}`}>{launch.asset_serial_number ?? "-"}</span>
+//             </td>
+//             <td className={cn(cell, "group/tracker")}>
+//               <span className={`text-sm ${!launch.tracker_model_serial_number ? "text-primitive-red-500" : ""}`}>{launch.tracker_model_serial_number ?? "-"}</span>
+//             </td>
+//             <td className={cell}>{asset ? antennaName(asset.antenna_id) : ""}</td>
+//           </tr>
+//         );
+//       })}
+//     </>
+//   );
+// }
 
 function chronologicalLaunches(slice: DaySlice, report: Report): Launch[] {
   return [...slice.launches].sort((left, right) => {
