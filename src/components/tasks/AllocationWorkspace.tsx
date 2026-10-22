@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Minus, Pencil, Plus, Users, X } from "lucide-react";
+import { MapPinned, Pencil, Plus, Users, X, CrosshairIcon, PlaneIcon, Minus } from "lucide-react";
 import { AllocationConflictBadge } from "@/components/tasks/QuantityDiscrepancy";
 import { DetachmentPlanForm } from "@/components/tasks/DetachmentPlanForm";
 import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
@@ -178,13 +178,13 @@ export function AllocationWorkspace({
     return acc;
   }, {} as Record<string, TaskAllocation[]>), [task, targets]);
   const crewAssetMap = getCrewAssignedAssetMap(activeDrafts, allocations);
-  const totalPlanned = allocations.reduce((sum, line) => sum + line.quantity, 0);
+  // const totalPlanned = allocations.reduce((sum, line) => sum + line.quantity, 0);
   const assignedCount = activeDrafts.reduce((sum, draft) => sum + draft.quantity, 0);
-  const unassignedCount = Math.max(0, totalPlanned - assignedCount);
+  // const unassignedCount = Math.max(0, totalPlanned - assignedCount);
   const assignedCrewIds = new Set(activeDrafts.map((draft) => draft.crewId));
   const freeCrews = roster.filter((crew) => !assignedCrewIds.has(crew.id) && !occupiedElsewhere.has(crew.id));
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
-  const progress = totalPlanned === 0 ? 0 : Math.round((Math.min(assignedCount, totalPlanned) / totalPlanned) * 100);
+  // const progress = totalPlanned === 0 ? 0 : Math.round((Math.min(assignedCount, totalPlanned) / totalPlanned) * 100);
   const quantityConflicts = allocations.flatMap((line) => {
     const filled = filledBoardCount(taskLaunches.filter((launch) => launch.allocation_line_id === line.id));
     return filled > line.quantity ? [{ lineId: line.id, planned: line.quantity, filled }] : [];
@@ -217,16 +217,47 @@ export function AllocationWorkspace({
   const catalogTargets = targets.filter(
     (target) => target.archived_at === null || plan?.some((block) => block.targetId === target.id),
   );
-
+  const targetQuantity = new Set(allocations.map(item=> item.target_id)).size;
+  const pointQuantity = new Set(allocations.map(item=> item.aiming_point_id)).size;
+console.log({task})
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <section className="flex flex-col gap-3 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-primitive-neutral-0">
+        <article className="w-full flex justify-between border-b border-primitive-neutral-700">
+          <div className="flex gap-2 items-center justify-center py-1 px-3">
+            <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-zinc-300">
+              {`${targetQuantity} цілі`}
+            </p>
+          </div>
+          <div className="border-l border-primitive-neutral-700" />
+          <div className="flex gap-2 items-center justify-center py-1 px-3">
+            <CrosshairIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-zinc-300">
+              {`${pointQuantity} точ. приц.`}
+            </p>
+          </div>
+          <div className="border-l border-primitive-neutral-700" />
+          <div className="flex gap-2 items-center justify-center py-1 px-3">
+            <PlaneIcon className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-zinc-300">
+              {`${assignedCount} засоби`}
+            </p>
+          </div>
+          <div className="border-l border-primitive-neutral-700" />
+          <div className="flex gap-2 items-center justify-center py-1 px-3">
+            <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
+            <p className="truncate text-sm font-semibold text-zinc-300">
+              {`${assignedCrewIds.size} екіпажі`}
+            </p>
+          </div>
+        </article>
+        {/* <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-primitive-neutral-0">
           <span>{fillTemplate(text.planned, { count: totalPlanned })}</span>
           <span>{fillTemplate(text.allocated, { count: assignedCount })}</span>
           <span>{fillTemplate(text.remaining_units, { count: unassignedCount })}</span>
-        </div>
-        <div
+        </div> */}
+        {/* <div
           className="h-2 overflow-hidden rounded-full bg-primitive-neutral-800"
           role="progressbar"
           aria-valuemin={0}
@@ -235,7 +266,7 @@ export function AllocationWorkspace({
           aria-label={text.kpi_distribution}
         >
           <div className="h-full bg-primitive-blue-500" style={{ width: `${progress}%` }} />
-        </div>
+        </div> */}
         <div className="flex items-center gap-2">
           <p className="text-sm text-primitive-neutral-300">
             {fillTemplate(text.free_crews_list, { free: freeCrews.length, total: roster.length })}

@@ -260,9 +260,52 @@ export function TasksPlanningPage() {
           </button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-1">
-        {activeFilters.viewMode === "target" ? (
-          targetCards.length === 0 ? (
+      <div className="h-full flex-1">
+        <div className="min-h-full flex-1 p-1 h-full overflow-y-auto">
+          {activeFilters.viewMode === "target" ? (
+            targetCards.length === 0 ? (
+              <div className="flex h-full items-center justify-center">
+                <Card className="w-full items-center gap-3 text-center justify-center">
+                  <ClipboardList className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
+                  <p className="text-sm text-primitive-neutral-300">{DICTIONARY.tasks.empty}</p>
+                </Card>
+              </div>
+            ) : (
+              <div className="grid grid-cols-5 gap-3 min-w-[1160px] overflow-x-auto overflow-y-hidden">
+                {targetCards.map((card) => {
+                  const currentMissionReports = matchingReports(reports, [card.task.organization_id], card.task.scheduled_at);
+                  const reportId = currentMissionReports.find((report) => report.organization_id === card.task.organization_id)?.id ?? "";
+                  return (
+                    <TaskCard
+                      key={`${card.task.id}:${card.targetId || card.label}`}
+                      task={card.task}
+                      missions={missions}
+                      reportId={reportId}
+                      targets={targets}
+                      aimingPoints={aimingPoints}
+                      battleGroups={battleGroups.filter(
+                        (group) => group.task_id === card.task.id || card.task.battle_groups_ids.includes(group.id),
+                      )}
+                      focusTargetId={card.targetId}
+                      displayLabel={card.label}
+                      displayTitle={card.title}
+                      onPreview={(item) =>
+                        navigate(
+                          card.targetId
+                            ? `/planning/tasks/${item.id}?targetId=${card.targetId}`
+                            : `/planning/tasks/${item.id}`,
+                        )
+                      }
+                      onRestore={(item) => {
+                        restoreTask(item.id);
+                        notifySuccess(DICTIONARY.tasks.toasts.task_restored);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            )
+          ) : dayColumns.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <Card className="w-full items-center gap-3 text-center justify-center">
                 <ClipboardList className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
@@ -270,108 +313,67 @@ export function TasksPlanningPage() {
               </Card>
             </div>
           ) : (
-            <div className="grid grid-cols-5 gap-3">
-              {targetCards.map((card) => {
-                const currentMissionReports = matchingReports(reports, [card.task.organization_id], card.task.scheduled_at);
-                const reportId = currentMissionReports.find((report) => report.organization_id === card.task.organization_id)?.id ?? "";
-                return (
-                  <TaskCard
-                    key={`${card.task.id}:${card.targetId || card.label}`}
-                    task={card.task}
-                    missions={missions}
-                    reportId={reportId}
-                    targets={targets}
-                    aimingPoints={aimingPoints}
-                    battleGroups={battleGroups.filter(
-                      (group) => group.task_id === card.task.id || card.task.battle_groups_ids.includes(group.id),
-                    )}
-                    focusTargetId={card.targetId}
-                    displayLabel={card.label}
-                    displayTitle={card.title}
-                    onPreview={(item) =>
-                      navigate(
-                        card.targetId
-                          ? `/planning/tasks/${item.id}?targetId=${card.targetId}`
-                          : `/planning/tasks/${item.id}`,
-                      )
-                    }
-                    onRestore={(item) => {
-                      restoreTask(item.id);
-                      notifySuccess(DICTIONARY.tasks.toasts.task_restored);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          )
-        ) : dayColumns.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <Card className="w-full items-center gap-3 text-center justify-center">
-              <ClipboardList className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
-              <p className="text-sm text-primitive-neutral-300">{DICTIONARY.tasks.empty}</p>
-            </Card>
-          </div>
-        ) : (
-          <div className="grid grid-cols-5 gap-3">
-            {dayColumns.map(({ date, tasks: dayTasks }) => (
-              <div
-                key={date.toISOString()}
-                className={cn(
-                  "flex w-full flex-col gap-2 opacity-70 hover:opacity-100 transition-all duration-100",
-                  isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
-                  isToday(date) ? "scale-[102%] opacity-100" : "",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Badge className={cn("flex items-center bg-primitive-neutral-800 text-sm", isToday(date) ? "" : "bg-primitive-neutral-700")}>
-                    <Calendar className="mr-1 h-3 w-3 shrink-0" aria-hidden="true" />
-                    {convertDateToDdMmDayOfWeek(date)}
-                  </Badge>
-                  <span className="text-sm">{isToday(date) ? DICTIONARY.missions.today : ""}</span>
+            <div className="grid grid-cols-5 gap-3 min-w-[1160px] overflow-x-auto overflow-y-hidden">
+              {dayColumns.map(({ date, tasks: dayTasks }) => (
+                <div
+                  key={date.toISOString()}
+                  className={cn(
+                    "flex w-full flex-col gap-2 opacity-70 hover:opacity-100 transition-all duration-100",
+                    isMoreThanOneDay(date) || isLessThanOneDay(date) ? "scale-[96%]" : "",
+                    isToday(date) ? "scale-[102%] opacity-100" : "",
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge className={cn("flex items-center bg-primitive-neutral-800 text-sm", isToday(date) ? "" : "bg-primitive-neutral-700")}>
+                      <Calendar className="mr-1 h-3 w-3 shrink-0" aria-hidden="true" />
+                      {convertDateToDdMmDayOfWeek(date)}
+                    </Badge>
+                    <span className="text-sm">{isToday(date) ? DICTIONARY.missions.today : ""}</span>
+                  </div>
+                  {dayTasks.length > 0 ? (
+                    dayTasks.map((task) => {
+                      const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
+                      const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? "";
+                      return (
+                        <TaskCard
+                          key={task.id}
+                          task={task}
+                          missions={missions}
+                          reportId={reportId}
+                          targets={targets}
+                          aimingPoints={aimingPoints}
+                          battleGroups={battleGroups.filter(
+                            (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
+                          )}
+                          onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
+                          onRestore={(item) => {
+                            restoreTask(item.id);
+                            notifySuccess(DICTIONARY.tasks.toasts.task_restored);
+                          }}
+                        />
+                      );
+                    })
+                  ) : (
+                    <Card className="min-h-60">
+                      <CardBody className="justify-center gap-3 text-center">
+                        <p className="text-sm text-primitive-neutral-300 opacity-60">{DICTIONARY.tasks.no_tasks}</p>
+                        {role === "DETACHMENT" && entityId && !isBeforeToday(date) ? (
+                          <Button
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => navigate(`/planning/tasks/new?date=${formatIsoDate(startOfDay(date))}`)}
+                          >
+                            {DICTIONARY.tasks.details.create_and_assign}
+                          </Button>
+                        ) : null}
+                      </CardBody>
+                    </Card>
+                  )}
                 </div>
-                {dayTasks.length > 0 ? (
-                  dayTasks.map((task) => {
-                    const currentMissionReports = matchingReports(reports, [task.organization_id], task.scheduled_at);
-                    const reportId = currentMissionReports.find((report) => report.organization_id === task.organization_id)?.id ?? "";
-                    return (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        missions={missions}
-                        reportId={reportId}
-                        targets={targets}
-                        aimingPoints={aimingPoints}
-                        battleGroups={battleGroups.filter(
-                          (group) => group.task_id === task.id || task.battle_groups_ids.includes(group.id),
-                        )}
-                        onPreview={(item) => navigate(`/planning/tasks/${item.id}`)}
-                        onRestore={(item) => {
-                          restoreTask(item.id);
-                          notifySuccess(DICTIONARY.tasks.toasts.task_restored);
-                        }}
-                      />
-                    );
-                  })
-                ) : (
-                  <Card className="min-h-60">
-                    <CardBody className="justify-center gap-3 text-center">
-                      <p className="text-sm text-primitive-neutral-300 opacity-60">{DICTIONARY.tasks.no_tasks}</p>
-                      {role === "DETACHMENT" && entityId && !isBeforeToday(date) ? (
-                        <Button
-                          variant="outline"
-                          className="text-xs"
-                          onClick={() => navigate(`/planning/tasks/new?date=${formatIsoDate(startOfDay(date))}`)}
-                        >
-                          {DICTIONARY.tasks.details.create_and_assign}
-                        </Button>
-                      ) : null}
-                    </CardBody>
-                  </Card>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
