@@ -17,7 +17,7 @@ const ACCESS: Record<AuthRole, Record<AccessArea, AccessLevel>> = {
     tasks: "admin",
     launches: "view",
     reports: "admin",
-    targets: "deny",
+    targets: "admin",
     assets: "admin",
   },
   CREW: {
