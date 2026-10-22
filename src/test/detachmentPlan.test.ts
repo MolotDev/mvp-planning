@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allocationsFromBlocks, crewDraftsFromBlocks, crewOptionState, externalAimingUsage, type PlanForceRow, type PlanTargetBlock } from "@/lib/detachmentPlan";
+import { taskBelongsToMission } from "@/lib/taskAllocations";
 import type { Crew } from "@/types/battleGroup";
 import type { Task } from "@/types/mission";
 
@@ -121,5 +122,14 @@ describe("detachment target extension", () => {
         droneModel: "Сова",
       },
     ]);
+  });
+
+  it("links a detachment task to the daily mission by mission id", () => {
+    const request = task("detachment_1", "point-1", "uav_2", 1);
+    request.mission_id = "daily";
+    request.allocations = request.allocations.map((line) => ({ ...line, mission_id: "" }));
+    const mission = { id: "daily", task_ids: [request.id] };
+    expect(taskBelongsToMission(request, mission)).toBe(true);
+    expect(taskBelongsToMission(request, { id: "other", task_ids: [] })).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import { crewsForOrganization, DETACHMENT_REFS } from "@/data/crews";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { crewWord, fillTemplate } from "@/lib/battleGroupCapacity";
 import { equippedCount, launchesForLine, prepTone } from "@/lib/missionDashboard";
+import { allocationsForMission, taskBelongsToMission } from "@/lib/taskAllocations";
 import { crewWeekLoads, type CrewDayKind } from "@/lib/taskDashboard";
 import { cn } from "@/lib/utils";
 import type { BattleGroup } from "@/types/battleGroup";
@@ -35,9 +36,7 @@ export function MissionAnalyticsColumn({ mission, tasks, groups, launches }: Mis
   const text = DICTIONARY.missions.command;
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const now = new Date();
-  const related = tasks.filter(
-    (task) => task.archived_at === null && task.allocations.some((line) => line.mission_id === mission.id),
-  );
+  const related = tasks.filter((task) => task.archived_at === null && taskBelongsToMission(task, mission));
   const orgIds = [...new Set(related.map((task) => task.organization_id))];
 
   return (
@@ -48,7 +47,7 @@ export function MissionAnalyticsColumn({ mission, tasks, groups, launches }: Mis
         const orgTasks = related.filter((task) => task.organization_id === orgId);
         const planned = orgTasks.reduce(
           (sum, task) =>
-            sum + task.allocations.filter((line) => line.mission_id === mission.id).reduce((inner, line) => inner + line.quantity, 0),
+            sum + allocationsForMission(task, mission.id).reduce((inner, line) => inner + line.quantity, 0),
           0,
         );
         const weeks = roster.map((crew) => crewWeekLoads(crew.id, tasks, groups, launches, now, mission.scheduled_at));
@@ -104,8 +103,7 @@ export function MissionAnalyticsColumn({ mission, tasks, groups, launches }: Mis
                   const assigned = orgTasks.reduce((sum, task) => {
                     return (
                       sum +
-                      task.allocations
-                        .filter((line) => line.mission_id === mission.id)
+                      allocationsForMission(task, mission.id)
                         .reduce((inner, line) => {
                             const sameAssetCount = task.allocations.filter(
                               (item) => item.mission_id === line.mission_id && item.asset_id === line.asset_id,
@@ -125,8 +123,7 @@ export function MissionAnalyticsColumn({ mission, tasks, groups, launches }: Mis
                     );
                   }, 0);
                   const crewLaunches = orgTasks.flatMap((task) =>
-                    task.allocations
-                      .filter((line) => line.mission_id === mission.id)
+                    allocationsForMission(task, mission.id)
                       .flatMap((line) =>
                         launchesForLine(task, line, launches).filter((launch) =>
                           crewGroups.some((group) => group.id === launch.battle_group_id),

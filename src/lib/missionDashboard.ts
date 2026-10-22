@@ -1,7 +1,8 @@
+import { taskBelongsToMission } from "@/lib/taskAllocations";
+import { isLaunchEquipped, launchPrepStatus } from "@/lib/taskCrewMatrix";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
-import { isLaunchEquipped, launchPrepStatus } from "@/lib/taskCrewMatrix";
 
 export type PrepTone = "ready" | "progress" | "idle";
 export type DetachmentTone = "ready" | "needs_allocation" | "progress";
@@ -125,9 +126,7 @@ export function sumPrepSegments(items: PrepSegments[]): PrepSegments {
 }
 
 export function activeMissionTasks(mission: Mission, tasks: Task[]): Task[] {
-  return tasks.filter(
-    (task) => task.archived_at === null && task.allocations.some((line) => line.mission_id === mission.id),
-  );
+  return tasks.filter((task) => task.archived_at === null && taskBelongsToMission(task, mission));
 }
 
 export function classifyCrewReadiness(crews: CrewPrep[]): CrewReadiness {

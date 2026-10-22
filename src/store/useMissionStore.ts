@@ -10,7 +10,7 @@ import { assignSequentialMissionLabels, nextMissionNumber } from "@/lib/missionL
 import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
 import type { TaskDraft } from "@/store/useTaskStore";
-import { normalizeTask, useTaskStore } from "@/store/useTaskStore";
+import { useTaskStore } from "@/store/useTaskStore";
 import type { AimingPoint, Target } from "@/types/target";
 import type { Mission, MissionMetrics, MissionStatusFilter, Task } from "@/types/mission";
 
@@ -318,11 +318,6 @@ export const useMissionStore = create<MissionStoreState>()(
           useMissionStore.setState({ missions: current.missions, missionSeq: current.missionSeq });
           dateLabelsNeedPersist = false;
         }
-        queueMicrotask(() => {
-          useTaskStore.setState({
-            tasks: useTaskStore.getState().tasks.map((task) => normalizeTask(task)),
-          });
-        });
       },
     },
   ),

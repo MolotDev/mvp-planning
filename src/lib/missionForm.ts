@@ -1,6 +1,7 @@
 import { DICTIONARY } from "@/constants/dictionary";
 import { isScheduledBeforeCreated, startOfDay } from "@/lib/dates";
 import { parseRequiredNumber } from "@/lib/validation";
+import { taskBelongsToMission } from "@/lib/taskAllocations";
 import type { TaskDraft } from "@/store/useTaskStore";
 import type { Mission, Task } from "@/types/mission";
 
@@ -43,7 +44,7 @@ export function emptyTarget(): TargetDraft {
 }
 
 export function linkedTasksForMission(mission: Mission, tasks: Task[]): Task[] {
-  const related = tasks.filter((task) => task.allocations.some((line) => line.mission_id === mission.id));
+  const related = tasks.filter((task) => taskBelongsToMission(task, mission));
   if (mission.archived_at !== null) {
     return related;
   }
@@ -55,7 +56,7 @@ export function draftsFromMission(mission: Mission, tasks: Task[]): TargetDraft[
   const byTarget = new Map<string, TargetDraft>();
   related.forEach((task) => {
     task.allocations
-      .filter((line) => line.mission_id === mission.id)
+      .filter((line) => line.mission_id === mission.id || (task.mission_id === mission.id && !line.mission_id))
       .forEach((line) => {
         if (!task.organization_id && !line.asset_id) {
           return;

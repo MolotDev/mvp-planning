@@ -15,22 +15,20 @@ function wants(types: SyncEventType[], ...expected: SyncEventType[]) {
 
 async function rehydrateStores(types: SyncEventType[]) {
   await runRemoteSync(async () => {
-    const jobs: Array<Promise<void> | void> = [];
     if (wants(types, "SYNC_MISSIONS")) {
-      jobs.push(useMissionStore.persist.rehydrate());
+      await useMissionStore.persist.rehydrate();
     }
-    if (wants(types, "SYNC_TASKS")) {
-      jobs.push(useTaskStore.persist.rehydrate());
-      jobs.push(useBattleGroupStore.persist.rehydrate());
+    if (wants(types, "SYNC_TASKS") || wants(types, "SYNC_MISSIONS")) {
+      await useTaskStore.persist.rehydrate();
+      await useBattleGroupStore.persist.rehydrate();
     }
     if (wants(types, "SYNC_LAUNCHES")) {
-      jobs.push(useLaunchStore.persist.rehydrate());
-      jobs.push(useBattleGroupStore.persist.rehydrate());
+      await useLaunchStore.persist.rehydrate();
+      await useBattleGroupStore.persist.rehydrate();
     }
-    if (types.includes("SYNC_ALL")) {
-      jobs.push(useTargetStore.persist.rehydrate());
+    if (types.includes("SYNC_ALL") || wants(types, "SYNC_TASKS") || wants(types, "SYNC_MISSIONS")) {
+      await useTargetStore.persist.rehydrate();
     }
-    await Promise.all(jobs);
   });
 }
 

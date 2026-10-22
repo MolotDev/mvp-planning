@@ -9,6 +9,7 @@ import { getEntityState } from "@/lib/entityState";
 import type { Mission, Task } from "@/types/mission";
 import type { Target } from "@/types/target";
 import { formattingMGRS } from "@/lib/formattingMGRS";
+import { allocationsForMission, taskBelongsToMission } from "@/lib/taskAllocations";
 import { cn } from "@/lib/utils";
 import { detachmentName } from "@/lib/detachments";
 import { useReportStore } from "@/store/useReportStore";
@@ -52,11 +53,9 @@ export function MissionCard({
 }: MissionCardProps) {
   const reports = useReportStore((state) => state.reports);
   const launches = useLaunchStore((state) => state.launches);
-  const linkedTasks = tasks.filter((task) =>
-    task.allocations.some((line) => line.mission_id === mission.id),
-  );
+  const linkedTasks = tasks.filter((task) => taskBelongsToMission(task, mission));
   const linkedTargets = targets.filter((target) =>
-    linkedTasks.some((task) => task.allocations.some((line) => line.mission_id === mission.id && line.target_id === target.id)),
+    linkedTasks.some((task) => allocationsForMission(task, mission.id).some((line) => line.target_id === target.id)),
   );
   const detachments = [...new Set(linkedTasks.map((task) => task.organization_id).filter(Boolean))] as string[];
   const isArchived = mission.archived_at !== null;
@@ -68,8 +67,8 @@ export function MissionCard({
   const groupedTargets = useMemo(() => {
     const dataByTarget = new Map<string, TargetData>();
     linkedTasks.forEach((task) => {
-      task.allocations
-        .filter((line) => line.mission_id === mission.id && (!focusTargetId || line.target_id === focusTargetId))
+      allocationsForMission(task, mission.id)
+        .filter((line) => !focusTargetId || line.target_id === focusTargetId)
         .forEach((line) => {
       const targetId = line.target_id || "unknown";
       const target = linkedTargets.find((item) => item.id === targetId);

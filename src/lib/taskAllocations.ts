@@ -8,6 +8,16 @@ export function sameOperationalDay(left: string | null | undefined, right: strin
   return Boolean(leftDay) && leftDay === rightDay;
 }
 
+export function taskBelongsToMission(
+  task: Pick<Task, "id" | "allocations"> & { mission_id?: string | null },
+  mission: { id: string; task_ids?: string[] },
+): boolean {
+  if (task.mission_id === mission.id || mission.task_ids?.includes(task.id)) {
+    return true;
+  }
+  return task.allocations.some((line) => line.mission_id === mission.id);
+}
+
 export function taskMissionIds(task: Pick<Task, "allocations"> & { mission_id?: string | null }): string[] {
   const ids: string[] = [];
   if (task.mission_id && !ids.includes(task.mission_id)) {
@@ -35,8 +45,15 @@ export function taskQuantity(task: Pick<Task, "allocations">): number {
   return task.allocations.reduce((sum, line) => sum + (line.quantity > 0 ? line.quantity : 0), 0);
 }
 
-export function allocationsForMission(task: Pick<Task, "allocations">, missionId: string): TaskAllocation[] {
-  return task.allocations.filter((line) => line.mission_id === missionId);
+export function allocationsForMission(
+  task: Pick<Task, "allocations"> & { mission_id?: string | null },
+  missionId: string,
+): TaskAllocation[] {
+  const matched = task.allocations.filter((line) => line.mission_id === missionId);
+  if (matched.length > 0 || task.mission_id !== missionId) {
+    return matched;
+  }
+  return task.allocations.filter((line) => !line.mission_id);
 }
 
 export function launchesForMission(launches: Launch[], tasks: Pick<Task, "allocations">[], missionId: string): Launch[] {

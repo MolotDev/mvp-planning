@@ -16,6 +16,7 @@ import {
   prepSegmentsForLine,
   sumPrepSegments,
 } from "@/lib/missionDashboard";
+import { allocationsForMission } from "@/lib/taskAllocations";
 import { cn } from "@/lib/utils";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
@@ -43,7 +44,7 @@ export function MissionReadinessPanel({
   const text = DICTIONARY.missions.command;
   const related = activeMissionTasks(mission, tasks);
   const lines = related.flatMap((task) =>
-    task.allocations.filter((line) => line.mission_id === mission.id).map((line) => ({ task, line })),
+    allocationsForMission(task, mission.id).map((line) => ({ task, line })),
   );
   const planned = lines.reduce((sum, item) => sum + item.line.quantity, 0);
   const assigned = lines.reduce((sum, item) => sum + assignedQuantity(item.task, item.line, groups), 0);
@@ -62,9 +63,10 @@ export function MissionReadinessPanel({
     groups
       .filter((group) => group.archived_at === null && group.task_id === task.id)
       .flatMap((group) => {
+        const missionLines = allocationsForMission(task, mission.id);
         const allocation =
-          task.allocations.find((line) => line.mission_id === mission.id && line.id === group.allocation_line_id) ??
-          task.allocations.find((line) => line.mission_id === mission.id && line.asset_id === group.asset_id);
+          missionLines.find((line) => line.id === group.allocation_line_id) ??
+          missionLines.find((line) => line.asset_id === group.asset_id);
         if (!allocation) {
           return [];
         }

@@ -9,6 +9,7 @@ import {
   activeMissionTasks,
   launchesForLine,
 } from "@/lib/missionDashboard";
+import { allocationsForMission } from "@/lib/taskAllocations";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
@@ -37,9 +38,7 @@ export function MissionAllocationBoard({
   const related = activeMissionTasks(mission, tasks);
   const targetOrder: string[] = [];
   related.forEach((task) => {
-    task.allocations
-      .filter((line) => line.mission_id === mission.id)
-      .forEach((line) => {
+    allocationsForMission(task, mission.id).forEach((line) => {
         if (!targetOrder.includes(line.target_id)) {
           targetOrder.push(line.target_id);
         }
@@ -72,8 +71,8 @@ export function MissionAllocationBoard({
           {targetOrder.map((targetId) => {
             const target = targets.find((item) => item.id === targetId);
             const rows = related.flatMap((task) =>
-              task.allocations
-                .filter((line) => line.mission_id === mission.id && line.target_id === targetId)
+              allocationsForMission(task, mission.id)
+                .filter((line) => line.target_id === targetId)
                 .map((line) => ({ task, line })),
             );
             return (
