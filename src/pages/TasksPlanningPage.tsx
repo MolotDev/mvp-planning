@@ -276,6 +276,14 @@ export function TasksPlanningPage() {
                   const currentMissionReports = matchingReports(reports, [card.task.organization_id], card.task.scheduled_at);
                   const reportId = currentMissionReports.find((report) => report.organization_id === card.task.organization_id)?.id ?? "";
                   return (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm w-fit flex items-center gap-2">
+                      <Badge className={cn("flex items-center bg-primitive-neutral-800 text-sm", isToday(new Date(card.task.scheduled_at)) ? "" : "bg-primitive-neutral-700")}>
+                        <Calendar className="mr-1 h-3 w-3 shrink-0" aria-hidden="true" />
+                        {convertDateToDdMmDayOfWeek(new Date(card.task.scheduled_at))}
+                      </Badge>
+                      <span className="text-sm">{isToday(new Date(card.task.scheduled_at)) ? DICTIONARY.missions.today : ""}</span>
+                      </p>
                     <TaskCard
                       key={`${card.task.id}:${card.targetId || card.label}`}
                       task={card.task}
@@ -301,6 +309,7 @@ export function TasksPlanningPage() {
                         notifySuccess(DICTIONARY.tasks.toasts.task_restored);
                       }}
                     />
+                    </div>
                   );
                 })}
               </div>
