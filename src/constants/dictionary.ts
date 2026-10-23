@@ -773,6 +773,10 @@ export const DICTIONARY = {
     },
     login_button: "Увійти",
     logout_button: "Вийти з системи",
+    reset_button: "Скинути до початкового стану",
+    reset_message: "Усі створені записи буде прибрано. Залишаться початкові дані системи.",
+    reset_confirm: "Скинути",
+    reset_done: "Дані скинуто до початкового стану",
     access_denied: "Відхилено в доступі!",
   },
 } as const;

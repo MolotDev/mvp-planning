@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { crossTabSync, runRemoteSync, type SyncEventType } from "@/services/crossTabSync";
+import { useAssetStore } from "@/store/useAssetStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useMissionStore } from "@/store/useMissionStore";
+import { useReportStore } from "@/store/useReportStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { useTaskStore } from "@/store/useTaskStore";
 
@@ -28,6 +30,10 @@ async function rehydrateStores(types: SyncEventType[]) {
     }
     if (types.includes("SYNC_ALL") || wants(types, "SYNC_TASKS") || wants(types, "SYNC_MISSIONS")) {
       await useTargetStore.persist.rehydrate();
+    }
+    if (types.includes("SYNC_ALL")) {
+      await useAssetStore.persist.rehydrate();
+      await useReportStore.persist.rehydrate();
     }
   });
 }

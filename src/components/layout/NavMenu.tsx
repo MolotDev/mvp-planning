@@ -27,7 +27,7 @@ interface NavItem {
 const PLANNING_ITEMS: NavItem[] = [
   { to: "/planning/missions", label: TRANSLATIONS.missions, icon: Flag },
   { to: "/planning/tasks", label: TRANSLATIONS.tasks, icon: ListTodo },
-  { to: "/planning/launches", label: TRANSLATIONS.launches, icon: Rocket },
+  // { to: "/planning/launches", label: TRANSLATIONS.launches, icon: Rocket },
 ];
 
 const CATALOG_ITEMS: NavItem[] = [
@@ -60,6 +60,14 @@ export function NavMenu() {
         />
       </li>
       <li>
+        <NavGroup
+          label={TRANSLATIONS.catalogs}
+          isOpen={isCatalogsOpen}
+          onToggle={() => setIsCatalogsOpen((open) => !open)}
+          items={CATALOG_ITEMS}
+        />
+      </li>
+      <li>
         <NavItemLink
           to="/reports"
           label={TRANSLATIONS.reports}
@@ -67,11 +75,10 @@ export function NavMenu() {
         />
       </li>
       <li>
-        <NavGroup
-          label={TRANSLATIONS.catalogs}
-          isOpen={isCatalogsOpen}
-          onToggle={() => setIsCatalogsOpen((open) => !open)}
-          items={CATALOG_ITEMS}
+        <NavItemLink
+          to="/planning/launches"
+          label={TRANSLATIONS.launches}
+          icon={Rocket}
         />
       </li>
     </ul>
