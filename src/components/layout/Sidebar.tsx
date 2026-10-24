@@ -54,7 +54,7 @@ export function Sidebar() {
       <div className="flex shrink-0 flex-col gap-2 border-t border-primitive-neutral-800 p-3">
         <p className="truncate text-sm text-primitive-neutral-300">{entityName}</p>
         <Button
-          variant="ghost"
+          variant="outline"
           className="h-auto min-h-9 w-full whitespace-normal px-3 py-2 text-center leading-5"
           onClick={() => setResetOpen(true)}
         >
