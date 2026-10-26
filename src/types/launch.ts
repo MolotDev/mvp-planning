@@ -29,6 +29,7 @@ export type LaunchExecutionStatus =
 export interface Launch {
   id: string;
   task_id: string;
+  launch_order: number;
   battle_group_id: string;
   allocation_line_id: string | null;
   asset_id: string;

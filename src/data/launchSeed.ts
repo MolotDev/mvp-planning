@@ -29,8 +29,10 @@ export function createLaunchRecord(
   id: string,
   aimingMgrs = "",
   allocationLineId: string | null = null,
+  launchOrder: number = 1,
 ): Launch {
   return {
+    launch_order: launchOrder,
     id,
     task_id: group.task_id,
     battle_group_id: group.id,

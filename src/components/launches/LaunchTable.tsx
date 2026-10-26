@@ -16,6 +16,7 @@ import { formatDateUk } from "@/lib/dates";
 import type { LaunchRowContext } from "@/lib/launchBoard";
 import { ammoName, isLaunchReadOnly, launchLockKind, processedTransitionPatch, trackerName } from "@/lib/launches";
 import { notifyError, notifySuccess } from "@/lib/toasts";
+import { publishLaunchesToSupabase } from "@/services/launchService";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import type { Launch } from "@/types/launch";
@@ -191,8 +192,11 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
     }
   };
 
-  const saveEdit = () => {
-    if (!editingId || !draft) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  const saveEdit = async () => {
+    if (!editingId || !draft || isSubmitting) {
       return;
     }
     const quantity = draft.ammo_quantity.trim() === "" ? 1 : Number(draft.ammo_quantity);
@@ -212,6 +216,15 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
     });
     if (!saved) {
       notifyError(DICTIONARY.common.error);
+      return;
+    }
+    setIsSubmitting(true);
+    setPublishError(null);
+    const publishedResult = await publishLaunchesToSupabase([saved]);
+    setIsSubmitting(false);
+    if (!publishedResult.ok) {
+      setPublishError(DICTIONARY.launches.toasts.publish_failed);
+      notifyError(DICTIONARY.launches.toasts.publish_failed);
       return;
     }
     if (clearedTracker) {
@@ -242,6 +255,11 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
 
   return (
     <div className="min-w-[320px] overflow-x-auto rounded-lg border border-primitive-neutral-800">
+      {publishError ? (
+        <p role="alert" className="px-3 py-2 text-sm text-primitive-red-500">
+          {publishError}
+        </p>
+      ) : null}
       <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
         <thead className="bg-primitive-neutral-900 text-primitive-neutral-300">
           <tr>
@@ -421,7 +439,7 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                       <LaunchLockBadge kind={lockKind} title={lockTitle} />
                     ) : editing ? (
                       <>
-                        <SaveIconButton onClick={saveEdit} />
+                        <SaveIconButton disabled={isSubmitting} onClick={() => void saveEdit()} />
                         <CancelChangesIconButton onClick={cancelEdit} />
                       </>
                     ) : canEditRow ? (

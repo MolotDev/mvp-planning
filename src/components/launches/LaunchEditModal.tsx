@@ -20,6 +20,7 @@ import { isLaunchReadOnly, launchLockKind, processedTransitionPatch, quantityDis
 import { duplicateValueMessage, groupLaunchesByCrew } from "@/lib/taskCrewMatrix";
 import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { notifyError, notifySuccess } from "@/lib/toasts";
+import { publishLaunchesToSupabase } from "@/services/launchService";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
@@ -319,11 +320,15 @@ export function LaunchEditor({
     setAmmoOffer(null);
   };
 
-  const handleSave = () => {
-    if (hasDuplicate) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    if (hasDuplicate || isSubmitting) {
       return;
     }
     let failed = false;
+    const published: Launch[] = [];
     launches.forEach((launch) => {
       if (isLaunchReadOnly(liveLaunch(launch), task, mission ?? null)) {
         return;
@@ -347,10 +352,21 @@ export function LaunchEditor({
       });
       if (!saved) {
         failed = true;
+        return;
       }
+      published.push(saved);
     });
     if (failed) {
       notifyError(DICTIONARY.common.error);
+      return;
+    }
+    setIsSubmitting(true);
+    setPublishError(null);
+    const publishedResult = await publishLaunchesToSupabase(published);
+    setIsSubmitting(false);
+    if (!publishedResult.ok) {
+      setPublishError(DICTIONARY.launches.toasts.publish_failed);
+      notifyError(DICTIONARY.launches.toasts.publish_failed);
       return;
     }
     notifySuccess(DICTIONARY.tasks.launch_board.saved);
@@ -633,13 +649,29 @@ export function LaunchEditor({
           );
         })()}
         {fieldsEnabled ? (
-          <div className="flex items-center justify-end gap-3">
-            <Button variant="ghost" className="hover:cursor-pointer hover:shadow-md" onClick={resetToBase}>
-              {DICTIONARY.tasks.launch_board.reset_to_base}
-            </Button>
-            <Button className="hover:shadow-md" disabled={!isDirty || hasDuplicate} onClick={handleSave}>
-              {DICTIONARY.common.actions.save}
-            </Button>
+          <div className="flex flex-col items-end gap-2">
+            {publishError ? (
+              <p role="alert" className="text-sm text-primitive-red-500">
+                {publishError}
+              </p>
+            ) : null}
+            <div className="flex items-center justify-end gap-3">
+              <Button
+                variant="ghost"
+                className="hover:cursor-pointer hover:shadow-md"
+                disabled={isSubmitting}
+                onClick={resetToBase}
+              >
+                {DICTIONARY.tasks.launch_board.reset_to_base}
+              </Button>
+              <Button
+                className="hover:shadow-md"
+                disabled={!isDirty || hasDuplicate || isSubmitting}
+                onClick={() => void handleSave()}
+              >
+                {isSubmitting ? DICTIONARY.launches.buttons.publishing : DICTIONARY.common.actions.save}
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>

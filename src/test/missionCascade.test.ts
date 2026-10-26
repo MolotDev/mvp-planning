@@ -61,6 +61,7 @@ function launch(patch: Partial<Launch> & Pick<Launch, "id">): Launch {
     execution_status: "pending",
     bda_result: null,
     ...patch,
+    launch_order: patch.launch_order ?? 1,
   };
 }
 

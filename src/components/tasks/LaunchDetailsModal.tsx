@@ -11,6 +11,7 @@ import { ammoName } from "@/lib/launches";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { duplicateValueMessage, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { notifyError, notifySuccess } from "@/lib/toasts";
+import { publishLaunchesToSupabase } from "@/services/launchService";
 import { cn } from "@/lib/utils";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import type { Launch } from "@/types/launch";
@@ -131,10 +132,14 @@ export function LaunchDetailsModal({
     setPendingDeleteId(null);
   };
 
-  const save = () => {
-    if (!canEdit || blocked) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!canEdit || blocked || isSubmitting) {
       return;
     }
+    const published: Launch[] = [];
     for (const draft of drafts) {
       if (lockedIds.has(draft.id)) {
         continue;
@@ -153,6 +158,16 @@ export function LaunchDetailsModal({
         notifyError(text.launch_save_failed);
         return;
       }
+      published.push(saved);
+    }
+    setIsSubmitting(true);
+    setPublishError(null);
+    const publishedResult = await publishLaunchesToSupabase(published);
+    setIsSubmitting(false);
+    if (!publishedResult.ok) {
+      setPublishError(DICTIONARY.launches.toasts.publish_failed);
+      notifyError(DICTIONARY.launches.toasts.publish_failed);
+      return;
     }
     notifySuccess(text.launch_saved);
     onClose();
@@ -163,13 +178,18 @@ export function LaunchDetailsModal({
       <Modal
         className="max-w-4xl"
         title={fillTemplate(text.launch_modal_title, { crew: crewName, asset: assetName, target: aimingName })}
-        confirmLabel={DICTIONARY.common.actions.save}
-        confirmDisabled={blocked}
+        confirmLabel={isSubmitting ? DICTIONARY.launches.buttons.publishing : DICTIONARY.common.actions.save}
+        confirmDisabled={blocked || isSubmitting}
         showConfirm={canEdit}
         onClose={onClose}
-        onConfirm={save}
+        onConfirm={() => void save()}
       >
         <div className="flex flex-col gap-4">
+          {publishError ? (
+            <p role="alert" className="text-sm text-primitive-red-500">
+              {publishError}
+            </p>
+          ) : null}
           {(sections.length > 0 ? sections : [{ id: "all", label: "", mgrs: "", launchIds: drafts.map((draft) => draft.id) }]).map((section) => {
             const sectionDrafts = section.launchIds
               .map((id) => drafts.find((draft) => draft.id === id))

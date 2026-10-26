@@ -290,13 +290,28 @@ export function syncLaunchesWithGroup(
   );
 
   const active = next.filter((launch) => launch.battle_group_id === group.id && launch.archived_at === null);
+
   if (active.length < group.uav_quantity) {
     const missing = group.uav_quantity - active.length;
+    const maxExistingOrder = active.reduce(
+      (max, item) => Math.max(max, item.launch_order ?? 0), 
+      0
+    );
+  
     const created = Array.from({ length: missing }, (_, index) => {
       const createdAt = new Date(Date.now() + index).toISOString();
-      return createLaunchRecord(group, createdAt, crypto.randomUUID(), defaultMgrs ?? "", allocationLineId);
+      const launchOrder = maxExistingOrder + index + 1;
+  
+      return createLaunchRecord(
+        group, 
+        createdAt, 
+        crypto.randomUUID(), 
+        defaultMgrs ?? "", 
+        allocationLineId, 
+        launchOrder
+      );
     });
-    return applyDefaultAimingMgrs([...created.reverse(), ...next], group.id, defaultMgrs);
+    return applyDefaultAimingMgrs([...next, ...created], group.id, defaultMgrs);
   }
 
   if (active.length > group.uav_quantity) {
