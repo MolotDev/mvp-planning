@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeFormSelect } from "@/components/ui/form-select";
-import { FormSelect } from "@/components/ui/form-select";
 import { Textarea } from "@/components/ui/textarea";
 import { invalidControlClass } from "@/components/ui/control-class";
 import { DICTIONARY } from "@/constants/dictionary";
 import { CAUSE_LAUNCH_PROBLEMS, LAUNCH_STATUSES, PLANNED_LAUNCH_STATUS_ID, TRACKERS } from "@/data/launchCatalog";
 import { assetName } from "@/lib/assets";
 import { crewName } from "@/lib/battleGroup";
+import type { BattleGroup } from "@/types/battleGroup";
 import {
   type DaySlice,
   type PlanningSnapshot,
@@ -22,19 +22,215 @@ import {
   formatTimeInput,
 } from "@/lib/reportFormat";
 import { sliceForReport } from "@/lib/reportValidation";
+import { supabase } from "@/lib/supabase";
 import { notifyError, notifySuccess } from "@/lib/toasts";
+import type { CheckpointDraftInput } from "@/services/reportSyncService";
 import { cn } from "@/lib/utils";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useReportStore } from "@/store/useReportStore";
 import type { Launch } from "@/types/launch";
 import type { Report } from "@/types/report";
-import { MultiSelect } from "../ui/multi-select";
+
+interface CheckpointCatalogRow {
+  id: string;
+  code: string;
+  title: string;
+  sort: number;
+}
+
+interface CheckpointFactRow {
+  taskId: string;
+  battleGroupId: string;
+  checkpointId: string;
+  fixedTime: string;
+  comments: string;
+  persisted: boolean;
+}
+
+interface CheckpointFormRow {
+  taskId: string;
+  battleGroupId: string;
+  crewName: string;
+  checkpointId: string;
+  code: string;
+  title: string;
+  catalogOrder: number;
+  fixedTime: string;
+  comments: string;
+  persisted: boolean;
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function sortValue(row: Record<string, unknown>): number | null {
+  if (typeof row.order === "number") {
+    return row.order;
+  }
+  if (typeof row.order_index === "number") {
+    return row.order_index;
+  }
+  return null;
+}
+
+function checkpointTitle(row: Record<string, unknown>, id: string): string {
+  return textValue(row.name) || textValue(row.title) || textValue(row.code) || id;
+}
+
+function toTimeInput(value: unknown): string {
+  const text = textValue(value);
+  const match = text.match(/(\d{2}:\d{2})/);
+  return match ? match[1] : "";
+}
+
+function readCatalog(value: unknown): CheckpointCatalogRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const rows = value.flatMap((item, index) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const row = item as Record<string, unknown>;
+    const id = textValue(row.id);
+    if (!id) {
+      return [];
+    }
+    return [
+      {
+        id,
+        code: textValue(row.code) || id,
+        title: checkpointTitle(row, id),
+        sort: sortValue(row) ?? index,
+      },
+    ];
+  });
+  const hasExplicitOrder = Array.isArray(value) && value.some((item) => item && typeof item === "object" && sortValue(item as Record<string, unknown>) !== null);
+  if (!hasExplicitOrder) {
+    return [...rows].sort((left, right) => left.id.localeCompare(right.id));
+  }
+  return [...rows].sort((left, right) => left.sort - right.sort || left.id.localeCompare(right.id));
+}
+
+function readFacts(value: unknown): CheckpointFactRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") {
+      return [];
+    }
+    const row = item as Record<string, unknown>;
+    const taskId = textValue(row.task_id);
+    const checkpointId = textValue(row.checkpoint_id);
+    const battleGroupId = textValue(row.battle_group_id);
+    if (!taskId || !checkpointId) {
+      return [];
+    }
+    return [
+      {
+        taskId,
+        battleGroupId,
+        checkpointId,
+        fixedTime: toTimeInput(row.fixed_time),
+        comments: textValue(row.comments),
+        persisted: true,
+      },
+    ];
+  });
+}
+
+function mergeCheckpointRows(
+  groups: BattleGroup[],
+  catalog: CheckpointCatalogRow[],
+  facts: CheckpointFactRow[],
+): CheckpointFormRow[] {
+  const listed = new Set(groups.map((group) => `${group.task_id}:${group.id}`));
+  const extraGroups = facts.flatMap((fact) => {
+    if (!fact.battleGroupId || listed.has(`${fact.taskId}:${fact.battleGroupId}`)) {
+      return [];
+    }
+    listed.add(`${fact.taskId}:${fact.battleGroupId}`);
+    return [
+      {
+        id: fact.battleGroupId,
+        task_id: fact.taskId,
+        lead_crew_id: "",
+      },
+    ];
+  });
+  const crews = [
+    ...groups.map((group) => ({
+      id: group.id,
+      taskId: group.task_id,
+      crewName: crewName(group.lead_crew_id),
+    })),
+    ...extraGroups.map((group) => ({
+      id: group.id,
+      taskId: group.task_id,
+      crewName: group.id,
+    })),
+  ];
+  return crews.flatMap((crew) =>
+    catalog.map((checkpoint) => {
+      const fact =
+        facts.find(
+          (item) => item.taskId === crew.taskId && item.checkpointId === checkpoint.id && item.battleGroupId === crew.id,
+        ) ??
+        (crews.find((item) => item.taskId === crew.taskId)?.id === crew.id
+          ? facts.find(
+              (item) => item.taskId === crew.taskId && item.checkpointId === checkpoint.id && item.battleGroupId === "",
+            )
+          : undefined);
+      return {
+        taskId: crew.taskId,
+        battleGroupId: crew.id,
+        crewName: crew.crewName,
+        checkpointId: checkpoint.id,
+        code: checkpoint.code,
+        title: checkpoint.title,
+        catalogOrder: checkpoint.sort,
+        fixedTime: fact?.fixedTime ?? "",
+        comments: fact?.comments ?? "",
+        persisted: fact?.persisted ?? false,
+      };
+    }),
+  );
+}
+
+function checkpointRowKey(row: Pick<CheckpointFormRow, "taskId" | "battleGroupId" | "checkpointId">): string {
+  return `${row.taskId}:${row.battleGroupId}:${row.checkpointId}`;
+}
+
+function sortCheckpointRows(rows: CheckpointFormRow[]): CheckpointFormRow[] {
+  const byCrew = (left: CheckpointFormRow, right: CheckpointFormRow) =>
+    left.crewName.localeCompare(right.crewName, "uk") ||
+    left.catalogOrder - right.catalogOrder ||
+    left.checkpointId.localeCompare(right.checkpointId);
+  const timed = rows.some((row) => row.fixedTime.trim() !== "");
+  return [...rows].sort((left, right) => {
+    if (!timed) {
+      return byCrew(left, right);
+    }
+    const leftTime = left.fixedTime.trim();
+    const rightTime = right.fixedTime.trim();
+    if (leftTime && rightTime && leftTime !== rightTime) {
+      return leftTime.localeCompare(rightTime);
+    }
+    if (leftTime !== rightTime) {
+      return leftTime ? -1 : 1;
+    }
+    return byCrew(left, right);
+  });
+}
 
 const selectClass =
   "h-7 w-full min-w-10 rounded-md border border-zinc-100 bg-primitive-neutral-900 px-2 text-sm text-primitive-neutral-0 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
-const cell = "border border-primitive-neutral-700 px-2 py-2 align-top text-sm text-primitive-neutral-0";
+const cell =
+  "h-[44px] max-h-[44px] overflow-hidden border border-primitive-neutral-700 px-2 py-0 align-middle text-sm text-primitive-neutral-0";
 const baseLabelCell =
-  "border border-primitive-neutral-700 bg-primitive-neutral-850 px-2 py-2 text-left text-sm font-medium text-primitive-neutral-200";
+  "h-[44px] max-h-[44px] border border-primitive-neutral-700 bg-primitive-neutral-850 px-2 py-0 align-middle text-left text-sm font-medium text-primitive-neutral-200";
 // const labelCell = cn(baseLabelCell, "min-w-48 w-48");
 // const tarjectoryLabelCell = cn(baseLabelCell, "min-w-48 w-48");
 
@@ -46,14 +242,12 @@ interface ReportDocumentProps {
   locked: boolean;
   onClear: () => void;
   onSubmit: () => void;
+  onCheckpointDraftsChange?: (rows: CheckpointDraftInput[]) => void;
 }
 
-export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, onClear, onSubmit }: ReportDocumentProps) {
+export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, onClear, onSubmit, onCheckpointDraftsChange }: ReportDocumentProps) {
   // const assets = useAssetStore((state) => state.assets);
   // const updateReport = useReportStore((state) => state.updateReport);
-  const addEvent = useReportStore((state) => state.addEvent);
-  const removeEvent = useReportStore((state) => state.removeEvent);
-  const updateEvent = useReportStore((state) => state.updateEvent);
   const setLaunchLink = useReportStore((state) => state.setLaunchLink);
   // const addImages = useReportStore((state) => state.addImages);
   // const removeImage = useReportStore((state) => state.removeImage);
@@ -112,27 +306,97 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
 
   const [isLaunchAssetFolded, setIsLaunchAssetFolded] = useState(true);
   const [isLaunchProblemsFolded, setIsLaunchProblemsFolded] = useState(false);
+  const [checkpointRows, setCheckpointRows] = useState<CheckpointFormRow[]>([]);
+  const [checkpointTimeDraft, setCheckpointTimeDraft] = useState<{ key: string; value: string } | null>(null);
+  const [checkpointLoad, setCheckpointLoad] = useState<"loading" | "ready" | "error">("loading");
+  const taskKey = slice.tasks.map((task) => task.id).join("|");
+  const groupKey = slice.battleGroups.map((group) => `${group.task_id}:${group.id}:${group.lead_crew_id}`).join("|");
+  const checkpointText = text.sections.checkpoints;
+  const launchStatusOptions = LAUNCH_STATUSES.map((status) => ({ value: status.id, label: status.name }));
 
-  const eventCrewOptions = slice.battleGroups.map((group) => ({
-    value: crewName(group.lead_crew_id),
-    label: crewName(group.lead_crew_id),
-  }));
-  const reportAssets = new Set(slice.battleGroups.map((group) => group.asset_id));
-  const generateEventDescription = () => {
-    let description = "екіпажі УБпАК {asset} - {crews} - {action}";
-    if (reportAssets.size === 1) {
-      description = description.replace("{asset}", `"${assetName(reportAssets.values().next().value as string)}"`);
-    } 
-    if (slice.battleGroups.length === 1) {
-      const group = slice.battleGroups[0];
-      let crewsLabel = crewName(group.lead_crew_id);
-      if (group.support_crew_ids.length > 0) {
-        crewsLabel += ` / ${group.support_crew_ids.flatMap((id) => crewName(id)).join(" / ")}`;
-      } 
-      description = description.replace("{crews}", crewsLabel);
+  useEffect(() => {
+    let cancelled = false;
+    const taskIds = taskKey ? taskKey.split("|") : [];
+    const groups = slice.battleGroups.filter((group) => taskIds.includes(group.task_id));
+    setCheckpointLoad("loading");
+    setCheckpointRows([]);
+    setCheckpointTimeDraft(null);
+    if (!supabase) {
+      console.error("Не вдалося завантажити контрольні точки:", "Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.");
+      setCheckpointLoad("error");
+      setCheckpointRows([]);
+      return;
     }
-    return description;
-  };
+    const client = supabase;
+    async function loadCheckpoints() {
+      const catalogResult = await client.from("checkpoints").select("*").order("id", { ascending: true });
+      if (cancelled) {
+        return;
+      }
+      if (catalogResult.error) {
+        console.error("Не вдалося завантажити контрольні точки:", catalogResult.error.message);
+        setCheckpointLoad("error");
+        setCheckpointRows([]);
+        return;
+      }
+      const catalog = readCatalog(catalogResult.data);
+      const factRows: unknown[] = [];
+      for (const taskId of taskIds) {
+        const factsResult = await client.from("checkpoint_reports").select("*").eq("task_id", taskId);
+        if (cancelled) {
+          return;
+        }
+        if (factsResult.error) {
+          console.error("Не вдалося завантажити контрольні точки:", factsResult.error.message);
+          setCheckpointLoad("error");
+          setCheckpointRows([]);
+          return;
+        }
+        if (Array.isArray(factsResult.data)) {
+          factRows.push(...factsResult.data);
+        }
+      }
+      const facts = readFacts(factRows);
+      setCheckpointRows(mergeCheckpointRows(groups, catalog, facts));
+      setCheckpointLoad("ready");
+    }
+    void loadCheckpoints().catch((error: unknown) => {
+      if (cancelled) {
+        return;
+      }
+      const message = error instanceof Error ? error.message : "Мережа недоступна.";
+      console.error("Не вдалося завантажити контрольні точки:", message);
+      setCheckpointLoad("error");
+      setCheckpointRows([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [groupKey, report.id, taskKey]);
+
+  useEffect(() => {
+    if (!onCheckpointDraftsChange) {
+      return;
+    }
+    onCheckpointDraftsChange(
+      checkpointRows
+        .filter((row) => row.fixedTime.trim() !== "" || row.comments.trim() !== "" || row.persisted)
+        .map((row) => ({
+          task_id: row.taskId,
+          battle_group_id: row.battleGroupId,
+          checkpoint_id: row.checkpointId,
+          code: row.code,
+          title: row.title,
+          status: row.fixedTime.trim() ? "COMPLETED" : null,
+          fixed_time: row.fixedTime.trim(),
+          comments: row.comments,
+        })),
+    );
+  }, [checkpointRows, onCheckpointDraftsChange]);
+
+  const orderedCheckpoints = sortCheckpointRows(checkpointRows);
+  const sameCheckpoint = (item: CheckpointFormRow, row: CheckpointFormRow) =>
+    item.taskId === row.taskId && item.battleGroupId === row.battleGroupId && item.checkpointId === row.checkpointId;
 
   return (
     <article className="flex w-full max-w-full flex-col gap-6 rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
@@ -568,143 +832,71 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
       {/* Events log & Launches order sections */}
       <section className="flex flex-col gap-3">
         <h2 className="text-xl font-bold text-primitive-neutral-0">{text.sections.what_actually_happened}</h2>
-        <div className="overflow-x-auto w-fit">
-          <table className="w-full border-separate border-spacing-0">
-            <thead>
-              <tr>
-                <th className={`${baseLabelCell} w-20 ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.time}</th>
-                <th className={`${baseLabelCell} w-20 ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.date}</th>
-                <th className={`${baseLabelCell} ${!report.actual_events.length ? "text-primitive-red-500" : ""}`}>{text.tables.event_log.event}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.actual_events.map((event, index) => (
-                <tr key={`${event.date}-${event.time}-${index}`}>
-                  <td className={cell}>
-                    <Input
-                      type="time"
-                      required
-                      value={event.time}
-                      disabled={readOnly}
-                      aria-label={text.tables.event_log.time}
-                      onChange={(input) => updateEvent(report.id, index, { time: input.target.value })}
-                      aria-invalid={!isEventTimeValid(event.time)}
-                      className={cn("h-7 px-1", isEventTimeValid(event.time) ? "border-zinc-100" : invalidControlClass)}
-                    />
-                  </td>
-                  <td className={cell}>
-                    <Input
-                      type="date"
-                      required
-                      value={event.date}
-                      disabled={readOnly}
-                      aria-label={text.tables.event_log.date}
-                      onChange={(input) => updateEvent(report.id, index, { date: input.target.value })}
-                      aria-invalid={!isEventDateValid(event.date)}
-                      className={cn("h-7 px-1", isEventDateValid(event.date) ? "border-zinc-100" : invalidControlClass)}
-                    />
-                  </td>
-                  <td className={cell}>
-                    <div className="flex items-center gap-1 h-7">
-                      {event.event_description.split(" - ").map((description, descriptionIndex) => {
-                        if (descriptionIndex === 0) {
-                          if (description.includes("{asset}")) {
-                            return (
-                              <>
-                                <p className="text-sm text-primitive-neutral-0 min-w-fit">
-                                  екіпажі УБпАК
-                                </p>
-                                <FormSelect
-                                  className="h-7 w-25 border-zinc-100"
-                                  id={`asset-${text}-${index}`}
-                                  value={''}
-                                  placeholder={DICTIONARY.common.asset}
-                                  disabled={readOnly}
-                                  options={slice.battleGroups.map((group) => ({
-                                    value: group.asset_id,
-                                    label: `${assetName(group.asset_id)}`,
-                                  }))}
-                                  onChange={(assetId) => (
-                                    addEvent(report.id, `екіпажі УБпАК "${assetName(assetId)}" - `)
-                                  )}
-                                />
-                                <p className="text-sm text-primitive-neutral-0 min-w-fit">
-                                  {` -`}
-                                </p>
-                              </>
-                            )
-                          } else {
-                            return (
-                              <p className="text-sm text-primitive-neutral-0 min-w-fit">
-                                {`${description} - `}
-                              </p>
-                              )
-                          }
-                        }
-                        if (descriptionIndex === 1) {
-                          return (
-                            <MultiSelect
-                              id={`bg-${event.event_description}-${index}`}
-                              values={description.includes("{crews}") ? [] : description.split(" / ")}
-                              placeholder={text.select_battle_group}
-                              disabled={readOnly || slice.battleGroups.length === 1}
-                              options={eventCrewOptions.map((item) => ({
-                                ...item,
-                                badge: item.value,
-                              }))}
-                              onChange={(value) => updateEvent(report.id, index, { event_description: event.event_description.replace(description, value.join(" / ") || "{crews}") })}
-                              className={cn("min-h-6 h-7 px-2 w-fit", description.includes("{crews}") ? "border-red-500" : "")}
-                              isRemoveButton={false}
-                            />
-                          )
-                        }
-                        if (descriptionIndex === 2) {
-                          return (
-                            <>
-                            <span className="text-sm text-primitive-neutral-0 min-w-fit">
-                              {` - `}
-                            </span>
-                              <Input
-                                required
-                                value={description.includes("{action}") ? "" : description}
-                                disabled={readOnly}
-                                aria-label={text.tables.event_log.event}
-                                aria-invalid={!description.trim()}
-                                onChange={(input) => updateEvent(report.id, index, { event_description: event.event_description.split(" - ").slice(0, -1).join(" - ") + " - " + input.target.value || "{action}" })}
-                                className={cn(
-                                  "h-7 px-2 w-fit flex-1 min-w-20",
-                                  description.includes("{action}") || !description.trim() ? invalidControlClass : "",
-                                )}
-                              />
-                            </>
-                          )
-                        }
-                      })}
-                      <Button
-                        variant="icon"
-                        size="icon"
-                        title={DICTIONARY.common.actions.delete}
-                        aria-label={DICTIONARY.common.actions.delete}
-                        className="w-7 h-7 bg-primitive-neutral-900"
-                        onClick={() => removeEvent(report.id, event.id)}
-                      >
-                        <X className="h-4 w-4" aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </td>
+        {checkpointLoad === "loading" ? (
+          <p className="text-sm text-primitive-neutral-300">{checkpointText.loading}</p>
+        ) : null}
+        {checkpointLoad === "error" ? (
+          <p role="alert" className="text-sm text-primitive-red-500">{checkpointText.load_failed}</p>
+        ) : null}
+        {checkpointLoad === "ready" && checkpointRows.length === 0 ? (
+          <p className="text-sm text-primitive-neutral-300">{checkpointText.empty}</p>
+        ) : null}
+        {checkpointLoad === "ready" && orderedCheckpoints.length > 0 ? (
+          <div className="overflow-x-auto w-full">
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th className={`${baseLabelCell} w-36`}>{text.tables.launches_results.crew}</th>
+                  <th className={baseLabelCell}>{checkpointText.name}</th>
+                  <th className={`${baseLabelCell} w-28`}>{checkpointText.time}</th>
+                  <th className={baseLabelCell}>{checkpointText.comments}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!locked && (
-          <div>
-            <Button disabled={readOnly} className="h-7" onClick={() => addEvent(report.id, generateEventDescription())}>
-              {text.add_event}
-            </Button>
+              </thead>
+              <tbody>
+                {orderedCheckpoints.map((row) => (
+                  <tr key={`${row.taskId}-${row.battleGroupId}-${row.checkpointId}`} className="h-[44px]">
+                    <td className={cell}>{row.crewName}</td>
+                    <td className={cell}>{row.title}</td>
+                    <td className={cell}>
+                      <Input
+                        type="time"
+                        value={checkpointTimeDraft?.key === checkpointRowKey(row) ? checkpointTimeDraft.value : row.fixedTime}
+                        disabled={readOnly}
+                        aria-label={`${checkpointText.time} ${row.crewName} ${row.title}`}
+                        onFocus={() => setCheckpointTimeDraft({ key: checkpointRowKey(row), value: row.fixedTime })}
+                        onChange={(input) => setCheckpointTimeDraft({ key: checkpointRowKey(row), value: input.target.value })}
+                        onBlur={(input) => {
+                          const nextTime = input.target.value;
+                          setCheckpointTimeDraft(null);
+                          setCheckpointRows((current) =>
+                            current.map((item) => (sameCheckpoint(item, row) ? { ...item, fixedTime: nextTime } : item)),
+                          );
+                        }}
+                        className="h-8 px-1"
+                      />
+                    </td>
+                    <td className={cell}>
+                      <Input
+                        value={row.comments}
+                        disabled={readOnly}
+                        aria-label={`${checkpointText.comments} ${row.crewName} ${row.title}`}
+                        onChange={(input) =>
+                          setCheckpointRows((current) =>
+                            current.map((item) =>
+                              sameCheckpoint(item, row) ? { ...item, comments: input.target.value } : item,
+                            ),
+                          )
+                        }
+                        className="h-8 px-2"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-        
+        ) : null}
+
         {/* Launches order section */}
           <div>
             <h3 className="text-lg font-bold text-primitive-neutral-0">{text.sections.launches_order}</h3>
@@ -772,7 +964,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                     const launchedAt = link?.launched_at ?? "";
                     const trackerModelName = TRACKERS.find((item) => item.id === launch.tracker_model_id)?.name ?? "";
                     return (
-                      <tr key={launch.id}>
+                      <tr key={launch.id} className="h-[44px]">
                         <td className={`${cell} relative  launch-sticked-column bg-primitive-neutral-900`}> {/* data-table="row-border-dashed" */}
                           <Input
                             type="date"
@@ -904,10 +1096,11 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             }}
                           >
                             <NativeFormSelect
-                              value={launch.launch_status_id}
+                              value={launchStatusOptions.some((option) => option.value === launch.launch_status_id) ? launch.launch_status_id : ""}
                               disabled={readOnly}
-                              placeholder={DICTIONARY.launches.fields.select_status}
-                              options={statusOptions(launch.launch_status_id)}
+                              autoSelect={false}
+                              placeholder={text.tables.launches_results.select_result}
+                              options={launchStatusOptions}
                               onChange={(statusId) =>
                                 updateLaunch(launch.id, {
                                   launch_status_id: statusId,
@@ -1163,14 +1356,6 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
 //   ];
 // }
 
-function isEventTimeValid(value: string): boolean {
-  return /^\d{2}:\d{2}$/.test(value);
-}
-
-function isEventDateValid(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
 function isLaunchNumberValid(value: number | undefined): boolean {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
@@ -1237,18 +1422,4 @@ function chronologicalLaunches(slice: DaySlice, report: Report): Launch[] {
       report.launches_by_trajectory.find((link) => link.launch_id === right.id)?.launched_at || right.created_at;
     return leftAt.localeCompare(rightAt) || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
   });
-}
-
-function statusOptions(current: string) {
-  const options = LAUNCH_STATUSES.map((status) => ({ value: status.id, label: status.name }));
-  if (current && !options.some((option) => option.value === current)) {
-    return [
-      {
-        value: current,
-        label: current === PLANNED_LAUNCH_STATUS_ID ? DICTIONARY.launches.status_planned : current,
-      },
-      ...options,
-    ];
-  }
-  return options;
 }

@@ -1,14 +1,6 @@
 import { PLANNED_LAUNCH_STATUS_ID } from "@/data/launchCatalog";
 import { aggregateDay, type DaySlice, type PlanningSnapshot } from "@/lib/reportAggregation";
-import type { ActualEvent, Report, Trajectory } from "@/types/report";
-
-export function isEventComplete(event: ActualEvent): boolean {
-  return (
-    /^\d{2}:\d{2}$/.test(event.time) &&
-    /^\d{4}-\d{2}-\d{2}$/.test(event.date) &&
-    event.event_description.trim() !== ""
-  );
-}
+import type { Report, Trajectory } from "@/types/report";
 
 export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot): boolean {
   if (report.archived_at !== null) {
@@ -18,9 +10,6 @@ export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot):
     return false;
   }
   const trajectories = report.trajectories.filter((trajectory) => trajectory.archived_at === null);
-  if (!report.actual_events.length || !report.actual_events.every(isEventComplete)) {
-    return false;
-  }
   const slice = aggregateDay(report.organization_id, report.report_date, snapshot);
   if (slice.launches.length === 0 || slice.launches.some((launch) => (
     launch.launch_status_id === PLANNED_LAUNCH_STATUS_ID

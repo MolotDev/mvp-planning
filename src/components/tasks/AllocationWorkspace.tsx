@@ -42,6 +42,8 @@ interface AllocationWorkspaceProps {
   plan?: PlanTargetBlock[];
   onPlanChange?: (plan: PlanTargetBlock[]) => void;
   canSave?: boolean;
+  saving?: boolean;
+  saveError?: string | null;
 }
 
 function QuantityStepper({
@@ -148,6 +150,8 @@ export function AllocationWorkspace({
   plan,
   onPlanChange,
   canSave = true,
+  saving = false,
+  saveError = null,
 }: AllocationWorkspaceProps) {
   const text = DICTIONARY.tasks.details;
   const allocationText = DICTIONARY.tasks.crew_allocation;
@@ -303,24 +307,31 @@ export function AllocationWorkspace({
           >
             {task.source === "detachment" ? `✍️ ${text.created_by_detachment}` : `🔒 ${text.directive}`}
           </span>
-          <div className="flex items-center gap-2">
-            {canEdit && !editing ? (
-              <Button variant="ghost" className="border border-primitive-neutral-700" onClick={onStartEdit}>
-                <Pencil className="h-4 w-4" aria-hidden="true" />
-                {task.source === "detachment" ? text.edit_request : text.change_crews}
-              </Button>
+          <div className="flex flex-col items-end gap-2">
+            {editing && saveError ? (
+              <p role="alert" className="text-sm text-primitive-red-500">
+                {saveError}
+              </p>
             ) : null}
-            {editing ? (
-              <>
-                <Button variant="ghost" onClick={onCancel}>
-                  <X className="h-4 w-4" aria-hidden="true" />
-                  {DICTIONARY.common.actions.cancel}
+            <div className="flex items-center gap-2">
+              {canEdit && !editing ? (
+                <Button variant="ghost" className="border border-primitive-neutral-700" onClick={onStartEdit}>
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                  {task.source === "detachment" ? text.edit_request : text.change_crews}
                 </Button>
-                <Button onClick={onSave} disabled={!canSave}>
-                  {DICTIONARY.common.actions.save}
-                </Button>
-              </>
-            ) : null}
+              ) : null}
+              {editing ? (
+                <>
+                  <Button variant="ghost" onClick={onCancel} disabled={saving}>
+                    <X className="h-4 w-4" aria-hidden="true" />
+                    {DICTIONARY.common.actions.cancel}
+                  </Button>
+                  <Button onClick={onSave} disabled={!canSave || saving}>
+                    {saving ? DICTIONARY.launches.buttons.publishing : DICTIONARY.common.actions.save}
+                  </Button>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
         {quantityConflicts.map((conflict) => (

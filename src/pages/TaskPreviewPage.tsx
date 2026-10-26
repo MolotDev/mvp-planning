@@ -33,6 +33,7 @@ import {
 } from "@/lib/detachmentPlan";
 import { splitTasksByTarget } from "@/lib/taskView";
 import { notifyError, notifySuccess } from "@/lib/toasts";
+import { publishLaunchesToSupabase } from "@/services/launchService";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
@@ -104,6 +105,8 @@ export function TaskPreviewPage() {
   const [highlightedCrewId, setHighlightedCrewId] = useState<string | null>(null);
   const [statsOpen, setStatsOpen] = useState(false);
   const [launchSelection, setLaunchSelection] = useState<LaunchSelection | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editing) {
@@ -223,8 +226,12 @@ export function TaskPreviewPage() {
     navigate(`/reports/${created.id}`);
   };
 
-  const saveAllocation = () => {
+  const saveAllocation = async () => {
+    if (isSubmitting) {
+      return;
+    }
     const crewDrafts = task.source === "detachment" ? crewDraftsFromBlocks(plan) : drafts;
+    let savedTaskId = task.id;
     if (creating) {
       if (!createDate || !entityId || isBeforeToday(createDate)) {
         notifyError(DICTIONARY.missions.toasts.date_error);
@@ -256,26 +263,46 @@ export function TaskPreviewPage() {
         navigate(`/planning/tasks/${created.id}?edit=1`, { replace: true });
         return;
       }
-      notifySuccess(DICTIONARY.tasks.toasts.request_saved);
-      navigate(`/planning/tasks/${created.id}`, { replace: true });
-      return;
-    }
-    if (task.source === "detachment") {
-      const planError = useTaskStore.getState().saveDetachmentPlan(task.id, plan);
-      if (planError) {
-        notifyError(planError);
+      savedTaskId = created.id;
+    } else {
+      if (task.source === "detachment") {
+        const planError = useTaskStore.getState().saveDetachmentPlan(task.id, plan);
+        if (planError) {
+          notifyError(planError);
+          return;
+        }
+      }
+      const error = useBattleGroupStore.getState().saveCrewDistribution(task.id, crewDrafts);
+      if (error) {
+        notifyError(error);
         return;
       }
+      Object.entries(routeDrafts).forEach(([launchId, value]) => {
+        useLaunchStore.getState().updateLaunch(launchId, { trajectory_name: value.trim() ? value.trim() : null });
+      });
     }
-    const error = useBattleGroupStore.getState().saveCrewDistribution(task.id, crewDrafts);
-    if (error) {
-      notifyError(error);
+    const launchesForTask = useLaunchStore
+      .getState()
+      .launches.filter((launch) => launch.task_id === savedTaskId && launch.archived_at === null);
+    setIsSubmitting(true);
+    setPublishError(null);
+    const publishedResult = await publishLaunchesToSupabase(launchesForTask);
+    setIsSubmitting(false);
+    if (!publishedResult.ok) {
+      const message = DICTIONARY.launches.toasts.publish_failed;
+      setPublishError(message);
+      notifyError(message);
+      if (creating) {
+        navigate(`/planning/tasks/${savedTaskId}?edit=1`, { replace: true });
+      }
       return;
     }
-    Object.entries(routeDrafts).forEach(([launchId, value]) => {
-      useLaunchStore.getState().updateLaunch(launchId, { trajectory_name: value.trim() ? value.trim() : null });
-    });
     notifySuccess(task.source === "detachment" ? DICTIONARY.tasks.toasts.request_saved : DICTIONARY.tasks.crew_allocation.saved);
+    setPublishError(null);
+    if (creating) {
+      navigate(`/planning/tasks/${savedTaskId}`, { replace: true });
+      return;
+    }
     setEditing(false);
     if (searchParams.get("edit") === "1") {
       const next = new URLSearchParams(searchParams);
@@ -412,7 +439,9 @@ export function TaskPreviewPage() {
                   setSearchParams(next, { replace: true });
                 }
               }}
-              onSave={saveAllocation}
+              onSave={() => void saveAllocation()}
+              saving={isSubmitting}
+              saveError={publishError}
               onHighlightCrew={highlightCrew}
             />
           </div>

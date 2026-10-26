@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ReportDocument } from "@/components/reports/ReportDocument";
 import { reportStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
@@ -12,7 +12,8 @@ import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatReportDate } from "@/lib/reportFormat";
 import { isReportLockedByConfirmation } from "@/lib/missionConfirmation";
 import { isReportSubmittable } from "@/lib/reportValidation";
-import { notifySuccess } from "@/lib/toasts";
+import { notifyError, notifySuccess } from "@/lib/toasts";
+import { submitDetachmentReport, type CheckpointDraftInput } from "@/services/reportSyncService";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -41,6 +42,11 @@ export function ReportPreviewPage() {
   const managesReports = canAdminister(role, "reports");
   const [editMode, setEditMode] = useState(() => searchParams.get("mode") === "edit");
   const [confirm, setConfirm] = useState<"clear" | "submit" | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const checkpointDraftsRef = useRef<CheckpointDraftInput[]>([]);
+  const rememberCheckpointDrafts = useCallback((rows: CheckpointDraftInput[]) => {
+    checkpointDraftsRef.current = rows;
+  }, []);
 
   useEffect(() => {
     setEditMode(searchParams.get("mode") === "edit");
@@ -97,13 +103,25 @@ export function ReportPreviewPage() {
     notifySuccess(DICTIONARY.reports.toasts.cleared);
   };
 
-  const confirmSubmit = () => {
+  const confirmSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    const published = await submitDetachmentReport(report.id, checkpointDraftsRef.current);
+    setIsSubmitting(false);
+    if (!published.ok) {
+      notifyError(DICTIONARY.reports.toasts.publish_failed);
+      return;
+    }
     const submitted = submitReport(report.id);
+    if (!submitted) {
+      notifyError(DICTIONARY.common.error);
+      return;
+    }
     setConfirm(null);
     setEditMode(false);
-    if (submitted) {
-      notifySuccess(DICTIONARY.reports.toasts.submitted);
-    }
+    notifySuccess(DICTIONARY.reports.toasts.submitted);
   };
 
   return (
@@ -159,6 +177,7 @@ export function ReportPreviewPage() {
           canSubmit={canSubmit}
           onClear={() => setConfirm("clear")}
           onSubmit={() => setConfirm("submit")}
+          onCheckpointDraftsChange={rememberCheckpointDrafts}
         />
       </div>
       {confirm === "clear" ? (
@@ -176,8 +195,13 @@ export function ReportPreviewPage() {
         <Modal
           title={DICTIONARY.reports.modals.submit_confirm.title}
           onClose={() => setConfirm(null)}
-          onConfirm={confirmSubmit}
-          confirmLabel={DICTIONARY.reports.modals.submit_confirm.confirm_button}
+          onConfirm={() => void confirmSubmit()}
+          confirmDisabled={isSubmitting}
+          confirmLabel={
+            isSubmitting
+              ? DICTIONARY.reports.modals.submit_confirm.submitting
+              : DICTIONARY.reports.modals.submit_confirm.confirm_button
+          }
           cancelLabel={DICTIONARY.reports.modals.submit_confirm.cancel_button}
         >
           <p className="text-sm text-primitive-neutral-200">{DICTIONARY.reports.modals.submit_confirm.message}</p>
