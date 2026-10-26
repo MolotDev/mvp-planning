@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { createMissionSeed } from "@/data/missionSeed";
 import { DICTIONARY } from "@/constants/dictionary";
 import { operationalDay } from "@/lib/battleGroup";
 import { allocationsFromBlocks, isPlanReady, type PlanTargetBlock } from "@/lib/detachmentPlan";
@@ -125,12 +124,8 @@ export function normalizeTask(task: StoredTask): Task {
   };
 }
 
-function cloneSeed(): { tasks: Task[]; taskSeq: number } {
-  const { tasks } = createMissionSeed();
-  return {
-    tasks: tasks.map((task) => normalizeTask(task)),
-    taskSeq: tasks.length,
-  };
+function emptyTasks(): { tasks: Task[]; taskSeq: number } {
+  return { tasks: [], taskSeq: 0 };
 }
 
 function createId(): string {
@@ -245,7 +240,7 @@ export function filterTasks(
 export const useTaskStore = create<TaskStoreState>()(
   persist(
     (set, get) => ({
-      ...cloneSeed(),
+      ...emptyTasks(),
       createTasksForMission: (missionId, scheduledAt, drafts) => {
         return get().syncTasksForMission(missionId, scheduledAt, drafts);
       },
@@ -528,7 +523,7 @@ export const useTaskStore = create<TaskStoreState>()(
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<Pick<TaskStoreState, "tasks" | "taskSeq">> | undefined;
-        const tasks = persisted?.tasks ?? currentState.tasks;
+        const tasks = persisted?.tasks ?? [];
         return {
           ...currentState,
           ...persisted,
@@ -542,5 +537,5 @@ export const useTaskStore = create<TaskStoreState>()(
 
 export function resetTaskStore() {
   useTaskStore.persist.clearStorage();
-  useTaskStore.setState(cloneSeed());
+  useTaskStore.setState(emptyTasks());
 }

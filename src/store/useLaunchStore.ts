@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { PLANNED_LAUNCH_STATUS_ID, TRACKERS } from "@/data/launchCatalog";
-import { createLaunchSeed } from "@/data/launchSeed";
 import { formatTimeUk } from "@/lib/dates";
 import { allocationAimingMgrs, resolveDefaultAimingMgrs } from "@/lib/launchAiming";
 import { isLaunchReadOnly, isLaunchReportStatus, syncLaunchesWithGroup, withProcessedAt } from "@/lib/launches";
@@ -122,16 +121,14 @@ function resolveTrackerFields(
   };
 }
 
-function cloneSeed(): { launches: Launch[] } {
-  return {
-    launches: createLaunchSeed().map((launch) => ({ ...launch })),
-  };
+function emptyLaunches(): { launches: Launch[] } {
+  return { launches: [] };
 }
 
 export const useLaunchStore = create<LaunchStoreState>()(
   persist(
     (set, get) => ({
-      ...cloneSeed(),
+      ...emptyLaunches(),
       syncBattleGroup: (group) => {
         const task = useTaskStore.getState().tasks.find((item) => item.id === group.task_id);
         const { aimingPoints, targets } = useTargetStore.getState();
@@ -308,7 +305,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
         const persisted = persistedState as { launches?: Launch[] } | undefined;
         const launches = persisted?.launches;
         if (!Array.isArray(launches)) {
-          return { ...currentState, ...cloneSeed() };
+          return { ...currentState, launches: [] };
         }
         return {
           ...currentState,
@@ -352,5 +349,5 @@ registerLaunchSync((group) => {
 
 export function resetLaunchStore() {
   useLaunchStore.persist.clearStorage();
-  useLaunchStore.setState(cloneSeed());
+  useLaunchStore.setState(emptyLaunches());
 }

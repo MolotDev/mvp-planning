@@ -2,7 +2,6 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { DICTIONARY } from "@/constants/dictionary";
 import { CREWS } from "@/data/crews";
-import { createBattleGroupSeed } from "@/data/battleGroupSeed";
 import { occupiedCrewIds, taskAllocation, taskIdsOnOperationalDay, validateBattleGroupInput, type BattleGroupRules } from "@/lib/battleGroup";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { isApplyingRemoteSync, notifyCrossTab } from "@/services/crossTabSync";
@@ -22,13 +21,8 @@ export interface BattleGroupStoreState {
   saveCrewDistribution: (taskId: string, drafts: CrewAssignmentDraft[]) => string | null;
 }
 
-function cloneSeed(): { battleGroups: BattleGroup[] } {
-  return {
-    battleGroups: createBattleGroupSeed().map((group) => ({
-      ...group,
-      support_crew_ids: [...group.support_crew_ids],
-    })),
-  };
+function emptyBattleGroups(): { battleGroups: BattleGroup[] } {
+  return { battleGroups: [] };
 }
 
 function createId(): string {
@@ -73,7 +67,7 @@ function linkTaskBattleGroup(taskId: string, groupId: string, now: string) {
 export const useBattleGroupStore = create<BattleGroupStoreState>()(
   persist(
     (set, get) => ({
-      ...cloneSeed(),
+      ...emptyBattleGroups(),
       createBattleGroup: (input) => {
         const task = useTaskStore.getState().tasks.find((item) => item.id === input.task_id);
         const assets = task ? taskAllocation(task) : [];
@@ -281,7 +275,7 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
               group.support_crew_ids.every((id) => knownCrews.has(id)),
           );
         if (!compatible) {
-          return { ...currentState, ...cloneSeed() };
+          return { ...currentState, battleGroups: [] };
         }
         return {
           ...currentState,
@@ -313,5 +307,5 @@ registerBattleGroupSource(() => useBattleGroupStore.getState().battleGroups);
 
 export function resetBattleGroupStore() {
   useBattleGroupStore.persist.clearStorage();
-  useBattleGroupStore.setState(cloneSeed());
+  useBattleGroupStore.setState(emptyBattleGroups());
 }
