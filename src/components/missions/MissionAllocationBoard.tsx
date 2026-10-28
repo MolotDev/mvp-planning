@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { DETACHMENT_REFS } from "@/data/crews";
 import { uavName } from "@/lib/battleGroup";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import {
   activeMissionTasks,
@@ -103,20 +104,16 @@ export function MissionAllocationBoard({
                     <tbody>
                       {rows.map(({ task, line }) => {
                         const point = line.aiming_point_id
-                          ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
+                          ? aimingPoints.find((item) => item.id === line.aiming_point_id)
                           : undefined;
-                        // const mgrs = formattingMGRS.spacing(point?.mgrs || target?.mgrs || "");
+                        const aiming = formatStoredAimingPoint(point, target?.name);
                         const detachment =
                           DETACHMENT_REFS.find((item) => item.id === task.organization_id)?.name ?? task.organization_id;
                         const lineLaunches = launchesForLine(task, line, launches);
-                        return (                          
+                        return (
                           <tr key={line.id} className="border-b border-primitive-neutral-800 last:border-b-0">
                             <td className="py-2">
-                              <AimingPointBadge
-                                label={point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target}
-                                // mgrs={mgrs || DICTIONARY.tasks.details.empty_value}
-                                mgrs={point?.label ?? ""}
-                              />
+                              <AimingPointBadge label={aiming.label} mgrs={aiming.badge} />
                             </td>
                             <td className="py-2 !w-20">
                               <ProgressBadge

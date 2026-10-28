@@ -36,6 +36,7 @@ export default function App() {
         <Route path="/planning/tasks/:taskId" element={<TaskPreviewPage />} />
         <Route path="/planning/tasks" element={<TasksPlanningPage />} />
         <Route path="/planning/launches/task/:taskId" element={<LaunchPreviewPage />} />
+        <Route path="/planning/launches/mission/:missionId" element={<LaunchPreviewPage />} />
         <Route path="/planning/launches/:battleGroupId" element={<LaunchPreviewPage />} />
         <Route path="/planning/launches" element={<LaunchesPlanningPage />} />
         <Route path="/reports/:reportId" element={<ReportPreviewPage />} />

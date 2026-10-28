@@ -1,4 +1,4 @@
-import { saveCompleteMissionPlan, updateSingleLaunch } from "@/services/planSyncService";
+import { saveCompleteMissionPlan } from "@/services/planSyncService";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTaskStore } from "@/store/useTaskStore";
@@ -19,7 +19,7 @@ export async function publishLaunchesToSupabase(launches: Launch[]): Promise<Lau
   const missions = useMissionStore.getState().missions;
   const groups = useBattleGroupStore.getState().battleGroups;
   const byMission = new Map<string, Launch[]>();
-  const launchPromises: Promise<LaunchPublishResult>[] = [];
+  // const launchPromises: Promise<LaunchPublishResult>[] = [];
   for (const launch of launches) {
     const task = tasks.find((item) => item.id === launch.task_id);
     const missionId = task?.mission_id || task?.allocations[0]?.mission_id || "";

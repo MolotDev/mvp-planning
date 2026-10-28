@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { DICTIONARY } from "@/constants/dictionary";
 import { useAssetStore } from "@/store/useAssetStore";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { assignRowAimingPoint, emptyDetachment, emptyTarget, type TargetDraft } from "@/lib/missionForm";
 import type { AimingPoint, Target } from "@/types/target";
 import { DETACHMENT_REFS } from "@/data/crews";
@@ -236,13 +237,13 @@ function TargetAssignmentBlock({
                       id={`${row.key}-aiming`}
                       value={row.aiming_point_id ?? ""}
                       disabled={readOnly}
-                      placeholder={DICTIONARY.missions.main_target}
+                      placeholder={`${formatStoredAimingPoint(null).badge} — ${DICTIONARY.missions.main_target}`}
                       options={points
                         .filter((point) => point.archived_at === null || point.id === row.aiming_point_id)
-                        .map((point) => ({
-                          value: point.id,
-                          label: `${point.name} - ${point.mgrs}`,
-                        }))}
+                        .map((point) => {
+                          const aiming = formatStoredAimingPoint(point);
+                          return { value: point.id, label: `${aiming.badge} — ${aiming.label}` };
+                        })}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
                       className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     />

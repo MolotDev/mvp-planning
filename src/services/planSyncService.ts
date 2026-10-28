@@ -1,19 +1,17 @@
-import { crewName } from "@/lib/battleGroup";
 import { getEntityState } from "@/lib/entityState";
-import { supabase } from "@/lib/supabase";
-import { useTargetStore } from "@/store/useTargetStore";
+import { planningRepository } from "@/services/planningRepository";
 import type { BattleGroup } from "@/types/battleGroup";
+import {
+  PRIMARY_AIMING_POINT,
+  type Launch as LaunchRow,
+  type LaunchStatus,
+  type Mission as MissionRow,
+  type MissionStatus,
+  type Task as TaskRow,
+} from "@/types/database";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
-import type {
-  BattleGroupPlanRow,
-  LaunchPlanRow,
-  LaunchPlanStatus,
-  MissionPlanRow,
-  MissionPlanStatus,
-  MissionPlanTree,
-  TaskPlanRow,
-} from "@/types/plan";
+import type { MissionPlanTree } from "@/types/plan";
 
 export interface PlanSyncResult {
   ok: boolean;
@@ -27,148 +25,111 @@ export async function saveCompleteMissionPlan(payload: {
   battleGroups: BattleGroup[];
   launches: Launch[];
 }): Promise<PlanSyncResult> {
-  if (!supabase) {
-    return fail("Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.", "зберегти");
+  const missionTasks = payload.tasks.filter((task) => task.archived_at === null);
+  const targetId = missionTargetId(missionTasks);
+  if (!targetId) {
+    return fail("Не знайдено ціль місії для збереження плану.", "зберегти");
   }
-  const client = supabase;
-  const missionRow = toMissionRow(payload.mission);
-  const launchTaskIds = new Set(
-    payload.launches.filter((launch) => launch.archived_at === null).map((launch) => launch.task_id),
-  );
-  const taskRows = payload.tasks
-    .filter((task) => task.archived_at === null || launchTaskIds.has(task.id))
-    .map((task) => toTaskRow(task, missionRow.id));
-  const taskIds = new Set(taskRows.map((task) => task.id));
-  const referencedGroupIds = new Set(
-    payload.launches.filter((launch) => launch.archived_at === null).map((launch) => launch.battle_group_id),
-  );
-  const activeGroups = payload.battleGroups.filter(
-    (group) => taskIds.has(group.task_id) && (group.archived_at === null || referencedGroupIds.has(group.id)),
-  );
-  const groupRows = activeGroups.map(toBattleGroupRow);
+  const missionRow = toMissionRow(payload.mission, targetId);
+  const taskIds = new Set(missionTasks.map((task) => task.id));
+  const taskRows = missionTasks.map((task) => toTaskRow(task, missionRow.id, payload.battleGroups));
   const launchRows = payload.launches
     .filter((launch) => launch.archived_at === null && taskIds.has(launch.task_id))
-    .map((launch) => toLaunchRow(launch, missionRow.id, activeGroups));
+    .map(toLaunchRow);
 
-  const missionResult = await upsertRows(client, "missions", [missionRow]);
-  if (!missionResult.ok) {
-    return missionResult;
-  }
-  const taskResult = await upsertRows(client, "tasks", taskRows);
-  if (!taskResult.ok) {
-    return taskResult;
-  }
-  const groupResult = await upsertRows(client, "battle_groups", groupRows);
-  if (!groupResult.ok) {
-    return groupResult;
-  }
-  return upsertRows(client, "launches", launchRows);
+  const plan = await planningRepository.savePlan({
+    mission: missionRow,
+    tasks: taskRows,
+    launches: launchRows,
+  });
+  return { ok: true, plan: { mission: plan.mission, tasks: plan.tasks, launches: plan.launches } };
 }
 
 export async function loadCompleteMissionPlan(missionId: string): Promise<PlanSyncResult> {
-  if (!supabase) {
-    return fail("Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.", "завантажити");
-  }
-  const client = supabase;
-  try {
-    const missionResult = await client.from("missions").select("*").eq("id", missionId).maybeSingle();
-    if (missionResult.error) {
-      return fail(missionResult.error.message, "завантажити");
-    }
-    const taskResult = await client.from("tasks").select("*").eq("mission_id", missionId);
-    if (taskResult.error) {
-      return fail(taskResult.error.message, "завантажити");
-    }
-    const tasks = readRows<TaskPlanRow>(taskResult.data);
-    const taskIds = tasks.map((task) => task.id);
-    const groupResult =
-      taskIds.length === 0
-        ? { data: [], error: null }
-        : await client.from("battle_groups").select("*").in("task_id", taskIds);
-    if (groupResult.error) {
-      return fail(groupResult.error.message, "завантажити");
-    }
-    const launchResult = await client.from("launches").select("*").eq("mission_id", missionId);
-    if (launchResult.error) {
-      return fail(launchResult.error.message, "завантажити");
-    }
-    return {
-      ok: true,
-      plan: {
-        mission: readMission(missionResult.data),
-        tasks,
-        battleGroups: readRows<BattleGroupPlanRow>(groupResult.data),
-        launches: readRows<LaunchPlanRow>(launchResult.data),
-      },
-    };
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : "Мережа недоступна.", "завантажити");
-  }
+  const plan = await planningRepository.loadPlan(missionId);
+  return { ok: true, plan: plan ?? { mission: null, tasks: [], launches: [] } };
 }
 
-function toMissionRow(mission: Mission): MissionPlanRow {
+function missionTargetId(tasks: Task[]): string | null {
+  for (const task of tasks) {
+    const targetId = task.allocations.find((row) => row.target_id)?.target_id;
+    if (targetId) {
+      return targetId;
+    }
+  }
+  return null;
+}
+
+function toMissionRow(mission: Mission, targetId: string): MissionRow {
   return {
     id: mission.id,
-    name: mission.name?.trim() || mission.label,
+    target_id: targetId,
+    name: mission.name?.trim() || null,
+    scheduled_date: mission.scheduled_at.slice(0, 10),
     status: missionStatus(mission),
+    notes: mission.description.trim() || null,
     created_at: mission.created_at,
   };
 }
 
-function missionStatus(mission: Mission): MissionPlanStatus {
+function missionStatus(mission: Mission): MissionStatus {
   const state = getEntityState(mission);
-  if (state === "reported" || state === "archived") {
+  if (state === "archived") {
+    return "ARCHIVED";
+  }
+  if (state === "reported") {
     return "COMPLETED";
   }
   return "ACTIVE";
 }
 
-function toTaskRow(task: Task, missionId: string): TaskPlanRow {
-  const targets = useTargetStore.getState().targets;
+function toTaskRow(task: Task, missionId: string, groups: BattleGroup[]): TaskRow {
   const allocation = task.allocations[0];
-  const target = allocation ? targets.find((item) => item.id === allocation.target_id) : undefined;
+  const crews = [
+    ...new Set(
+      groups
+        .filter((group) => group.task_id === task.id && group.archived_at === null && group.lead_crew_id)
+        .map((group) => group.lead_crew_id),
+    ),
+  ];
   return {
     id: task.id,
     mission_id: task.mission_id || allocation?.mission_id || missionId,
-    target_name: target?.name ?? "",
-    target_address: target?.address ?? null,
-    target_coordinates_mgrs: target?.mgrs ?? null,
-    status: getEntityState(task),
+    detachment_id: task.organization_id,
+    platoon_id: null,
+    crew_id: crews.length === 1 ? crews[0] : null,
+    asset_id: allocation?.asset_id ?? "",
+    aiming_point: PRIMARY_AIMING_POINT,
+    planned_quantity: task.allocations.reduce((sum, row) => sum + row.quantity, 0),
+    status: "PUBLISHED",
+    created_at: task.created_at,
   };
 }
 
-function toBattleGroupRow(group: BattleGroup): BattleGroupPlanRow {
-  const callsign = crewName(group.lead_crew_id).trim();
-  return {
-    id: group.id,
-    task_id: group.task_id,
-    lead_crew_id: group.lead_crew_id,
-    callsign: callsign || null,
-  };
-}
-
-function toLaunchRow(launch: Launch, missionId: string, groups: BattleGroup[]): LaunchPlanRow {
-  const group = groups.find((item) => item.id === launch.battle_group_id && item.task_id === launch.task_id);
+function toLaunchRow(launch: Launch): LaunchRow {
   return {
     id: launch.id,
-    mission_id: missionId,
     task_id: launch.task_id,
-    battle_group_id: group?.id ?? null,
-    lead_crew_id: group?.lead_crew_id ?? "",
     launch_order: launch.launch_order,
+    aiming_point: PRIMARY_AIMING_POINT,
     asset_id: launch.asset_id,
-    asset_serial_number: launch.asset_serial_number || null,
-    tracker_model_id: launch.tracker_model_id || null,
+    asset_serial_number: launch.asset_serial_number.trim() || null,
+    tracker_model_id: launch.tracker_model_id,
     tracker_model_serial_number: launch.tracker_model_serial_number?.trim() || null,
-    aiming_point_mgrs: launch.aiming_point_mgrs || null,
     trajectory_name: launch.trajectory_name,
+    ammo_model_id: launch.ammo_model_id.trim() || null,
+    ammo_quantity: launch.ammo_quantity,
     status: launchPlanStatus(launch.launch_status_id),
     reported_at: launch.reported_at,
-    comments: launch.comments,
+    actual_launch_time: launch.actual_launch_time,
+    cause_launch_problem_id: launch.cause_launch_problem_id.trim() || null,
+    comments: launch.comments.trim() || null,
+    created_at: launch.created_at,
+    updated_at: launch.updated_at,
   };
 }
 
-function launchPlanStatus(launchStatusId: string): LaunchPlanStatus {
+function launchPlanStatus(launchStatusId: string): LaunchStatus {
   if (launchStatusId === "success") {
     return "SUCCESS";
   }
@@ -181,82 +142,34 @@ function launchPlanStatus(launchStatusId: string): LaunchPlanStatus {
   return "PLANNED";
 }
 
-async function upsertRows(
-  client: NonNullable<typeof supabase>,
-  table: "missions" | "tasks" | "battle_groups" | "launches",
-  rows: object[],
-): Promise<PlanSyncResult> {
-  if (rows.length === 0) {
-    return { ok: true };
-  }
-  try {
-    const { error } = await client.from(table).upsert(rows, { onConflict: "id" });
-    if (error) {
-      return fail(error.message, "зберегти");
-    }
-    return { ok: true };
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : "Мережа недоступна.", "зберегти");
-  }
-}
-
-function readMission(value: unknown): MissionPlanRow | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-  const row = value as Record<string, unknown>;
-  if (typeof row.id !== "string") {
-    return null;
-  }
-  const status = row.status === "PLANNING" || row.status === "ACTIVE" || row.status === "COMPLETED" ? row.status : "ACTIVE";
-  return {
-    id: row.id,
-    name: typeof row.name === "string" ? row.name : "",
-    status,
-    created_at: typeof row.created_at === "string" ? row.created_at : undefined,
-  };
-}
-
-function readRows<T>(value: unknown): T[] {
-  return Array.isArray(value) ? (value as T[]) : [];
-}
-
 function fail(message: string, action: "зберегти" | "завантажити"): PlanSyncResult {
-  console.error(`Не вдалося ${action} план місії в Supabase:`, message);
+  console.error(`Не вдалося ${action} план місії локально:`, message);
   return { ok: false, message };
 }
 
 export async function updateSingleLaunch(launchId: string, updates: Partial<Launch>) {
-  if (!supabase) {
-    return fail("Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.", "завантажити");
+  const current = (await planningRepository.listLaunches()).find((item) => item.id === launchId);
+  if (!current) {
+    return fail("Пуск не знайдено в локальному сховищі.", "зберегти");
   }
-  const payload = {
-    ...(updates.asset_id && { asset_id: updates.asset_id }),
-    ...(updates.asset_serial_number !== undefined && { 
-      asset_serial_number: updates.asset_serial_number?.trim() || null 
-    }),
-    ...(updates.tracker_model_id !== undefined && { 
-      tracker_model_id: updates.tracker_model_id || null 
-    }),
-    ...(updates.tracker_model_serial_number !== undefined && { 
-      tracker_model_serial_number: updates.tracker_model_serial_number?.trim() || null 
-    }),
-    ...(updates.aiming_point_mgrs !== undefined && { aiming_point_mgrs: updates.aiming_point_mgrs }),
-    ...(updates.trajectory_name !== undefined && { trajectory_name: updates.trajectory_name }),
-    status: launchPlanStatus(updates?.launch_status_id ?? "PLANNED"),
-  };
-
-  const { data, error } = await supabase
-    .from('launches')
-    .update(payload)
-    .eq('id', launchId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Помилка оновлення пуску:', error.message);
-    throw error;
-  }
-
-  return data;
+  return planningRepository.saveLaunch({
+    ...current,
+    ...(updates.asset_id ? { asset_id: updates.asset_id } : {}),
+    ...(updates.asset_serial_number !== undefined ? { asset_serial_number: updates.asset_serial_number.trim() || null } : {}),
+    ...(updates.tracker_model_id !== undefined ? { tracker_model_id: updates.tracker_model_id } : {}),
+    ...(updates.tracker_model_serial_number !== undefined
+      ? { tracker_model_serial_number: updates.tracker_model_serial_number?.trim() || null }
+      : {}),
+    ...(updates.trajectory_name !== undefined ? { trajectory_name: updates.trajectory_name } : {}),
+    ...(updates.ammo_model_id !== undefined ? { ammo_model_id: updates.ammo_model_id.trim() || null } : {}),
+    ...(updates.ammo_quantity !== undefined ? { ammo_quantity: updates.ammo_quantity } : {}),
+    ...(updates.launch_status_id !== undefined ? { status: launchPlanStatus(updates.launch_status_id) } : {}),
+    ...(updates.reported_at !== undefined ? { reported_at: updates.reported_at } : {}),
+    ...(updates.actual_launch_time !== undefined ? { actual_launch_time: updates.actual_launch_time } : {}),
+    ...(updates.cause_launch_problem_id !== undefined
+      ? { cause_launch_problem_id: updates.cause_launch_problem_id.trim() || null }
+      : {}),
+    ...(updates.comments !== undefined ? { comments: updates.comments.trim() || null } : {}),
+    updated_at: new Date().toISOString(),
+  });
 }

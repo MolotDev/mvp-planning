@@ -14,7 +14,7 @@ import { assetName } from "@/lib/assets";
 import { crewName } from "@/lib/battleGroup";
 import type { BattleGroup } from "@/types/battleGroup";
 import {
-  type DaySlice,
+  // type DaySlice,
   type PlanningSnapshot,
 } from "@/lib/reportAggregation";
 import {
@@ -23,7 +23,7 @@ import {
   formatTimeInput,
 } from "@/lib/reportFormat";
 import { sliceForReport } from "@/lib/reportValidation";
-import { supabase } from "@/lib/supabase";
+import { mockPlanningService } from "@/services/planningRepository";
 import { notifyError, notifySuccess } from "@/lib/toasts";
 import type { CheckpointDraftInput } from "@/services/reportSyncService";
 import { cn } from "@/lib/utils";
@@ -259,33 +259,23 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
     let cancelled = false;
     setCheckpointLoad("loading");
     setCheckpointCatalog([]);
-    if (!supabase) {
-      console.error("Не вдалося завантажити контрольні точки:", "Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.");
-      setCheckpointLoad("error");
-      return;
-    }
-    const client = supabase;
-    async function loadCheckpoints() {
-      const catalogResult = await client.from("checkpoints").select("*").order("id", { ascending: true });
-      if (cancelled) {
-        return;
-      }
-      if (catalogResult.error) {
-        console.error("Не вдалося завантажити контрольні точки:", catalogResult.error.message);
+    void mockPlanningService
+      .listCheckpoints()
+      .then((rows) => {
+        if (cancelled) {
+          return;
+        }
+        setCheckpointCatalog(readCatalog(rows));
+        setCheckpointLoad("ready");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : "Локальне сховище недоступне.";
+        console.error("Не вдалося завантажити контрольні точки:", message);
         setCheckpointLoad("error");
-        return;
-      }
-      setCheckpointCatalog(readCatalog(catalogResult.data));
-      setCheckpointLoad("ready");
-    }
-    void loadCheckpoints().catch((error: unknown) => {
-      if (cancelled) {
-        return;
-      }
-      const message = error instanceof Error ? error.message : "Мережа недоступна.";
-      console.error("Не вдалося завантажити контрольні точки:", message);
-      setCheckpointLoad("error");
-    });
+      });
     return () => {
       cancelled = true;
     };
@@ -1393,12 +1383,12 @@ function isLaunchNumberValid(value: number | undefined): boolean {
 //   );
 // }
 
-function chronologicalLaunches(slice: DaySlice, report: Report): Launch[] {
-  return [...slice.launches].sort((left, right) => {
-    const leftAt =
-      report.launches_by_trajectory.find((link) => link.launch_id === left.id)?.launched_at || left.created_at;
-    const rightAt =
-      report.launches_by_trajectory.find((link) => link.launch_id === right.id)?.launched_at || right.created_at;
-    return leftAt.localeCompare(rightAt) || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
-  });
-}
+// function chronologicalLaunches(slice: DaySlice, report: Report): Launch[] {
+//   return [...slice.launches].sort((left, right) => {
+//     const leftAt =
+//       report.launches_by_trajectory.find((link) => link.launch_id === left.id)?.launched_at || left.created_at;
+//     const rightAt =
+//       report.launches_by_trajectory.find((link) => link.launch_id === right.id)?.launched_at || right.created_at;
+//     return leftAt.localeCompare(rightAt) || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
+//   });
+// }

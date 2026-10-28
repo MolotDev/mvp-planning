@@ -1,7 +1,7 @@
-import { Calendar, MapPinned } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
-import { Badge, TargetIdBadge } from "@/components/ui/badge";
+import { Badge, TargetBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PreviewIconButton } from "@/components/ui/icon-buttons";
@@ -9,6 +9,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { launchQuantitySummary, type LaunchRowContext } from "@/lib/launchBoard";
 import { isLaunchProcessed, quantityDiscrepancy } from "@/lib/launches";
@@ -126,12 +127,14 @@ function LaunchScopeCard({
           ) : null}
         </p>
         {scope.target ? (
-          <div className="flex flex-wrap items-center gap-1 text-sm">
-            <MapPinned className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <TargetIdBadge className="text-sm">{scope.target.displayed_id || scope.target.label}</TargetIdBadge>
-            <span>{scope.target.name}</span>
-            <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{formattingMGRS.spacing(scope.target.mgrs)}</Badge>
-          </div>
+          <TargetBadge
+            targetId={scope.target.id}
+            mgrs={formattingMGRS.spacing(scope.target.mgrs)}
+            label={scope.target.name}
+            address={scope.target.address}
+            targetClasses="text-xs"
+            wrapperClasses="items-start"
+          />
         ) : null}
         {crewLines.map((group) => (
           <BattleGroupCrewLine key={group.id} group={group} />
@@ -150,22 +153,18 @@ function LaunchScopeCard({
             const processed = bucket.launches.filter((launch) => launch.archived_at === null && isLaunchProcessed(launch));
             const complete = processed.length === bucket.launches.length && bucket.launches.length > 0;
             const point = bucket.point;
+            const aiming = formatStoredAimingPoint(point);
             return (
               <div
                 key={point?.id ?? "target"}
                 className={cn("flex flex-col gap-1 rounded-md border p-2", complete ? "border-primitive-neutral-800" : "border-red-800")}
               >
-                {point ? (
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
-                      <Badge className="bg-sky-950 text-[12px] font-semibold">{point.displayed_id || point.label || "—"}</Badge>
-                      <span className="text-primitive-neutral-0">{point.name}</span>
-                      <Badge className="bg-primitive-neutral-800 text-[12px] font-semibold text-primitive-neutral-0">
-                        {formattingMGRS.spacing(point.mgrs)}
-                      </Badge>
-                    </div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
+                    <Badge className="bg-sky-950 text-[12px] font-semibold">{aiming.badge}</Badge>
+                    <span className="text-primitive-neutral-0">{aiming.label}</span>
                   </div>
-                ) : null}
+                </div>
                 <p className="text-sm text-primitive-neutral-200">
                   {fillTemplate(DICTIONARY.tasks.launch_board.processed_launches, {
                     summary: launchQuantitySummary(processed),

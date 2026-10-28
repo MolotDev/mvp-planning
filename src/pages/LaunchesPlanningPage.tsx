@@ -104,7 +104,7 @@ export function LaunchesPlanningPage() {
   const board = DICTIONARY.tasks.launch_board;
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-4">
+    <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <HeaderMetricCards
         metrics={{
           total: metrics.total,

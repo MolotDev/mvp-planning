@@ -1,4 +1,4 @@
-import { CREWS } from "@/data/crews";
+import { CREWS, PLATOONS } from "@/data/crews";
 import { assetName } from "@/lib/assets";
 import { DICTIONARY } from "@/constants/dictionary";
 import { formatIsoDate, startOfDay } from "@/lib/dates";
@@ -116,6 +116,14 @@ export function taskAllocatedQuantity(groups: BattleGroup[], taskId: string, exc
 
 export function crewName(id: string): string {
   return CREWS.find((crew) => crew.id === id)?.name ?? id;
+}
+
+export function crewPlatoonName(crewId: string): string {
+  const crew = CREWS.find((item) => item.id === crewId);
+  if (!crew) {
+    return "";
+  }
+  return PLATOONS.find((platoon) => platoon.id === crew.platoon_id)?.name ?? "";
 }
 
 export function uavName(id: string): string {

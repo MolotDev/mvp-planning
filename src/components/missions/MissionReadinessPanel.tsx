@@ -1,13 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, ListTodo, PlaneIcon, Users } from "lucide-react";
 import { AimingPointBadge, Badge, ProgressBadge } from "@/components/ui/badge";
+import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { Modal } from "@/components/ui/modal";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { crewWord, fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk } from "@/lib/dates";
 import { detachmentName } from "@/lib/detachments";
-import { formattingMGRS } from "@/lib/formattingMGRS";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import {
   activeMissionTasks,
   assignedQuantity,
@@ -18,6 +20,7 @@ import {
 } from "@/lib/missionDashboard";
 import { allocationsForMission } from "@/lib/taskAllocations";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/useAuthStore";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
@@ -40,6 +43,8 @@ export function MissionReadinessPanel({
   targets,
   aimingPoints,
 }: MissionReadinessPanelProps) {
+  const navigate = useNavigate();
+  const role = useAuthStore((state) => state.role);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const text = DICTIONARY.missions.command;
   const related = activeMissionTasks(mission, tasks);
@@ -72,16 +77,18 @@ export function MissionReadinessPanel({
         }
         const target = targets.find((item) => item.id === allocation.target_id);
         const point = allocation.aiming_point_id
-          ? aimingPoints.find((item) => item.id === allocation.aiming_point_id && item.archived_at === null)
+          ? aimingPoints.find((item) => item.id === allocation.aiming_point_id)
           : undefined;
+        const aiming = formatStoredAimingPoint(point, target?.name);
         const groupLaunches = launches.filter(
           (launch) => launch.archived_at === null && launch.battle_group_id === group.id,
         );
         return [{
           group,
           detachment: detachmentName(task.organization_id),
-          aiming: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-          mgrs: formattingMGRS.spacing(point?.mgrs || target?.mgrs || ""),
+          aiming: `${aiming.badge} ${aiming.label}`,
+          aimingBadge: aiming.badge,
+          aimingLabel: aiming.label,
           ready: equippedCount(groupLaunches),
           trackers: groupLaunches.filter((launch) => Boolean(launch.tracker_model_serial_number?.trim())).length,
           launches: groupLaunches,
@@ -182,6 +189,12 @@ export function MissionReadinessPanel({
               className="text-xs"
             />
           </p>
+          {role === "CENTER" ? (
+            <PreviewActionButton
+              label={text.view_all_launches}
+              onClick={() => navigate(`/planning/launches/mission/${mission.id}`)}
+            />
+          ) : null}
         </div>
         <div className="flex flex-col gap-1">
           <p className="text-sm font-semibold text-primitive-neutral-300 flex gap-2 items-center">
@@ -227,7 +240,7 @@ export function MissionReadinessPanel({
                       </span>
                     </div>
                   </div>
-                  <AimingPointBadge label={row.aiming} mgrs={row.mgrs ?? ""} />
+                  <AimingPointBadge label={row.aimingLabel} mgrs={row.aimingBadge} />
                 </div>
               </div>
             ))

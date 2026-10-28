@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { ClearTrackerButton } from "@/components/launches/ClearTrackerButton";
 import { InlineFieldAlert } from "@/components/launches/InlineFieldAlert";
-import { AimingPointBadge, Badge } from "@/components/ui/badge";
+import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CloseIconButton, DeleteIconButton } from "@/components/ui/icon-buttons";
 import { Input } from "@/components/ui/input";
@@ -15,8 +15,12 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { canEditLaunchField, canEditLaunchFields } from "@/lib/access";
 import { ammosForAsset, defaultAmmoId } from "@/lib/assets";
 import { crewName, uavName } from "@/lib/battleGroup";
-import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
-import { isLaunchReadOnly, launchLockKind, processedTransitionPatch, quantityDiscrepancy, trackerName } from "@/lib/launches";
+import { fillTemplate } from "@/lib/battleGroupCapacity";
+import { detachmentName } from "@/lib/detachments";
+import { formatStoredAimingPoint } from "@/lib/formatters";
+import { formattingMGRS } from "@/lib/formattingMGRS";
+import { allocationForLaunch, resolveLaunchAimingPoint } from "@/lib/launchAiming";
+import { isLaunchProcessed, isLaunchReadOnly, launchLockKind, processedTransitionPatch, quantityDiscrepancy, trackerName } from "@/lib/launches";
 import { duplicateValueMessage, groupLaunchesByCrew } from "@/lib/taskCrewMatrix";
 import { QuantityDiscrepancy } from "@/components/tasks/QuantityDiscrepancy";
 import { notifyError, notifySuccess } from "@/lib/toasts";
@@ -24,16 +28,169 @@ import { publishLaunchesToSupabase } from "@/services/launchService";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
+import { useTargetStore } from "@/store/useTargetStore";
+import { useTaskStore } from "@/store/useTaskStore";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
-import { formattingMGRS } from "@/lib/formattingMGRS";
 import { cn } from "@/lib/utils";
 import { extractNumeric } from "@/lib/validation";
 
 const selectClassName =
   "h-9 w-full min-w-[80px] rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm text-primitive-neutral-0 hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50";
+
+interface CenterAimingGroup {
+  key: string;
+  point: AimingPoint | null;
+  rows: Launch[];
+}
+
+interface CenterCrewGroup {
+  key: string;
+  crewId: string;
+  group: BattleGroup | undefined;
+  aiming: CenterAimingGroup[];
+}
+
+interface CenterAssetGroup {
+  key: string;
+  assetId: string;
+  quantity: number;
+  crews: CenterCrewGroup[];
+}
+
+interface CenterDetachmentGroup {
+  key: string;
+  detachmentId: string;
+  assets: CenterAssetGroup[];
+}
+
+interface CenterTargetGroup {
+  key: string;
+  target: Target | undefined;
+  detachments: CenterDetachmentGroup[];
+}
+
+function compareUk(left: string, right: string): number {
+  return left.localeCompare(right, "uk");
+}
+
+function countProcessed(rows: Launch[]): { processed: number; total: number } {
+  return {
+    processed: rows.filter(isLaunchProcessed).length,
+    total: rows.length,
+  };
+}
+
+function singleValue(values: string[]): string | undefined {
+  const unique = [...new Set(values.filter(Boolean))];
+  return unique.length === 1 ? unique[0] : undefined;
+}
+
+function buildCenterLaunchTree(
+  launches: Launch[],
+  battleGroups: BattleGroup[],
+  tasks: Task[],
+  fallbackTask: Task,
+  aimingPoints: AimingPoint[],
+  targets: Target[],
+  fallbackTarget: Target | undefined,
+): CenterTargetGroup[] {
+  const targetsById = new Map<string, { target: Target | undefined; detachments: Map<string, { detachmentId: string; assets: Map<string, { assetId: string; crews: Map<string, { crewId: string; group: BattleGroup | undefined; aiming: Map<string, CenterAimingGroup> }> }> }> }>();
+  launches.forEach((launch) => {
+    const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+    const itemTask = tasks.find((item) => item.id === launch.task_id) ?? fallbackTask;
+    const line = allocationForLaunch(itemTask, launch, owner);
+    const targetId = line?.target_id ?? singleValue(itemTask.allocations.map((item) => item.target_id));
+    const resolvedTarget = (targetId ? targets.find((item) => item.id === targetId) : undefined) ?? fallbackTarget;
+    const targetKey = resolvedTarget?.id ?? "target";
+    const targetBucket = targetsById.get(targetKey) ?? { target: resolvedTarget, detachments: new Map() };
+    const detachmentId = itemTask.organization_id || "detachment";
+    const detachmentBucket = targetBucket.detachments.get(detachmentId) ?? { detachmentId, assets: new Map() };
+    const assetId = owner?.asset_id || launch.asset_id || "asset";
+    const assetBucket = detachmentBucket.assets.get(assetId) ?? { assetId, crews: new Map() };
+    const crewId = owner?.lead_crew_id || launch.battle_group_id;
+    const crewBucket = assetBucket.crews.get(crewId) ?? { crewId, group: owner, aiming: new Map() };
+    const point = resolveLaunchAimingPoint(itemTask, launch, owner, aimingPoints) ?? null;
+    const pointKey = point?.id || "primary";
+    const aimingBucket = crewBucket.aiming.get(pointKey) ?? { key: pointKey, point, rows: [] };
+    aimingBucket.rows.push(launch);
+    crewBucket.aiming.set(pointKey, aimingBucket);
+    assetBucket.crews.set(crewId, crewBucket);
+    detachmentBucket.assets.set(assetId, assetBucket);
+    targetBucket.detachments.set(detachmentId, detachmentBucket);
+    targetsById.set(targetKey, targetBucket);
+  });
+  return [...targetsById.entries()]
+    .map(([key, targetBucket]) => ({
+      key,
+      target: targetBucket.target,
+      detachments: [...targetBucket.detachments.values()]
+        .map((detachment) => ({
+          key: detachment.detachmentId,
+          detachmentId: detachment.detachmentId,
+          assets: [...detachment.assets.values()]
+            .map((asset) => {
+              const crews = [...asset.crews.values()]
+                .map((crew) => ({
+                  key: crew.crewId,
+                  crewId: crew.crewId,
+                  group: crew.group,
+                  aiming: [...crew.aiming.values()].sort((left, right) =>
+                    compareUk(
+                      formatStoredAimingPoint(left.point, targetBucket.target?.name).badge,
+                      formatStoredAimingPoint(right.point, targetBucket.target?.name).badge,
+                    ),
+                  ),
+                }))
+                .sort((left, right) => compareUk(left.crewId, right.crewId));
+              return {
+                key: asset.assetId,
+                assetId: asset.assetId,
+                quantity: crews.reduce((sum, crew) => sum + crew.aiming.reduce((inner, item) => inner + item.rows.length, 0), 0),
+                crews,
+              };
+            })
+            .sort((left, right) => compareUk(uavName(left.assetId), uavName(right.assetId))),
+        }))
+        .sort((left, right) => compareUk(detachmentName(left.detachmentId), detachmentName(right.detachmentId))),
+    }))
+    .sort((left, right) => compareUk(left.target?.name ?? "", right.target?.name ?? ""));
+}
+
+function CollapseSection({
+  sectionKey,
+  open,
+  depth,
+  title,
+  onToggle,
+  children,
+}: {
+  sectionKey: string;
+  open: boolean;
+  depth: number;
+  title: ReactNode;
+  onToggle: (key: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <details open={open} className={cn("flex flex-col gap-2", depth > 0 && "ml-4")}>
+      <summary
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggle(sectionKey);
+        }}
+        className="flex list-none flex-wrap items-center justify-between gap-2 rounded-lg bg-primitive-neutral-800 px-2 py-1 text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md [&::-webkit-details-marker]:hidden"
+      >
+        <div className="flex min-w-0 items-center gap-2">{title}</div>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 transition-transform", open ? "" : "rotate-180")} aria-hidden="true" />
+      </summary>
+      {children}
+    </details>
+  );
+}
 
 interface RowDraft {
   aiming_point_mgrs: string;
@@ -140,6 +297,8 @@ export function LaunchEditor({
   locked,
 }: LaunchEditorProps) {
   const role = useAuthStore((state) => state.role);
+  const catalogTasks = useTaskStore((state) => state.tasks);
+  const catalogTargets = useTargetStore((state) => state.targets);
   const crewLimited = canEditLaunchFields(role);
   const updateLaunch = useLaunchStore((state) => state.updateLaunch);
   const archiveLaunch = useLaunchStore((state) => state.archiveLaunch);
@@ -210,12 +369,7 @@ export function LaunchEditor({
     return Boolean(message?.serial || message?.tracker);
   });
   const fieldsEnabled = editing && !locked;
-  const pointIds = new Set(task.allocations.map((line) => line.aiming_point_id).filter(Boolean));
-  const points = aimingPoints.filter((point) => pointIds.has(point.id) && point.archived_at === null);
   const columns = DICTIONARY.tasks.launch_board.columns;
-
-  const inheritedAiming = (draft: RowDraft) =>
-    draft.aiming_point_mgrs.trim() || (points.length === 1 ? points[0].mgrs : "") || target?.mgrs || "";
 
   const commitTransition = (launchId: string, draft: RowDraft) => {
     const stored = useLaunchStore.getState().launches.find((item) => item.id === launchId);
@@ -387,6 +541,14 @@ export function LaunchEditor({
   };
 
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [sectionOverrides, setSectionOverrides] = useState<Record<string, boolean>>({});
+  const sectionOpen = (key: string, defaultOpen = true) => sectionOverrides[key] ?? defaultOpen;
+  const toggleClosedSection = (key: string, defaultOpen = true) => {
+    setSectionOverrides((current) => ({
+      ...current,
+      [key]: !(current[key] ?? defaultOpen),
+    }));
+  };
   const toggleOpenSection = (sectionId: string) => {
     setOpenSections((existing) => {
       const next = new Set(existing);
@@ -395,52 +557,7 @@ export function LaunchEditor({
     });
   };
 
-  return (
-    <div className="flex-1 flex flex-col gap-4">
-      <div className="flex flex-col gap-4">
-        {(() => {
-          const sameCrew = new Set(battleGroups.map((item) => item.lead_crew_id)).size <= 1;
-          const sectionMap = new Map<string, { id: string; point: (typeof aimingPoints)[number] | null; rows: Launch[] }>();
-          launches.forEach((launch) => {
-            const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
-            const point = resolveLaunchAimingPoint(task, launch, owner, aimingPoints) ?? null;
-            const id = point?.id ?? "";
-            const section = sectionMap.get(id) ?? { id, point, rows: [] };
-            section.rows.push(launch);
-            sectionMap.set(id, section);
-          });
-          const sections = [...sectionMap.values()].sort((left, right) => {
-            if (!left.point) {
-              return 1;
-            }
-            if (!right.point) {
-              return -1;
-            }
-            return (left.point.displayed_id || left.point.name).localeCompare(right.point.displayed_id || right.point.name, "uk");
-          });
-          return (
-            <>
-              {battleGroups.map((group) => {
-                const discrepancy = quantityDiscrepancy(group.uav_quantity, storedLaunches, group.id);
-                return discrepancy ? (
-                  <QuantityDiscrepancy key={group.id} planned={discrepancy.planned} actual={discrepancy.actual} />
-                ) : null;
-              })}
-              {sameCrew && battleGroups[0] && role !== "CREW" ? <BattleGroupCrewLine group={battleGroups[0]} /> : null}
-              {sections.map((section, index) => {
-          const rows = section.rows;
-          const sectionGroups = battleGroups.filter((item) => rows.some((launch) => launch.battle_group_id === item.id));
-          return (
-            <details open={openSections.has(section.id || "target") || index === 0} key={section.id || "target"} className="flex flex-col gap-2">
-              <summary onClick={() => toggleOpenSection(section.id)} className="flex flex-wrap items-center justify-between gap-1 text-[20px] text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md px-2 rounded-lg bg-primitive-neutral-800">
-                {section.point ? (
-                  <AimingPointBadge label={section.point.name} mgrs={section.point.label ?? ""} />
-                ) : null}
-                <ChevronDown className={cn("h-4 w-4 transition-transform", !openSections.has(section.id || "target") ? "rotate-180" : "")} aria-hidden="true" />
-              </summary>
-              {!sameCrew
-                ? sectionGroups.map((item) => <BattleGroupCrewLine key={item.id} group={item} />)
-                : null}
+  const renderLaunchTable = (tableRows: Launch[]) => (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[880px] border-collapse text-left text-sm">
                   <thead className="f-full text-primitive-neutral-300">
@@ -458,17 +575,27 @@ export function LaunchEditor({
                     </tr>
                   </thead>
                   <tbody className="f-full">
-                    {rows.map((launch, index) => {
+                    {tableRows.map((launch, index) => {
                       const stored = liveLaunch(launch);
                       const draft = drafts[launch.id];
+                      if (!draft) {
+                        return null;
+                      }
                       const rowDisabled = !fieldsEnabled || rowLocked(stored);
                       const planningDisabled = rowDisabled || crewLimited;
-                      const lockKind = launchLockKind(stored, task, mission ?? null);
+                      const lockKind = launchLockKind(stored, catalogTasks.find((item) => item.id === launch.task_id) ?? task, mission ?? null);
                       const trackerId =
                         draft.tracker_model_serial_number.trim() && TRACKERS.length === 1 ? TRACKERS[0].id : null;
                       const trackerLabel = trackerName(trackerId);
                       const warning = duplicateMessages.get(launch.id);
                       const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+                      const rowTask = catalogTasks.find((item) => item.id === launch.task_id) ?? task;
+                      const rowLine = allocationForLaunch(rowTask, launch, owner);
+                      const rowTargetName = catalogTargets.find((item) => item.id === rowLine?.target_id)?.name ?? target?.name;
+                      const rowAiming = formatStoredAimingPoint(
+                        resolveLaunchAimingPoint(rowTask, launch, owner, aimingPoints) ?? null,
+                        rowTargetName,
+                      );
                       const ownerCount = launches.filter((item) => item.battle_group_id === owner?.id).length;
                       const canRemoveExcess = owner !== undefined && ownerCount > owner.uav_quantity;
                       const showTrackerClear =
@@ -488,7 +615,7 @@ export function LaunchEditor({
                           <td className="px-2 py-2">
                             <Input
                               aria-label={`${columns.aiming_mgrs} ${launch.id}`}
-                              value={formattingMGRS.spacing(inheritedAiming(draft))}
+                              value={rowAiming.badge}
                               disabled
                               readOnly
                               className="text-xs leading-none max-h-7"
@@ -642,6 +769,185 @@ export function LaunchEditor({
                   </tbody>
                 </table>
               </div>
+  );
+
+  return (
+    <div className="flex-1 flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
+        {(() => {
+          const groupByCrew = role === "DETACHMENT";
+          const sectionMap = new Map<string, { id: string; point: (typeof aimingPoints)[number] | null; rows: Launch[] }>();
+          launches.forEach((launch) => {
+            const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+            const point = resolveLaunchAimingPoint(task, launch, owner, aimingPoints) ?? null;
+            const id = point?.id ?? "";
+            const section = sectionMap.get(id) ?? { id, point, rows: [] };
+            section.rows.push(launch);
+            sectionMap.set(id, section);
+          });
+          const sections = [...sectionMap.values()].sort((left, right) => {
+            if (!left.point) {
+              return 1;
+            }
+            if (!right.point) {
+              return -1;
+            }
+            return (left.point.displayed_id || left.point.name).localeCompare(right.point.displayed_id || right.point.name, "uk");
+          });
+          return (
+            <>
+              {battleGroups.map((group) => {
+                const discrepancy = quantityDiscrepancy(group.uav_quantity, storedLaunches, group.id);
+                return discrepancy ? (
+                  <QuantityDiscrepancy key={group.id} planned={discrepancy.planned} actual={discrepancy.actual} />
+                ) : null;
+              })}
+              {role === "CENTER"
+                ? buildCenterLaunchTree(
+                    launches,
+                    battleGroups,
+                    catalogTasks,
+                    task,
+                    aimingPoints,
+                    catalogTargets,
+                    target,
+                  ).map((targetGroup) => {
+                    const targetKey = `target:${targetGroup.key}`;
+                    return (
+                      <CollapseSection
+                        key={targetKey}
+                        sectionKey={targetKey}
+                        open={sectionOpen(targetKey)}
+                        depth={0}
+                        onToggle={toggleClosedSection}
+                        title={
+                          targetGroup.target ? (
+                            <TargetBadge
+                              targetId={targetGroup.target.id}
+                              mgrs={formattingMGRS.spacing(targetGroup.target.mgrs)}
+                              label={targetGroup.target.name}
+                              targetClasses="text-xs"
+                              wrapperClasses="items-center"
+                            />
+                          ) : (
+                            <span className="text-base font-medium">{target?.name ?? ""}</span>
+                          )
+                        }
+                      >
+                        {targetGroup.detachments.map((detachment) => {
+                          const detachmentKey = `${targetKey}/detachment:${detachment.key}`;
+                          return (
+                            <CollapseSection
+                              key={detachmentKey}
+                              sectionKey={detachmentKey}
+                              open={sectionOpen(detachmentKey)}
+                              depth={1}
+                              onToggle={toggleClosedSection}
+                              title={<span className="text-base font-medium">{detachmentName(detachment.detachmentId)}</span>}
+                            >
+                              {detachment.assets.map((asset) => {
+                                const assetKey = `${detachmentKey}/asset:${asset.key}`;
+                                const assetRows = asset.crews.flatMap((crew) => crew.aiming.flatMap((point) => point.rows));
+                                const assetProgress = countProcessed(assetRows);
+                                return (
+                                  <CollapseSection
+                                    key={assetKey}
+                                    sectionKey={assetKey}
+                                    open={sectionOpen(assetKey)}
+                                    depth={2}
+                                    onToggle={toggleClosedSection}
+                                    title={
+                                      <ProgressBadge
+                                        label={fillTemplate(DICTIONARY.launches.labels.asset_group, {
+                                          asset: uavName(asset.assetId),
+                                          quantity: asset.quantity,
+                                        })}
+                                        processed={assetProgress.processed}
+                                        total={assetProgress.total}
+                                        className="text-sm"
+                                      />
+                                    }
+                                  >
+                                    {asset.crews.map((crewGroup) => {
+                                      const crewKey = `${assetKey}/crew:${crewGroup.key}`;
+                                      const crewRows = crewGroup.aiming.flatMap((point) => point.rows);
+                                      const crewProgress = countProcessed(crewRows);
+                                      return (
+                                        <CollapseSection
+                                          key={crewKey}
+                                          sectionKey={crewKey}
+                                          open={sectionOpen(crewKey, false)}
+                                          depth={3}
+                                          onToggle={(key) => toggleClosedSection(key, false)}
+                                          title={
+                                            <div className="flex items-center gap-2">
+                                              <BattleGroupCrewLine group={crewGroup.group} />
+                                              <ProgressBadge
+                                                label={`${crewProgress.processed} / ${crewProgress.total}`}
+                                                processed={crewProgress.processed}
+                                                total={crewProgress.total}
+                                              />
+                                            </div>
+                                          }
+                                        >
+                                          {crewGroup.aiming.map((pointGroup) => {
+                                            const pointKey = `${crewKey}/aiming:${pointGroup.key}`;
+                                            const aimingLabel = formatStoredAimingPoint(
+                                              pointGroup.point,
+                                              targetGroup.target?.name ?? target?.name,
+                                            );
+                                            return (
+                                              <CollapseSection
+                                                key={pointKey}
+                                                sectionKey={pointKey}
+                                                open={sectionOpen(pointKey)}
+                                                depth={4}
+                                                onToggle={toggleClosedSection}
+                                                title={<AimingPointBadge label={aimingLabel.label} mgrs={aimingLabel.badge} />}
+                                              >
+                                                {renderLaunchTable(pointGroup.rows)}
+                                              </CollapseSection>
+                                            );
+                                          })}
+                                        </CollapseSection>
+                                      );
+                                    })}
+                                  </CollapseSection>
+                                );
+                              })}
+                            </CollapseSection>
+                          );
+                        })}
+                      </CollapseSection>
+                    );
+                  })
+                : sections.map((section, index) => {
+          const rows = section.rows;
+          const aiming = formatStoredAimingPoint(section.point, target?.name);
+          const crewTables = groupByCrew
+            ? [...rows.reduce((buckets, launch) => {
+                const owner = battleGroups.find((item) => item.id === launch.battle_group_id);
+                const key = owner?.lead_crew_id || launch.battle_group_id;
+                const bucket = buckets.get(key) ?? { key, group: owner, rows: [] as Launch[] };
+                bucket.rows.push(launch);
+                buckets.set(key, bucket);
+                return buckets;
+              }, new Map<string, { key: string; group: BattleGroup | undefined; rows: Launch[] }>()).values()].sort(
+                (left, right) => (left.group?.lead_crew_id ?? left.key).localeCompare(right.group?.lead_crew_id ?? right.key, "uk"),
+              )
+            : [{ key: "all", group: undefined, rows }];
+          return (
+            <details open={openSections.has(section.id || "target") || index === 0} key={section.id || "target"} className="flex flex-col gap-2">
+              <summary onClick={() => toggleOpenSection(section.id)} className="flex flex-wrap items-center justify-between gap-1 text-[20px] text-primitive-neutral-0 hover:cursor-pointer hover:shadow-md px-2 rounded-lg bg-primitive-neutral-800">
+                <AimingPointBadge label={aiming.label} mgrs={aiming.badge} />
+                <ChevronDown className={cn("h-4 w-4 transition-transform", !openSections.has(section.id || "target") ? "rotate-180" : "")} aria-hidden="true" />
+              </summary>
+              {crewTables.map((crew) => (
+              <div key={crew.key} className="flex flex-col gap-2">
+              {groupByCrew && crew.group ? <BattleGroupCrewLine group={crew.group} /> : null}
+              {renderLaunchTable(crew.rows)}
+              </div>
+              ))}
             </details>
           );
               })}

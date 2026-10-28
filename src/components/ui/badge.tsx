@@ -74,7 +74,7 @@ export function TargetBadge({targetId, mgrs, label, address = "", wrapperClasses
       <div className="flex h-6 items-center gap-1">
         <MapPinned className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" /> 
       </div> 
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-1">
           <TargetBadgeLink className={cn("tracking-widest", targetClasses || "text-sm")} id={targetId} title={mgrs}>
             {mgrs}
@@ -82,7 +82,7 @@ export function TargetBadge({targetId, mgrs, label, address = "", wrapperClasses
           <p title={label} className="w-fit font-medium text-primitive-neutral-300 overflow-hidden text-ellipsis whitespace-nowrap">{label}</p>
           {isTargetLocked ? <LockIcon className="h-4 w-4 shrink-0 text-amber-700 ml-2" aria-hidden="true" /> : null}
         </div>
-        <span className="ml-6 text-sm text-primitive-neutral-300 w-full">{address ?? ""}</span>
+        {address ? <span className="text-sm text-primitive-neutral-300">{address}</span> : null}
       </div>
     </div>
   );

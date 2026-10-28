@@ -7,6 +7,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { canAccess, canEditLaunchFields, crewOwnsGroup, homePath, launchInScope } from "@/lib/access";
 import { getEntityState } from "@/lib/entityState";
 import { allocationForLaunch, taskAimingPoints } from "@/lib/launchAiming";
+import { activeMissionTasks } from "@/lib/missionDashboard";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -21,7 +22,7 @@ import { Calendar } from "lucide-react";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 
 export function LaunchPreviewPage() {
-  const { battleGroupId, taskId } = useParams();
+  const { battleGroupId, taskId, missionId } = useParams();
   const navigate = useNavigate();
   const battleGroups = useBattleGroupStore((state) => state.battleGroups);
   const launches = useLaunchStore((state) => state.launches);
@@ -33,8 +34,10 @@ export function LaunchPreviewPage() {
   const entityId = useAuthStore((state) => state.entityId);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const group = battleGroups.find((item) => item.id === battleGroupId);
-  const task = tasks.find((item) => item.id === (group?.task_id ?? taskId));
+  const routeMission = missionId ? missions.find((item) => item.id === missionId) : undefined;
+  const missionTasks = routeMission ? activeMissionTasks(routeMission, tasks) : [];
+  const group = missionId ? undefined : battleGroups.find((item) => item.id === battleGroupId);
+  const task = missionId ? missionTasks[0] : tasks.find((item) => item.id === (group?.task_id ?? taskId));
   const relatedGroups = group
     ? battleGroups.filter(
         (item) =>
@@ -60,7 +63,7 @@ export function LaunchPreviewPage() {
     : undefined;
   const mission = missionLine ? missions.find((item) => item.id === missionLine.mission_id) : undefined;
 
-  if (!task) {
+  if (missionId ? !routeMission : !task) {
     return (
       <section className="flex h-full flex-col gap-4">
         <div className="flex items-center gap-2">
@@ -71,18 +74,41 @@ export function LaunchPreviewPage() {
     );
   }
 
-  const scopedGroups = relatedGroups.filter((item) => launchInScope(role, entityId, task, item));
-  if (scopedGroups.length === 0) {
+  const pageTasks = missionId ? missionTasks : task ? [task] : [];
+  const blocks = pageTasks.flatMap((item) => {
+    const candidates = missionId
+      ? battleGroups.filter((entry) => entry.archived_at === null && entry.task_id === item.id)
+      : relatedGroups;
+    const itemGroups = candidates.filter((entry) => launchInScope(role, entityId, item, entry));
+    if (itemGroups.length === 0) {
+      return [];
+    }
+    const itemGroupIds = new Set(itemGroups.map((entry) => entry.id));
+    const itemLaunches = launches.filter(
+      (launch) => launch.archived_at === null && itemGroupIds.has(launch.battle_group_id),
+    );
+    const itemTargetIds = [
+      ...new Set(
+        itemGroups
+          .map((entry) => allocationForLaunch(item, { allocation_line_id: null, asset_id: entry.asset_id }, entry)?.target_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    return [{
+      task: item,
+      groups: itemGroups,
+      launches: itemLaunches,
+      target: itemTargetIds.length === 1 ? targets.find((entry) => entry.id === itemTargetIds[0]) : undefined,
+    }];
+  });
+  if (blocks.length === 0) {
     return <Navigate to={homePath(role)} replace />;
   }
-  const scopedGroupIds = new Set(scopedGroups.map((item) => item.id));
-  const scopedLaunches = launches.filter(
-    (launch) => launch.archived_at === null && scopedGroupIds.has(launch.battle_group_id),
-  );
-  const taskState = getEntityState(task);
-  const missionState = mission ? getEntityState(mission) : "active";
+  const pageMission = routeMission ?? mission;
+  const taskState = getEntityState(blocks[0].task);
+  const missionState = pageMission ? getEntityState(pageMission) : "active";
   const locked = taskState !== "active" || missionState !== "active";
-  const canEdit = canEditLaunchFields(role) && scopedGroups.some((item) => crewOwnsGroup(item, entityId));
+  const canEdit = canEditLaunchFields(role) && blocks.some((block) => block.groups.some((item) => crewOwnsGroup(item, entityId)));
   const editing = isEditMode && !locked && canEdit;
   const entityState = taskState === "active" && missionState === "active" ? "active" : missionState !== "active" ? missionState : taskState;
 
@@ -128,12 +154,12 @@ export function LaunchPreviewPage() {
           </div>
         )}
       </header>
-      <section className="flex flex-col gap-4">
+      <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
         <div className="flex flex-wrap items-center gap-10">
           <p className="flex flex-wrap items-center gap-1 text-[20px] text-primitive-neutral-0">
             <Calendar className="h-5 w-5 shrink-0" aria-hidden="true" />
-            <Badge className="bg-primitive-neutral-800 text-[20px]">{formatDateUk(mission?.scheduled_at ?? "")}</Badge>
-            <span>{` — ${mission?.name ?? mission?.label ?? ""}`}</span>
+            <Badge className="bg-primitive-neutral-800 text-[20px]">{formatDateUk(pageMission?.scheduled_at ?? "")}</Badge>
+            <span>{` — ${pageMission?.name ?? pageMission?.label ?? ""}`}</span>
           </p>
           {target ? (
             <div className="flex flex-wrap items-center min-w-0 gap-3 font-semibold">
@@ -148,22 +174,38 @@ export function LaunchPreviewPage() {
           ) : null}
         </div>
         <div className="min-h-0 flex-1 flex flex-col gap-4 overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
-          <LaunchEditor
-            key={group?.id ?? task.id}
-            task={task}
-            mission={mission}
-            target={target}
-            aimingPoints={taskAimingPoints(task, aimingPoints)}
-            battleGroups={scopedGroups}
-            launches={scopedLaunches}
-            editing={editing}
-            locked={locked}
-          />
-          {canAccess(role, "tasks") ? (
+          {role === "CENTER" ? (
+            <LaunchEditor
+              key={blocks.map((block) => block.task.id).join(",")}
+              task={blocks[0].task}
+              mission={pageMission}
+              target={blocks.length === 1 ? blocks[0].target ?? target : undefined}
+              aimingPoints={aimingPoints}
+              battleGroups={blocks.flatMap((block) => block.groups)}
+              launches={blocks.flatMap((block) => block.launches)}
+              editing={editing}
+              locked={locked}
+            />
+          ) : (
+            blocks.map((block) => (
+              <LaunchEditor
+                key={block.task.id}
+                task={block.task}
+                mission={pageMission}
+                target={block.target ?? target}
+                aimingPoints={taskAimingPoints(block.task, aimingPoints)}
+                battleGroups={block.groups}
+                launches={block.launches}
+                editing={editing}
+                locked={locked}
+              />
+            ))
+          )}
+          {!missionId && canAccess(role, "tasks") ? (
             <div className="mt-auto">
               <PreviewActionButton
                 label={DICTIONARY.common.actions.preview_task}
-                onClick={() => navigate(`/planning/tasks/${task.id}`)}
+                onClick={() => navigate(`/planning/tasks/${blocks[0].task.id}`)}
               />
             </div>
           ) : null}

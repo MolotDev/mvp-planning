@@ -4,6 +4,7 @@ import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { parseRequiredNumber } from "@/lib/validation";
 import type { BattleGroup, Crew } from "@/types/battleGroup";
+import type { Task as StoredTask } from "@/types/database";
 import type { Task, TaskAllocation } from "@/types/mission";
 
 export interface PlanForceRow {
@@ -13,7 +14,10 @@ export interface PlanForceRow {
   assetId: string;
   quantity: string;
   aimingPointId: string;
+  platoonId?: string;
 }
+
+export const ENTIRE_PLATOON = "__entire_platoon__";
 
 export interface PlanTargetBlock {
   key: string;
@@ -36,6 +40,29 @@ export function emptyForceRow(): PlanForceRow {
     assetId: "",
     quantity: "",
     aimingPointId: "",
+    platoonId: "",
+  };
+}
+
+export function unassignedTargetQuantity(task: Task | undefined, targetId: string, rows: PlanForceRow[]): string {
+  if (!task || !targetId) {
+    return "";
+  }
+  const planned = task.allocations
+    .filter((line) => line.target_id === targetId)
+    .reduce((sum, line) => sum + line.quantity, 0);
+  const assigned = rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+  const remainder = planned - assigned;
+  return remainder > 0 ? String(remainder) : "";
+}
+
+export function nextForceRow(block: PlanTargetBlock, assetId: string, quantity: string): PlanForceRow {
+  const previous = block.rows[block.rows.length - 1];
+  return {
+    ...emptyForceRow(),
+    assetId,
+    quantity,
+    aimingPointId: previous?.aimingPointId ?? "",
   };
 }
 
@@ -207,7 +234,6 @@ export function isPlanReady(blocks: PlanTargetBlock[]): boolean {
   if (blocks.length === 0) {
     return false;
   }
-  const assetByCrew = new Map<string, string>();
   for (const block of blocks) {
     if (!block.targetId || block.rows.length === 0) {
       return false;
@@ -217,11 +243,10 @@ export function isPlanReady(blocks: PlanTargetBlock[]): boolean {
       if (!row.crewId || !row.assetId || quantity === null || quantity <= 0) {
         return false;
       }
-      const previous = assetByCrew.get(row.crewId);
-      if (previous && previous !== row.assetId) {
+      const lockedAssetId = getCrewAssignedAssets(planRowsAsTasks(blocks, row.key)).get(row.crewId);
+      if (lockedAssetId && lockedAssetId !== row.assetId) {
         return false;
       }
-      assetByCrew.set(row.crewId, row.assetId);
     }
   }
   return true;
@@ -280,6 +305,242 @@ export function crewOptionState(
     disabled: Boolean(reason),
     label: reason ? `${crew.name} [${reason}]` : crew.name,
   };
+}
+
+export function getAvailablePlatoonCrews(
+  platoonId: string,
+  detachmentId: string,
+  allCrews: Crew[],
+  currentTasks: Array<{ crew_id: string | null }>,
+): Crew[] {
+  const busyCrewIds = new Set(
+    currentTasks.map((task) => task.crew_id).filter((id): id is string => Boolean(id)),
+  );
+  return allCrews.filter(
+    (crew) =>
+      crew.organization_id === detachmentId &&
+      crew.platoon_id === platoonId &&
+      crew.is_active &&
+      !busyCrewIds.has(crew.id),
+  );
+}
+
+export function planRowsAsTasks(
+  blocks: PlanTargetBlock[],
+  exceptRowKey = "",
+): Array<Pick<StoredTask, "crew_id" | "asset_id">> {
+  return blocks.flatMap((block) =>
+    block.rows
+      .filter((row) => row.key !== exceptRowKey)
+      .map((row) => ({ crew_id: row.crewId || null, asset_id: row.assetId })),
+  );
+}
+
+/**
+ * Повертає Map<crewId, assetId>, де зафіксовано, за яким засобом уже закріплений екіпаж у формі
+ */
+export function getCrewAssignedAssets(
+  tasks: ReadonlyArray<Pick<StoredTask, "crew_id" | "asset_id">>,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const task of tasks) {
+    if (task.crew_id && task.asset_id) {
+      map.set(task.crew_id, task.asset_id);
+    }
+  }
+  return map;
+}
+
+function evenShares(total: number, count: number): number[] {
+  if (total <= 0 || count <= 0) {
+    return [];
+  }
+  const base = Math.floor(total / count);
+  const extra = total % count;
+  return Array.from({ length: count }, (_, index) => base + (index < extra ? 1 : 0));
+}
+
+export function describeEvenShares(total: number, count: number): string {
+  return evenShares(total, count)
+    .filter((share) => share > 0)
+    .join(", ");
+}
+
+export function platoonDistributionLabel(
+  platoonName: string,
+  freeCount: number,
+  totalCount: number,
+  quantity: number,
+): { label: string; disabled: boolean } {
+  const ratio = `(${freeCount}/${totalCount})`;
+  const columns = DICTIONARY.tasks.allocation;
+  if (freeCount === 0) {
+    return {
+      disabled: true,
+      label: fillTemplate(columns.split_platoon_busy, { platoon: platoonName, ratio }),
+    };
+  }
+  if (quantity < freeCount) {
+    return {
+      disabled: true,
+      label: fillTemplate(columns.split_platoon_min, { platoon: platoonName, ratio, free: freeCount }),
+    };
+  }
+  return {
+    disabled: false,
+    label: fillTemplate(columns.split_platoon, {
+      platoon: platoonName,
+      ratio,
+      shares: describeEvenShares(quantity, freeCount),
+    }),
+  };
+}
+
+export const PLATOON_ACTION = "__platoon__:";
+
+export function fanOutPlanRow(
+  block: PlanTargetBlock,
+  rowKey: string,
+  platoonId: string,
+  detachmentId: string,
+  crews: Crew[],
+  blocks: PlanTargetBlock[],
+): PlanTargetBlock | null {
+  const index = block.rows.findIndex((row) => row.key === rowKey);
+  const row = block.rows[index];
+  const total = Number(row?.quantity);
+  if (!row || !platoonId || !row.assetId || !Number.isInteger(total) || total <= 0) {
+    return null;
+  }
+  const eligible = getAvailablePlatoonCrews(
+    platoonId,
+    detachmentId,
+    crews,
+    planRowsAsTasks(blocks, row.key),
+  ).sort((left, right) => left.id.localeCompare(right.id, "uk"));
+  if (eligible.length === 0 || total < eligible.length) {
+    return null;
+  }
+  const created = evenShares(total, eligible.length).flatMap((quantity, shareIndex) => {
+    const crew = eligible[shareIndex];
+    if (!crew || quantity <= 0) {
+      return [];
+    }
+    const createdRow: PlanForceRow = {
+      key: crypto.randomUUID(),
+      allocationId: row.allocationId,
+      crewId: crew.id,
+      assetId: row.assetId,
+      quantity: String(quantity),
+      aimingPointId: row.aimingPointId,
+      platoonId,
+    };
+    return [createdRow];
+  });
+  if (created.length === 0) {
+    return null;
+  }
+  const rows = [...block.rows];
+  rows.splice(index, 1, ...created);
+  return { ...block, rows };
+}
+
+function assetLockedToCrew(blocks: PlanTargetBlock[], crewId: string, ignoredRowKeys: ReadonlySet<string>): string {
+  for (const block of blocks) {
+    for (const row of block.rows) {
+      if (ignoredRowKeys.has(row.key) || row.crewId !== crewId || !row.assetId) {
+        continue;
+      }
+      return row.assetId;
+    }
+  }
+  return "";
+}
+
+export function distributeCrewDrafts(
+  allocations: TaskAllocation[],
+  crews: Crew[],
+  occupiedCrewIds: ReadonlySet<string>,
+): CrewAssignmentDraft[] {
+  const assignedAsset = new Map<string, string>();
+  const drafts: CrewAssignmentDraft[] = [];
+  allocations.forEach((allocation) => {
+    if (allocation.quantity <= 0 || !allocation.asset_id) {
+      return;
+    }
+    const eligible = crews
+      .filter((crew) => crew.is_active && !occupiedCrewIds.has(crew.id))
+      .filter((crew) => {
+        const locked = assignedAsset.get(crew.id);
+        return !locked || locked === allocation.asset_id;
+      })
+      .sort((left, right) => left.platoon_id.localeCompare(right.platoon_id) || left.id.localeCompare(right.id, "uk"));
+    evenShares(allocation.quantity, eligible.length).forEach((quantity, index) => {
+      if (quantity <= 0) {
+        return;
+      }
+      const crew = eligible[index];
+      assignedAsset.set(crew.id, allocation.asset_id);
+      drafts.push({ allocationId: allocation.id, crewId: crew.id, quantity });
+    });
+  });
+  return drafts;
+}
+
+export function distributePlanEvenly(
+  blocks: PlanTargetBlock[],
+  crews: Crew[],
+  occupiedCrewIds: ReadonlySet<string>,
+): PlanTargetBlock[] {
+  const assignedAsset = new Map<string, string>();
+  return blocks.map((block) => {
+    const pools = new Map<string, PlanForceRow[]>();
+    const untouched: PlanForceRow[] = [];
+    block.rows.forEach((row) => {
+      const quantity = parseRequiredNumber(row.quantity);
+      if (!row.assetId || quantity === null || quantity <= 0) {
+        untouched.push(row);
+        return;
+      }
+      const key = `${row.aimingPointId}\0${row.assetId}`;
+      const pool = pools.get(key) ?? [];
+      pool.push(row);
+      pools.set(key, pool);
+    });
+    const nextRows = [...untouched];
+    pools.forEach((rows) => {
+      const total = rows.reduce((sum, row) => sum + (parseRequiredNumber(row.quantity) ?? 0), 0);
+      const assetId = rows[0].assetId;
+      const ignored = new Set(rows.map((row) => row.key));
+      const eligible = crews
+        .filter((crew) => crew.is_active && !occupiedCrewIds.has(crew.id))
+        .filter((crew) => {
+          const locked = assignedAsset.get(crew.id) || assetLockedToCrew(blocks, crew.id, ignored);
+          return !locked || locked === assetId;
+        })
+        .sort((left, right) => left.platoon_id.localeCompare(right.platoon_id) || left.id.localeCompare(right.id, "uk"));
+      if (eligible.length === 0) {
+        nextRows.push(...rows);
+        return;
+      }
+      evenShares(total, eligible.length).forEach((quantity, index) => {
+        if (quantity <= 0) {
+          return;
+        }
+        const crew = eligible[index];
+        assignedAsset.set(crew.id, assetId);
+        nextRows.push({
+          key: crypto.randomUUID(),
+          allocationId: rows[0].allocationId,
+          crewId: crew.id,
+          assetId,
+          quantity: String(quantity),
+          aimingPointId: rows[0].aimingPointId,
+        });
+      });
+    });
+    return { ...block, rows: nextRows };
+  });
 }
 
 export function externalAimingUsage(

@@ -14,6 +14,7 @@ import { canAccess, canAdminister } from "@/lib/access";
 import { crewName, uavName, visibleBattleGroups } from "@/lib/battleGroup";
 import { detachmentName } from "@/lib/detachments";
 import { getEntityState } from "@/lib/entityState";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { countProcessedLaunches } from "@/lib/launches";
 import { cn } from "@/lib/utils";
@@ -240,6 +241,7 @@ export function TaskCard({
                     <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 bg-primitive-neutral-850/40 py-1 pl-3 pr-2">
                       {targetGroup.allocations.map((line) => {
                         const aimingPoint = aimingPoints.find((item) => item.id === line.aiming_point_id);
+                        const aiming = formatStoredAimingPoint(aimingPoint, target?.name);
                         const lineLaunches = launches.filter(
                           (launch) => launch.archived_at === null && launch.allocation_line_id === line.id,
                         );
@@ -247,12 +249,7 @@ export function TaskCard({
                         const distributed = countProcessedLaunches(lineLaunches).total;
                         return (
                           <div key={line.id} className="flex flex-wrap items-center gap-2 ml-2">
-                            <AimingPointBadge
-                              label={aimingPoint?.name ?? target?.name ?? DICTIONARY.tasks.allocation.primary_target}
-                              // mgrs={formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "")}
-                              mgrs={aimingPoint?.label ?? formattingMGRS.spacing(target?.mgrs ?? "")}
-                              className="text-[10px]"
-                            />
+                            <AimingPointBadge label={aiming.label} mgrs={aiming.badge} className="text-[10px]" />
                             <ProgressBadge
                               className="text-sm ml-auto"
                               label={`${assignedCrews.length > 0 ? `${assignedCrews.join(`•`)} • ` : ""}${uavName(line.asset_id)} × ${line.quantity}`}

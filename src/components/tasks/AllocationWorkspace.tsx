@@ -5,8 +5,8 @@ import { DetachmentPlanForm } from "@/components/tasks/DetachmentPlanForm";
 import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DICTIONARY } from "@/constants/dictionary";
-import { crewsForOrganization } from "@/data/crews";
-import { crewName, occupiedCrewIds, taskIdsOnOperationalDay, uavName } from "@/lib/battleGroup";
+import { crewsForOrganization, platoonsForOrganization } from "@/data/crews";
+import { crewName, crewPlatoonName, occupiedCrewIds, taskIdsOnOperationalDay, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import {
   getAvailableCrewOptions,
@@ -15,6 +15,7 @@ import {
   type CrewAssignmentDraft,
 } from "@/lib/crewAllocation";
 import { crewDraftsFromBlocks, externalAimingUsage, type PlanTargetBlock } from "@/lib/detachmentPlan";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { crewClearanceAssetIds, parseAllocationQuantity } from "@/lib/taskDashboard";
 import { useAssetStore } from "@/store/useAssetStore";
@@ -162,7 +163,10 @@ export function AllocationWorkspace({
   const [selectedAllocationId, setSelectedAllocationId] = useState<string | null>(null);
   const planEditing = editing && task.source === "detachment" && Boolean(plan && onPlanChange);
   const activeDrafts = planEditing && plan ? crewDraftsFromBlocks(plan) : drafts;
-  const roster = useMemo(() => crewsForOrganization(task.organization_id), [task.organization_id]);
+  const roster = useMemo(
+    () => crewsForOrganization(task.organization_id).filter((crew) => crew.is_active),
+    [task.organization_id],
+  );
   const occupiedElsewhere = useMemo(() => {
     const sameDay = taskIdsOnOperationalDay(task.id, useTaskStore.getState().tasks, missions);
     return occupiedCrewIds(
@@ -274,22 +278,33 @@ export function AllocationWorkspace({
           <p className="text-sm text-primitive-neutral-300">
             {fillTemplate(text.free_crews_list, { free: freeCrews.length, total: roster.length })}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {freeCrews.map((crew) => {
-              const assets = crewClearanceAssetIds(crew.id, battleGroups).map((id) => uavName(id));
-              const label = assets.length
-                ? fillTemplate(text.crew_chip, { name: crew.name, assets: assets.join(", ") })
-                : crew.name;
+          <div className="flex flex-col gap-2">
+            {platoonsForOrganization(task.organization_id).map((platoon) => {
+              const crews = freeCrews.filter((crew) => crew.platoon_id === platoon.id);
+              if (crews.length === 0) {
+                return null;
+              }
               return (
-                <button
-                  key={crew.id}
-                  type="button"
-                  title={label}
-                  onClick={() => onHighlightCrew(crew.id)}
-                  className="rounded border border-emerald-800/40 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-300 hover:cursor-pointer hover:shadow-md"
-                >
-                  {label}
-                </button>
+                <div key={platoon.id} className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-primitive-neutral-300">{platoon.name}</span>
+                  {crews.map((crew) => {
+                    const assets = crewClearanceAssetIds(crew.id, battleGroups).map((id) => uavName(id));
+                    const label = assets.length
+                      ? fillTemplate(text.crew_chip, { name: crew.name, assets: assets.join(", ") })
+                      : crew.name;
+                    return (
+                      <button
+                        key={crew.id}
+                        type="button"
+                        title={label}
+                        onClick={() => onHighlightCrew(crew.id)}
+                        className="rounded border border-emerald-800/40 bg-emerald-950/40 px-2 py-1 text-xs text-emerald-300 hover:cursor-pointer hover:shadow-md"
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               );
             })}
           </div>
@@ -345,8 +360,8 @@ export function AllocationWorkspace({
             crews={roster}
             assets={assets}
             tasks={dailyTasks}
+            taskId={task.id}
             organizationId={task.organization_id}
-            occupiedCrewIds={occupiedElsewhere}
             onChange={onPlanChange}
           />
         ) : null}
@@ -385,8 +400,7 @@ export function AllocationWorkspace({
                     : remaining === 0
                       ? allocationText.complete
                       : fillTemplate(allocationText.bucket_remaining, { remaining });
-                const pointLabel = aimingPoint?.name ?? target?.name ?? DICTIONARY.tasks.allocation.primary_target;
-                // const pointMgrs = formattingMGRS.spacing(aimingPoint?.mgrs ?? target?.mgrs ?? "");
+                const aiming = formatStoredAimingPoint(aimingPoint, target?.name);
                 return (
                   <article
                     key={allocation.id}
@@ -397,7 +411,7 @@ export function AllocationWorkspace({
                       <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 ml-2 pl-8 last:border-b">
                         <div className="flex flex-wrap items-center justify-between">
                           <div className="flex-1 flex flex-wrap items-center justify-between gap-2">
-                            <AimingPointBadge label={pointLabel} mgrs={aimingPoint?.label ?? target?.mgrs ?? ""} />
+                            <AimingPointBadge label={aiming.label} mgrs={aiming.badge} />
                             {selectedAllocationId === allocation.id && allocation.aiming_point_id
                               ? externalAimingUsage(dailyTasks, allocation.aiming_point_id, task.organization_id, uavName).map((item) => (
                                   <span
@@ -432,6 +446,7 @@ export function AllocationWorkspace({
                                 <p className="text-sm font-medium text-primitive-neutral-0 flex items-center gap-2">
                                   <Users className="h-4 w-4 shrink-0 text-sky-300/50" aria-hidden="true" />
                                   {fillTemplate(text.crew_title, { name: crewName(draft.crewId) })}
+                                  <span className="text-xs font-normal text-primitive-neutral-300">{crewPlatoonName(draft.crewId)}</span>
                                 </p>
                                 <div className={`flex items-center gap-2 ${editing ? "" : "mr-10"}`}>
                                   <QuantityStepper

@@ -3,10 +3,18 @@ export interface Detachment {
   name: string;
 }
 
+export interface Platoon {
+  id: string;
+  detachment_id: string;
+  name: string;
+}
+
 export interface Crew {
   id: string;
   name: string;
   organization_id: string;
+  platoon_id: string;
+  is_active: boolean;
 }
 
 export interface BattleGroup {

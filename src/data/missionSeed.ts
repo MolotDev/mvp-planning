@@ -1,4 +1,4 @@
-import { AP_1_ID, AP_3_ID, TARGET_1_ID, TARGET_2_ID } from "@/data/targetSeed";
+// import { AP_1_ID, AP_3_ID, TARGET_1_ID, TARGET_2_ID } from "@/data/targetSeed";
 import { calculateDateOffset } from "@/lib/dates";
 import type { Mission, Task } from "@/types/mission";
 

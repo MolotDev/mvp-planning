@@ -13,6 +13,7 @@ import { canAdminister, canEditLaunchFields, crewOwnsGroup } from "@/lib/access"
 import { ammosForAsset } from "@/lib/assets";
 import { uavName } from "@/lib/battleGroup";
 import { formatDateUk } from "@/lib/dates";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import type { LaunchRowContext } from "@/lib/launchBoard";
 import { ammoName, isLaunchReadOnly, launchLockKind, processedTransitionPatch, trackerName } from "@/lib/launches";
 import { notifyError, notifySuccess } from "@/lib/toasts";
@@ -68,33 +69,14 @@ function EntityPopup({
         {displayedId}
       </Badge>
       <span className="text-sm text-primitive-neutral-0">{name}</span>
-      <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{mgrs}</Badge>
+      {mgrs ? <Badge className="bg-primitive-neutral-800 text-primitive-neutral-0">{mgrs}</Badge> : null}
     </span>
   );
 }
 
 function popupForAiming(context: LaunchRowContext) {
-  if (context.aimingPoint) {
-    return (
-      <EntityPopup
-        displayedId={context.aimingPoint.displayed_id || context.aimingPoint.label || "—"}
-        name={context.aimingPoint.name}
-        mgrs={context.aimingPoint.mgrs}
-        tone="aiming"
-      />
-    );
-  }
-  if (context.target) {
-    return (
-      <EntityPopup
-        displayedId={context.target.displayed_id || context.target.label}
-        name={context.target.name}
-        mgrs={context.target.mgrs}
-        tone="target"
-      />
-    );
-  }
-  return null;
+  const aiming = formatStoredAimingPoint(context.aimingPoint, context.target?.name);
+  return <EntityPopup displayedId={aiming.badge} name={aiming.label} mgrs="" tone="aiming" />;
 }
 
 function LaunchLockBadge({ kind, title }: { kind: "archived" | "reported"; title: string }) {
@@ -305,6 +287,7 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
             const showTrackerClear = editing && !locked && !crewEditor && rowDraft?.tracker_model_serial_number;
             const isShowFormFields = editing && !locked && rowDraft && canEditRow;
             const planningEditable = isShowFormFields && !crewEditor;
+            const aiming = formatStoredAimingPoint(context.aimingPoint, target?.name);
             return (
               <tr key={launch.id} className="border-t border-primitive-neutral-800">
                 <td className="px-3 py-2 text-primitive-neutral-200">{formatDateUk(scheduledAt)}</td>
@@ -340,7 +323,7 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                   {isShowFormFields && rowDraft ? (
                     <Input
                       aria-label={`${columns.aiming_mgrs} ${launch.id}`}
-                      value={rowDraft.aiming_point_mgrs.trim() || target?.mgrs || ""}
+                      value={aiming.badge}
                       disabled
                       readOnly
                       className="h-9 max-w-[220px]"
@@ -348,7 +331,7 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                   ) : (
                     <HoverPopover content={popupForAiming(context)}>
                       <span className="text-sm text-primitive-neutral-200">
-                        {launch.aiming_point_mgrs.trim() || target?.mgrs || ""}
+                        {aiming.badge}
                       </span>
                     </HoverPopover>
                   )}

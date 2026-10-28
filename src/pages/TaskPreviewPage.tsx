@@ -17,9 +17,9 @@ import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { formatDateUk, isBeforeToday, parseIsoDate, startOfDay } from "@/lib/dates";
 import { getEntityState } from "@/lib/entityState";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly } from "@/lib/launches";
-import { formattingMGRS } from "@/lib/formattingMGRS";
 import { matchingReports } from "@/lib/reportAggregation";
 import { groupLaunchesByCrew, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { draftsFromGroups } from "@/lib/taskDashboard";
@@ -199,7 +199,7 @@ export function TaskPreviewPage() {
   const headingLabel = focusCard?.label || task.label || task.id;
   const windowOpen = Boolean(task.scheduled_at) && new Date(task.scheduled_at).getTime() <= Date.now();
   const report = matchingReports(reports, [task.organization_id], task.scheduled_at)[0];
-  const roster = crewsForOrganization(task.organization_id);
+  const roster = crewsForOrganization(task.organization_id).filter((crew) => crew.is_active);
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
   const crewGroups = groupLaunchesByCrew(displayTask, displayGroups, launches);
   const serialEntries: LaunchSerialEntry[] = crewGroups.flatMap((group) =>
@@ -332,10 +332,11 @@ export function TaskPreviewPage() {
     const line = task.allocations.find((item) => item.id === (launch.allocation_line_id ?? owner?.allocation_line_id));
     const target = targets.find((item) => item.id === line?.target_id);
     const id = point?.id ?? line?.target_id ?? "target";
+    const aiming = formatStoredAimingPoint(point, target?.name);
     const section = sectionMap.get(id) ?? {
       id,
-      label: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-      mgrs: point?.label || formattingMGRS.spacing(target?.mgrs || ""),
+      label: aiming.label,
+      mgrs: aiming.badge,
       launchIds: [],
     };
     section.launchIds.push(launch.id);

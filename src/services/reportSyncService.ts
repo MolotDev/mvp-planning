@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { mockPlanningService, type StoredCheckpointReport, type StoredLaunchReport } from "@/services/planningRepository";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useReportStore } from "@/store/useReportStore";
 import type { Launch } from "@/types/launch";
@@ -49,51 +49,6 @@ function reportedLaunchStatus(launchStatusId: string): string | null {
   return REPORTED_LAUNCH_STATUS_IDS.has(launchStatusId) ? launchStatusId : null;
 }
 
-function readHistory(value: unknown): LaunchReportHistoryEntry[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") {
-      return [];
-    }
-    const entry = item as Record<string, unknown>;
-    if (typeof entry.status !== "string") {
-      return [];
-    }
-    return [
-      {
-        status: entry.status,
-        time: typeof entry.time === "string" ? entry.time : null,
-        reason: typeof entry.reason === "string" ? entry.reason : "",
-        updated_by: REPORTED_BY_ROLE,
-      },
-    ];
-  });
-}
-
-function existingLaunchRows(value: unknown): Array<{ launch_id: string; status: string | null; history: LaunchReportHistoryEntry[] }> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") {
-      return [];
-    }
-    const row = item as Record<string, unknown>;
-    if (typeof row.launch_id !== "string") {
-      return [];
-    }
-    return [
-      {
-        launch_id: row.launch_id,
-        status: typeof row.status === "string" ? row.status : null,
-        history: readHistory(row.history),
-      },
-    ];
-  });
-}
-
 function launchPayload(
   report: Report,
   link: LaunchTrajectoryLink,
@@ -132,7 +87,7 @@ function launchPayload(
 }
 
 function fail(message: string): ReportSyncResult {
-  console.error("Не вдалося зберегти звіт загону в Supabase:", message);
+  console.error("Не вдалося зберегти звіт загону локально:", message);
   return { ok: false, message };
 }
 
@@ -144,40 +99,35 @@ export async function submitDetachmentReport(
   if (!report) {
     return fail("Звіт не знадено.");
   }
-  if (!supabase) {
-    return fail("Не задано VITE_SUPABASE_URL або VITE_SUPABASE_ANON_KEY.");
-  }
   const reportedAt = new Date().toISOString();
   const launches = useLaunchStore.getState().launches;
   const launchById = new Map(launches.map((launch) => [launch.id, launch]));
   const links = report.launches_by_trajectory;
   try {
-    let previousByLaunch = new Map<string, { status: string | null; history: LaunchReportHistoryEntry[] }>();
-    if (links.length > 0) {
-      const { data, error } = await supabase
-        .from("launch_reports")
-        .select("launch_id, status, history")
-        .in(
-          "launch_id",
-          links.map((link) => link.launch_id),
-        );
-      if (error) {
-        return fail(error.message);
-      }
-      previousByLaunch = new Map(
-        existingLaunchRows(data).map((row) => [row.launch_id, { status: row.status, history: row.history }]),
-      );
-    }
-    const launchRows = links.map((link) =>
+    const previousRows = await mockPlanningService.listLaunchReports();
+    const previousByLaunch = new Map(
+      previousRows.map((row) => [
+        row.launch_id,
+        {
+          status: row.status,
+          history: row.history.map(
+            (entry): LaunchReportHistoryEntry => ({
+              status: entry.status,
+              time: entry.time,
+              reason: entry.reason,
+              updated_by: REPORTED_BY_ROLE,
+            }),
+          ),
+        },
+      ]),
+    );
+    const launchRows: StoredLaunchReport[] = links.map((link) =>
       launchPayload(report, link, launchById.get(link.launch_id), reportedAt, previousByLaunch.get(link.launch_id)),
     );
     if (launchRows.length > 0) {
-      const { error } = await supabase.from("launch_reports").upsert(launchRows, { onConflict: "launch_id" });
-      if (error) {
-        return fail(error.message);
-      }
+      await mockPlanningService.saveLaunchReports(launchRows);
     }
-    const checkpointRows = checkpoints.map((row) => {
+    const checkpointRows: StoredCheckpointReport[] = checkpoints.map((row) => {
       const timed = row.fixed_time.trim() !== "";
       return {
         task_id: row.task_id,
@@ -192,16 +142,11 @@ export async function submitDetachmentReport(
       };
     });
     if (checkpointRows.length > 0) {
-      const { error } = await supabase
-        .from("checkpoint_reports")
-        .upsert(checkpointRows, { onConflict: "task_id,battle_group_id,checkpoint_id" });
-      if (error) {
-        return fail(error.message);
-      }
+      await mockPlanningService.saveCheckpointReports(checkpointRows);
     }
     return { ok: true };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Мережа недоступна.";
+    const message = error instanceof Error ? error.message : "Локальне сховище недоступне.";
     return fail(message);
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocationsFromBlocks, crewDraftsFromBlocks, crewOptionState, externalAimingUsage, type PlanForceRow, type PlanTargetBlock } from "@/lib/detachmentPlan";
+import { allocationsFromBlocks, crewDraftsFromBlocks, crewOptionState, distributePlanEvenly, externalAimingUsage, fanOutPlanRow, getAvailablePlatoonCrews, getCrewAssignedAssets, isPlanReady, nextForceRow, planRowsAsTasks, platoonDistributionLabel, type PlanForceRow, type PlanTargetBlock } from "@/lib/detachmentPlan";
 import { taskBelongsToMission } from "@/lib/taskAllocations";
 import type { Crew } from "@/types/battleGroup";
 import type { Task } from "@/types/mission";
@@ -77,7 +77,7 @@ describe("detachment target extension", () => {
   });
 
   it("lets the same crew take another target only with the asset already chosen", () => {
-    const crew: Crew = { id: "1.1.1", name: "1.1.1", organization_id: "detachment_1" };
+    const crew: Crew = { id: "1.1.1", name: "1.1.1", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true };
     const row = (key: string, assetId: string, aimingPointId: string): PlanForceRow => ({
       key,
       allocationId: key,
@@ -122,6 +122,174 @@ describe("detachment target extension", () => {
         droneModel: "Сова",
       },
     ]);
+  });
+
+  it("splits a quantity evenly across active crews and skips a busy crew", () => {
+    const crews: Crew[] = [
+      { id: "1.1.1", name: "1.1.1", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.1.2", name: "1.1.2", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: false },
+      { id: "1.2.1", name: "1.2.1", organization_id: "detachment_1", platoon_id: "platoon_1_2", is_active: true },
+      { id: "1.2.2", name: "1.2.2", organization_id: "detachment_1", platoon_id: "platoon_1_2", is_active: true },
+    ];
+    const source: PlanTargetBlock = {
+      key: "target-block",
+      targetId: "target-1",
+      rows: [
+        {
+          key: "row-1",
+          allocationId: "line-1",
+          crewId: "",
+          assetId: "uav_1",
+          quantity: "5",
+          aimingPointId: "point-1",
+        },
+      ],
+    };
+    const [next] = distributePlanEvenly([source], crews, new Set(["1.2.2"]));
+    expect(next.rows.map((row) => ({ crewId: row.crewId, quantity: row.quantity }))).toEqual([
+      { crewId: "1.1.1", quantity: "3" },
+      { crewId: "1.2.1", quantity: "2" },
+    ]);
+  });
+
+  it("fans one row across the chosen platoon and keeps another aiming point", () => {
+    const crews: Crew[] = [
+      { id: "1.1.1", name: "1.1.1", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.1.2", name: "1.1.2", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.1.3", name: "1.1.3", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: false },
+      { id: "1.2.1", name: "1.2.1", organization_id: "detachment_1", platoon_id: "platoon_1_2", is_active: true },
+    ];
+    const source: PlanTargetBlock = {
+      key: "target-block",
+      targetId: "target-1",
+      rows: [
+        {
+          key: "kept",
+          allocationId: "line-0",
+          crewId: "1.2.1",
+          assetId: "uav_1",
+          quantity: "2",
+          aimingPointId: "mp00",
+          platoonId: "platoon_1_2",
+        },
+        {
+          key: "open",
+          allocationId: "line-1",
+          crewId: "",
+          assetId: "uav_1",
+          quantity: "5",
+          aimingPointId: "mp01",
+          platoonId: "platoon_1_1",
+        },
+      ],
+    };
+    const next = fanOutPlanRow(source, "open", "platoon_1_1", "detachment_1", crews, [source]);
+    expect(next?.rows[0]).toMatchObject({ key: "kept", aimingPointId: "mp00", quantity: "2" });
+    expect(next?.rows.slice(1).map((row) => ({ crewId: row.crewId, quantity: row.quantity, aimingPointId: row.aimingPointId }))).toEqual([
+      { crewId: "1.1.1", quantity: "3", aimingPointId: "mp01" },
+      { crewId: "1.1.2", quantity: "2", aimingPointId: "mp01" },
+    ]);
+    const added = nextForceRow(source, "uav_1", "1");
+    expect(added).toMatchObject({ assetId: "uav_1", quantity: "1", aimingPointId: "mp01", crewId: "", platoonId: "" });
+  });
+
+  it("splits a platoon only across crews that are not already on a form row", () => {
+    const crews: Crew[] = [
+      { id: "1.1.1", name: "1.1.1", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.1.2", name: "1.1.2", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.1.3", name: "1.1.3", organization_id: "detachment_1", platoon_id: "platoon_1_1", is_active: true },
+      { id: "1.2.1", name: "1.2.1", organization_id: "detachment_1", platoon_id: "platoon_1_2", is_active: true },
+    ];
+    const source: PlanTargetBlock = {
+      key: "target-block",
+      targetId: "target-1",
+      rows: [
+        {
+          key: "busy",
+          allocationId: "line-0",
+          crewId: "1.1.1",
+          assetId: "uav_2",
+          quantity: "1",
+          aimingPointId: "mp00",
+        },
+        {
+          key: "open",
+          allocationId: "line-1",
+          crewId: "",
+          assetId: "uav_1",
+          quantity: "5",
+          aimingPointId: "mp01",
+        },
+      ],
+    };
+    expect(getAvailablePlatoonCrews("platoon_1_1", "detachment_1", crews, [{ crew_id: "1.1.1" }]).map((crew) => crew.id)).toEqual([
+      "1.1.2",
+      "1.1.3",
+    ]);
+    const next = fanOutPlanRow(source, "open", "platoon_1_1", "detachment_1", crews, [source]);
+    expect(next?.rows.map((row) => ({ crewId: row.crewId, quantity: row.quantity }))).toEqual([
+      { crewId: "1.1.1", quantity: "1" },
+      { crewId: "1.1.2", quantity: "3" },
+      { crewId: "1.1.3", quantity: "2" },
+    ]);
+    const full: PlanTargetBlock = {
+      ...source,
+      rows: [
+        ...source.rows.filter((row) => row.key === "busy"),
+        { ...source.rows[0], key: "busy-2", crewId: "1.1.2" },
+        { ...source.rows[0], key: "busy-3", crewId: "1.1.3" },
+        source.rows[1],
+      ],
+    };
+    expect(fanOutPlanRow(full, "open", "platoon_1_1", "detachment_1", crews, [full])).toBeNull();
+    expect(platoonDistributionLabel("1-й Взвод", 3, 3, 58)).toEqual({
+      disabled: false,
+      label: "⚡ Розділити на 1-й Взвод (3/3) -> (по 20, 19, 19)",
+    });
+    expect(platoonDistributionLabel("1-й Взвод", 2, 3, 58)).toEqual({
+      disabled: false,
+      label: "⚡ Розділити на 1-й Взвод (2/3) -> (по 29, 29)",
+    });
+    expect(platoonDistributionLabel("1-й Взвод", 0, 3, 5)).toEqual({
+      disabled: true,
+      label: "⚡ Розділити на 1-й Взвод (0/3) — всі задіяні",
+    });
+    expect(platoonDistributionLabel("1-й Взвод", 3, 3, 2)).toEqual({
+      disabled: true,
+      label: "⚡ Розділити на 1-й Взвод (3/3) — мін. 3 борт(ів)",
+    });
+    const short: PlanTargetBlock = {
+      ...source,
+      rows: [{ ...source.rows[1], quantity: "1" }],
+    };
+    expect(fanOutPlanRow(short, "open", "platoon_1_1", "detachment_1", crews, [short])).toBeNull();
+  });
+
+  it("locks a crew to one asset inside the current form", () => {
+    expect(
+      getCrewAssignedAssets([
+        { crew_id: "1.1.1", asset_id: "uav_1" },
+        { crew_id: "1.1.2", asset_id: "uav_2" },
+        { crew_id: null, asset_id: "uav_3" },
+      ]).get("1.1.1"),
+    ).toBe("uav_1");
+    const row = (key: string, crewId: string, assetId: string): PlanForceRow => ({
+      key,
+      allocationId: key,
+      crewId,
+      assetId,
+      quantity: "1",
+      aimingPointId: "mp00",
+    });
+    const same: PlanTargetBlock[] = [
+      { key: "t", targetId: "target-1", rows: [row("a", "1.1.1", "uav_1"), row("b", "1.1.1", "uav_1")] },
+    ];
+    const conflict: PlanTargetBlock[] = [
+      { key: "t", targetId: "target-1", rows: [row("a", "1.1.1", "uav_1"), row("b", "1.1.1", "uav_2")] },
+    ];
+    expect(isPlanReady(same)).toBe(true);
+    expect(isPlanReady(conflict)).toBe(false);
+    expect(getCrewAssignedAssets(planRowsAsTasks(conflict, "b")).get("1.1.1")).toBe("uav_1");
   });
 
   it("links a detachment task to the daily mission by mission id", () => {

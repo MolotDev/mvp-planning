@@ -9,6 +9,7 @@ import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import { AimingPointBadge, ProgressBadge } from "../ui/badge";
 
 interface LaunchSummaryCardsProps {
@@ -80,6 +81,7 @@ export function LaunchSummaryCards({
       };
       const ready = groupLaunches.filter(isLaunchEquipped).length;
       const pointId = point?.id ?? allocation?.target_id ?? group.id;
+      const aiming = formatStoredAimingPoint(point, target?.name);
       const existingPoint = current.points.find((item) => item.id === pointId);
       if (existingPoint) {
         existingPoint.ready += ready;
@@ -87,8 +89,8 @@ export function LaunchSummaryCards({
       } else {
         current.points.push({
           id: pointId,
-          label: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-          mgrs: point?.label ?? target?.mgrs ?? "",
+          label: aiming.label,
+          mgrs: aiming.badge,
           ready,
           total: groupLaunches.length,
         });

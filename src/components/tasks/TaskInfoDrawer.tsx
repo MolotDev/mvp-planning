@@ -2,7 +2,7 @@ import { DETACHMENT_REFS } from "@/data/crews";
 import { DICTIONARY } from "@/constants/dictionary";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk, formatTimeUk } from "@/lib/dates";
-import { formattingMGRS } from "@/lib/formattingMGRS";
+import { formatStoredAimingPoint } from "@/lib/formatters";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 import { Button } from "../ui/button";
@@ -16,16 +16,12 @@ interface TaskInfoDrawerProps {
   onClose: () => void;
 }
 
-function lineLabel(line: TaskAllocation, targets: Target[], aimingPoints: AimingPoint[]): { name: string; mgrs: string } {
+function lineLabel(line: TaskAllocation, targets: Target[], aimingPoints: AimingPoint[]): { badge: string; label: string } {
   const target = targets.find((item) => item.id === line.target_id);
   const point = line.aiming_point_id
     ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
     : undefined;
-  const mgrs = point?.mgrs || target?.mgrs || "";
-  return {
-    name: point?.name || target?.name || DICTIONARY.tasks.allocation.primary_target,
-    mgrs: mgrs ? formattingMGRS.spacing(mgrs) : DICTIONARY.tasks.details.empty_value,
-  };
+  return formatStoredAimingPoint(point, target?.name);
 }
 
 export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose }: TaskInfoDrawerProps) {
@@ -76,14 +72,14 @@ export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose 
             </p>
           </section>
           <section className="flex flex-col gap-1.5">
-            <h3 className="text-xs font-medium text-primitive-neutral-300">{text.drawer_mgrs}</h3>
+            <h3 className="text-xs font-medium text-primitive-neutral-300">{DICTIONARY.tasks.aiming_points}</h3>
             <ul className="flex flex-col gap-2">
               {task.allocations.map((line) => {
                 const point = lineLabel(line, targets, aimingPoints);
                 return (
-                  <li key={line.id} className="flex flex-col gap-0.5 text-sm text-primitive-neutral-0">
-                    <span>{point.name}</span>
-                    <span className="font-mono text-xs text-primitive-neutral-300">{point.mgrs}</span>
+                  <li key={line.id} className="flex flex-wrap items-center gap-2 text-sm text-primitive-neutral-0">
+                    <span className="font-semibold tracking-widest text-sky-300">{point.badge}</span>
+                    <span>{point.label}</span>
                   </li>
                 );
               })}

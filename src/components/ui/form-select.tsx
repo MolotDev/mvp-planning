@@ -8,6 +8,7 @@ export interface FormSelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  group?: string;
 }
 
 interface FormSelectProps {
@@ -160,6 +161,40 @@ export function FormSelect({
   );
 }
 
+function SelectOptions({ options }: { options: FormSelectOption[] }) {
+  const optionNode = (option: FormSelectOption) => (
+    <option key={option.value} value={option.value} disabled={option.disabled}>
+      {option.label}
+    </option>
+  );
+  if (!options.some((option) => option.group)) {
+    return <>{options.map(optionNode)}</>;
+  }
+  const loose = options.filter((option) => !option.group);
+  const groups: { label: string; options: FormSelectOption[] }[] = [];
+  options.forEach((option) => {
+    if (!option.group) {
+      return;
+    }
+    const current = groups.find((group) => group.label === option.group);
+    if (current) {
+      current.options.push(option);
+      return;
+    }
+    groups.push({ label: option.group, options: [option] });
+  });
+  return (
+    <>
+      {loose.map(optionNode)}
+      {groups.map((group) => (
+        <optgroup key={group.label} label={group.label}>
+          {group.options.map(optionNode)}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
 interface NativeFormSelectProps {
   id?: string;
   value: string;
@@ -212,11 +247,7 @@ export function NativeFormSelect({
       title={options.find((option) => option.value === value)?.label ?? placeholder}
     >
       <option value="">{placeholder}</option>
-      {options.map((option) => (
-        <option key={option.value} value={option.value} disabled={option.disabled}>
-          {option.label}
-        </option>
-      ))}
+      <SelectOptions options={options} />
     </select>
   );
 }
