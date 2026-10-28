@@ -1,11 +1,12 @@
 import type { CSSProperties } from "react";
 import type { ReportStatus } from "@/types/report";
-import type { EntityStatus } from "@/types/target";
+import { COMPLETED_CONFIRMED, type EntityStatus } from "@/types/target";
 
 const STATUS_COLOR = {
   submitted: "#0091ff",
   draft: "#64ff00",
   archived: "#3a3a3c",
+  confirmed: "#0091ff",
 } as const;
 
 export function reportStatusBadgeStyle(status: ReportStatus): CSSProperties {
@@ -26,8 +27,11 @@ export function entityStatusBadgeStyle(status: EntityStatus): CSSProperties {
   if (status === "archived") {
     return reportStatusBadgeStyle("archived");
   }
-  if (status === "reported") {
-    return reportStatusBadgeStyle("submitted");
+  if (status === COMPLETED_CONFIRMED || status === "reported") {
+    return {
+      color: STATUS_COLOR.confirmed,
+      backgroundColor: `${STATUS_COLOR.confirmed}33`,
+    };
   }
   return reportStatusBadgeStyle("draft");
 }

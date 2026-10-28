@@ -13,7 +13,7 @@ interface FormFieldProps {
   children: ReactNode;
 }
 
-export function FormField({ id, label, error, optional = false, children, wrapperClassName = "", labelClassName = "" }: FormFieldProps) {
+export function FormField({ id, label, optional = false, children, wrapperClassName = "", labelClassName = "" }: FormFieldProps) {
   return (
     <div className={cn("flex flex-col gap-1.5", wrapperClassName)}>
       <Label htmlFor={id} className={labelClassName}>
@@ -23,11 +23,11 @@ export function FormField({ id, label, error, optional = false, children, wrappe
         ) : null}
       </Label>
       {children}
-      {error ? (
+      {/* {error ? (
         <p id={`${id}-error`} role="alert" className="text-sm text-primitive-red-500">
           {error}
         </p>
-      ) : null}
+      ) : null} */}
     </div>
   );
 }

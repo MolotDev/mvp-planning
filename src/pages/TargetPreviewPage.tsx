@@ -10,7 +10,7 @@ import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { StatusToggle } from "@/components/ui/status-toggle";
 import { DICTIONARY } from "@/constants/dictionary";
 import { getEntityState } from "@/lib/entityState";
-import { emptyTargetForm, validateTargetForm, type FieldErrors } from "@/lib/targetForm";
+import { emptyTargetForm, emptyTargetFormValidation, validateTargetForm } from "@/lib/targetForm";
 import { notifySuccess } from "@/lib/toasts";
 import { parseRequiredNumber } from "@/lib/validation";
 import { cn } from "@/lib/utils";
@@ -59,10 +59,11 @@ export function TargetPreviewPage() {
     }
   }, [target]);
 
-  const errors = useMemo(
-    () => (isEditMode && target ? validateTargetForm(values, target.id) : {}),
+  const validation = useMemo(
+    () => (isEditMode && target ? validateTargetForm(values, target.id) : emptyTargetFormValidation()),
     [isEditMode, values, target],
-  ) as FieldErrors<TargetFormValues>;
+  );
+  const errors = validation.errors;
 
   const visiblePoints = targetPoints.filter((point) => {
     if (status === "all") {
@@ -91,12 +92,13 @@ export function TargetPreviewPage() {
     setValues((current) => ({ ...current, [field]: value }));
   };
 
-  const canSave = isEditMode && !Object.values(errors).some(Boolean);
+  const canSave =
+    isEditMode && !Object.values(errors).some(Boolean) && !validation.duplicateTarget;
 
   const handleSave = () => {
-    const nextErrors = validateTargetForm(values, target.id);
+    const next = validateTargetForm(values, target.id);
     const distance = parseRequiredNumber(values.distance_from_hot_line);
-    if (Object.values(nextErrors).some(Boolean) || distance === null) {
+    if (Object.values(next.errors).some(Boolean) || next.duplicateTarget || distance === null) {
       return;
     }
     updateTarget(target.id, {
@@ -147,7 +149,14 @@ export function TargetPreviewPage() {
       </header>
       <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
         <div className="flex min-h-0 flex-col overflow-y-auto rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4">
-          <TargetForm values={values} errors={isEditMode ? errors : {}} readOnly={!isEditMode} onChange={handleChange} />
+          <TargetForm
+            values={values}
+            errors={isEditMode ? errors : {}}
+            nameCollision={isEditMode ? validation.nameCollision : false}
+            mgrsCollision={isEditMode ? validation.mgrsCollision : false}
+            readOnly={!isEditMode}
+            onChange={handleChange}
+          />
           {isEditMode ? (
             <div className="mt-auto flex justify-end gap-3">
               <Button

@@ -4,7 +4,8 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { operationalDay } from "@/lib/battleGroup";
 import { allocationsFromBlocks, isPlanReady, type PlanTargetBlock } from "@/lib/detachmentPlan";
 import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
-import { getEntityState } from "@/lib/entityState";
+import { getEntityState, matchesEntityStatusFilter } from "@/lib/entityState";
+import { COMPLETED_CONFIRMED } from "@/types/target";
 import { cascadeMissionAllocation } from "@/lib/missionCascade";
 import { notifyCrossTab } from "@/services/crossTabSync";
 import { taskMissionIds, taskTargetIds } from "@/lib/taskAllocations";
@@ -51,6 +52,7 @@ export interface TaskStoreState {
   archiveTask: (id: string) => void;
   restoreTask: (id: string) => void;
   markTasksReported: (ids: string[], reportedAt: string) => void;
+  setTasksConfirmed: (ids: string[], confirmedAt: string | null) => void;
   createDetachmentTask: (input: { missionId: string; organizationId: string; scheduledAt: string }) => Task | null;
   saveDetachmentPlan: (taskId: string, plan: PlanTargetBlock[]) => string | null;
 }
@@ -120,6 +122,7 @@ export function normalizeTask(task: StoredTask): Task {
     created_at: task.created_at,
     updated_at: task.updated_at,
     reported_at: task.reported_at ?? null,
+    confirmed_at: task.confirmed_at ?? null,
     archived_at: task.archived_at ?? null,
   };
 }
@@ -168,7 +171,10 @@ export function getTaskMetrics(tasks: Task[]): MissionMetrics {
   return {
     total: tasks.length,
     active: tasks.filter((task) => getEntityState(task) === "active").length,
-    reported: tasks.filter((task) => getEntityState(task) === "reported").length,
+    reported: tasks.filter((task) => {
+      const state = getEntityState(task);
+      return state === "reported" || state === COMPLETED_CONFIRMED;
+    }).length,
     archived: tasks.filter((task) => getEntityState(task) === "archived").length,
   };
 }
@@ -227,7 +233,7 @@ export function filterTasks(
     if (organizationId && task.organization_id !== organizationId) {
       return false;
     }
-    if (status !== "all" && getEntityState(task) !== status) {
+    if (status !== "all" && !matchesEntityStatusFilter(task, status)) {
       return false;
     }
     if (!isDateInRange(task.scheduled_at || task.created_at, from, to)) {
@@ -304,6 +310,7 @@ export const useTaskStore = create<TaskStoreState>()(
               created_at: now,
               updated_at: now,
               reported_at: null,
+              confirmed_at: null,
               archived_at: null,
             };
             tasks.push(task);
@@ -431,6 +438,18 @@ export const useTaskStore = create<TaskStoreState>()(
         }));
         notifyCrossTab("SYNC_TASKS");
       },
+      setTasksConfirmed: (ids, confirmedAt) => {
+        const idSet = new Set(ids);
+        const now = new Date().toISOString();
+        set((state) => ({
+          tasks: state.tasks.map((task) =>
+            idSet.has(task.id) && task.archived_at === null
+              ? { ...task, confirmed_at: confirmedAt, updated_at: now }
+              : task,
+          ),
+        }));
+        notifyCrossTab("SYNC_TASKS");
+      },
       createDetachmentTask: ({ missionId, organizationId, scheduledAt }) => {
         if (!missionId || isBeforeToday(startOfDay(new Date(scheduledAt)))) {
           return null;
@@ -451,6 +470,7 @@ export const useTaskStore = create<TaskStoreState>()(
           created_at: now,
           updated_at: now,
           reported_at: null,
+          confirmed_at: null,
           archived_at: null,
         };
         set((state) => ({
@@ -470,20 +490,9 @@ export const useTaskStore = create<TaskStoreState>()(
           return DICTIONARY.targets_catalog.validation.required;
         }
         const catalog = useTargetStore.getState();
-        const known = plan.every((block) => {
-          const target = catalog.targets.find((item) => item.id === block.targetId && item.archived_at === null);
-          if (!target) {
-            return false;
-          }
-          return block.rows.every((row) => {
-            if (!row.aimingPointId) {
-              return true;
-            }
-            return catalog.aimingPoints.some(
-              (point) => point.id === row.aimingPointId && point.target_id === target.id,
-            );
-          });
-        });
+        const known = plan.every((block) =>
+          catalog.targets.some((item) => item.id === block.targetId && item.archived_at === null),
+        );
         if (!known) {
           return DICTIONARY.targets_catalog.validation.required;
         }

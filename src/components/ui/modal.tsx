@@ -60,14 +60,9 @@ export function Modal({
           <CloseIconButton onClick={onClose} />
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">{children}</div>
-        <footer
-          className={cn(
-            "flex items-center gap-3 border-t border-primitive-neutral-800 px-4 py-3",
-            footerStart ? "justify-between" : "justify-end",
-          )}
-        >
-          {footerStart ? <div className="min-w-0 text-sm text-primitive-neutral-300">{footerStart}</div> : null}
-          <div className="flex items-center gap-3">
+        <footer className="border-t border-primitive-neutral-800 px-4 py-3">
+          {footerStart ? <div className="mb-3 min-w-0 w-full overflow-hidden">{footerStart}</div> : null}
+          <div className="flex items-center justify-end gap-3">
             <Button variant="ghost" className="hover:shadow-md" onClick={onClose}>
               {cancelLabel}
             </Button>

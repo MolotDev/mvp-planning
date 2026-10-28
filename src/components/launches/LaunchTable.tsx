@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { HoverPopover } from "@/components/launches/HoverPopover";
 import { Badge, TargetIdBadge } from "@/components/ui/badge";
+import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Input } from "@/components/ui/input";
 import { CancelChangesIconButton, DeleteIconButton, EditIconButton, SaveIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
@@ -13,6 +14,7 @@ import { canAdminister, canEditLaunchFields, crewOwnsGroup } from "@/lib/access"
 import { ammosForAsset } from "@/lib/assets";
 import { uavName } from "@/lib/battleGroup";
 import { formatDateUk } from "@/lib/dates";
+import { resolvePlanningEntityState } from "@/lib/entityState";
 import { formatStoredAimingPoint } from "@/lib/formatters";
 import type { LaunchRowContext } from "@/lib/launchBoard";
 import { ammoName, isLaunchReadOnly, launchLockKind, processedTransitionPatch, trackerName } from "@/lib/launches";
@@ -21,6 +23,7 @@ import { publishLaunchesToSupabase } from "@/services/launchService";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import type { Launch } from "@/types/launch";
+import { COMPLETED_CONFIRMED } from "@/types/target";
 import { extractNumeric } from "@/lib/validation";
 
 interface RowDraft {
@@ -79,7 +82,15 @@ function popupForAiming(context: LaunchRowContext) {
   return <EntityPopup displayedId={aiming.badge} name={aiming.label} mgrs="" tone="aiming" />;
 }
 
-function LaunchLockBadge({ kind, title }: { kind: "archived" | "reported"; title: string }) {
+function LaunchLockBadge({ kind, title }: { kind: "archived" | "confirmed" | "reported"; title: string }) {
+  if (kind === "confirmed") {
+    return (
+      <span className="inline-flex items-center gap-1" title={title}>
+        <Lock className="h-4 w-4 text-primitive-neutral-300" aria-hidden="true" />
+        <EntityStatusBadge status={COMPLETED_CONFIRMED} />
+      </span>
+    );
+  }
   const label =
     kind === "archived" ? DICTIONARY.launches.labels.archived_status : DICTIONARY.launches.labels.reported_status;
   return (
@@ -266,12 +277,15 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
             const rowDraft = editing ? draft : null;
             const locked = isLaunchReadOnly(launch, task ?? null, mission ?? null);
             const lockKind = launchLockKind(launch, task ?? null, mission ?? null);
+            const launchState = resolvePlanningEntityState(launch, task, mission);
             const lockTitle =
-              launch.archived_at !== null || launch.reported_at !== null
-                ? lockKind === "archived"
-                  ? DICTIONARY.launches.labels.archived_status
-                  : DICTIONARY.launches.labels.reported_status
-                : DICTIONARY.launches.labels.read_only_locked;
+              lockKind === "archived"
+                ? DICTIONARY.launches.labels.archived_status
+                : lockKind === "confirmed" || launchState === COMPLETED_CONFIRMED
+                  ? DICTIONARY.common.states.confirmed
+                  : launch.archived_at !== null || launch.reported_at !== null
+                    ? DICTIONARY.launches.labels.reported_status
+                    : DICTIONARY.launches.labels.read_only_locked;
             const scheduledAt = mission?.scheduled_at ?? task?.created_at ?? launch.created_at;
             const trackerSerial = rowDraft?.tracker_model_serial_number ?? launch.tracker_model_serial_number ?? "";
             const trackerId = rowDraft

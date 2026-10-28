@@ -72,15 +72,55 @@ interface CenterTargetGroup {
   detachments: CenterDetachmentGroup[];
 }
 
+interface RowDraft {
+  aiming_point_mgrs: string;
+  trajectory_name: string;
+  asset_serial_number: string;
+  tracker_model_serial_number: string;
+  ammo_model_id: string;
+  ammo_quantity: string;
+}
+
 function compareUk(left: string, right: string): number {
   return left.localeCompare(right, "uk");
 }
 
-function countProcessed(rows: Launch[]): { processed: number; total: number } {
-  return {
-    processed: rows.filter(isLaunchProcessed).length,
-    total: rows.length,
-  };
+function countProcessed(
+  rows: Launch[],
+  options: {
+    drafts: Record<string, RowDraft>;
+    liveLaunch: (launch: Launch) => Launch;
+    battleGroups: BattleGroup[];
+    tasks: Task[];
+    fallbackTask: Task;
+    aimingPoints: AimingPoint[];
+  },
+): { processed: number; total: number } {
+  const processed = rows.filter((row) => {
+    const stored = options.liveLaunch(row);
+    const draft = options.drafts[row.id];
+    const owner = options.battleGroups.find((item) => item.id === stored.battle_group_id);
+    const itemTask = options.tasks.find((item) => item.id === stored.task_id) ?? options.fallbackTask;
+    const resolvedAiming = resolveLaunchAimingPoint(itemTask, stored, owner, options.aimingPoints);
+    const aiming =
+      (draft?.aiming_point_mgrs ?? stored.aiming_point_mgrs).trim() || resolvedAiming?.mgrs.trim() || "";
+    const trajectory = draft?.trajectory_name ?? stored.trajectory_name ?? "";
+    const serial = draft?.asset_serial_number ?? stored.asset_serial_number;
+    const ammoId = draft?.ammo_model_id ?? stored.ammo_model_id;
+    const ammoQuantity = draft
+      ? draft.ammo_quantity.trim() === ""
+        ? 0
+        : Number(draft.ammo_quantity)
+      : stored.ammo_quantity;
+    return isLaunchProcessed({
+      aiming_point_mgrs: aiming,
+      trajectory_name: trajectory,
+      asset_serial_number: serial,
+      ammo_model_id: ammoId,
+      ammo_quantity: Number.isFinite(ammoQuantity) ? ammoQuantity : 0,
+    });
+  }).length;
+  return { processed, total: rows.length };
 }
 
 function singleValue(values: string[]): string | undefined {
@@ -190,15 +230,6 @@ function CollapseSection({
       {children}
     </details>
   );
-}
-
-interface RowDraft {
-  aiming_point_mgrs: string;
-  trajectory_name: string;
-  asset_serial_number: string;
-  tracker_model_serial_number: string;
-  ammo_model_id: string;
-  ammo_quantity: string;
 }
 
 interface LaunchEditorProps {
@@ -848,7 +879,14 @@ export function LaunchEditor({
                               {detachment.assets.map((asset) => {
                                 const assetKey = `${detachmentKey}/asset:${asset.key}`;
                                 const assetRows = asset.crews.flatMap((crew) => crew.aiming.flatMap((point) => point.rows));
-                                const assetProgress = countProcessed(assetRows);
+                                const assetProgress = countProcessed(assetRows, {
+                                  drafts,
+                                  liveLaunch,
+                                  battleGroups,
+                                  tasks: catalogTasks,
+                                  fallbackTask: task,
+                                  aimingPoints,
+                                });
                                 return (
                                   <CollapseSection
                                     key={assetKey}
@@ -871,7 +909,14 @@ export function LaunchEditor({
                                     {asset.crews.map((crewGroup) => {
                                       const crewKey = `${assetKey}/crew:${crewGroup.key}`;
                                       const crewRows = crewGroup.aiming.flatMap((point) => point.rows);
-                                      const crewProgress = countProcessed(crewRows);
+                                      const crewProgress = countProcessed(crewRows, {
+                                        drafts,
+                                        liveLaunch,
+                                        battleGroups,
+                                        tasks: catalogTasks,
+                                        fallbackTask: task,
+                                        aimingPoints,
+                                      });
                                       return (
                                         <CollapseSection
                                           key={crewKey}

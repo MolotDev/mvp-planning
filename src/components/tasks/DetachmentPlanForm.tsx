@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { MapPinned, Plus } from "lucide-react";
 import { TargetSearchCombobox } from "@/components/missions/TargetSearchCombobox";
+import { AimingPointInput } from "@/components/tasks/AimingPointInput";
+import { TargetModal } from "@/components/targets/TargetModal";
 import { Button } from "@/components/ui/button";
 import { NativeFormSelect } from "@/components/ui/form-select";
 import { DeleteIconButton } from "@/components/ui/icon-buttons";
 import { Input } from "@/components/ui/input";
 import { DICTIONARY } from "@/constants/dictionary";
 import { platoonsForOrganization } from "@/data/crews";
+import { aimingCodeFromStored } from "@/lib/aimingPointCode";
 import { uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import {
@@ -19,22 +22,23 @@ import {
   getAvailablePlatoonCrews,
   getCrewAssignedAssets,
   nextForceRow,
+  planBlockForTarget,
   planRowsAsTasks,
   platoonDistributionLabel,
   unassignedTargetQuantity,
   type PlanForceRow,
   type PlanTargetBlock,
 } from "@/lib/detachmentPlan";
-import { formatStoredAimingPoint } from "@/lib/formatters";
 import { notifySuccess } from "@/lib/toasts";
 import { extractNumeric } from "@/lib/validation";
 import type { Crew } from "@/types/battleGroup";
 import type { Task } from "@/types/mission";
 import type { Asset } from "@/types/asset";
 import type { AimingPoint, Target } from "@/types/target";
+import { PRIMARY_AIMING_POINT } from "@/types/database";
 
 const columnClass =
-  "grid grid-cols-[minmax(8rem,1.4fr)_minmax(7rem,1fr)_4.5rem_minmax(14rem,1.8fr)_2rem] items-center gap-2";
+  "grid grid-cols-[5.5rem_minmax(7rem,1fr)_4.5rem_minmax(14rem,1.8fr)_2rem] items-center gap-2";
 const controlClass =
   "h-9 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-2 text-sm hover:cursor-pointer hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -62,8 +66,19 @@ export function DetachmentPlanForm({
   onChange,
 }: DetachmentPlanFormProps) {
   const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
+  const [createForBlockKey, setCreateForBlockKey] = useState<string | null>(null);
   const replace = (next: PlanTargetBlock) => {
     onChange(blocks.map((block) => (block.key === next.key ? next : block)));
+  };
+
+  const applyCatalogTarget = (target: Target, blockKey: string | null) => {
+    const existing = blockKey ? blocks.find((block) => block.key === blockKey) : undefined;
+    const nextBlock = planBlockForTarget(target.id, PRIMARY_AIMING_POINT, existing ?? null);
+    if (existing) {
+      onChange(blocks.map((block) => (block.key === existing.key ? nextBlock : block)));
+      return;
+    }
+    onChange([...blocks, nextBlock]);
   };
 
   return (
@@ -84,6 +99,7 @@ export function DetachmentPlanForm({
           onSelectRow={setSelectedRowKey}
           onChange={replace}
           onRemove={() => onChange(blocks.filter((item) => item.key !== block.key))}
+          onCreateTarget={() => setCreateForBlockKey(block.key)}
         />
       ))}
       <Button
@@ -93,6 +109,19 @@ export function DetachmentPlanForm({
         <Plus className="h-4 w-4" aria-hidden="true" />
         {DICTIONARY.missions.add_target}
       </Button>
+      {createForBlockKey !== null ? (
+        <TargetModal
+          onClose={() => setCreateForBlockKey(null)}
+          onSaved={(target) => {
+            applyCatalogTarget(target, createForBlockKey);
+            setCreateForBlockKey(null);
+          }}
+          onSelectExisting={(target) => {
+            applyCatalogTarget(target, createForBlockKey);
+            setCreateForBlockKey(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -111,6 +140,7 @@ function TargetBlock({
   onSelectRow,
   onChange,
   onRemove,
+  onCreateTarget,
 }: {
   block: PlanTargetBlock;
   blocks: PlanTargetBlock[];
@@ -125,21 +155,11 @@ function TargetBlock({
   onSelectRow: (rowKey: string) => void;
   onChange: (block: PlanTargetBlock) => void;
   onRemove: () => void;
+  onCreateTarget: () => void;
 }) {
   const text = DICTIONARY.tasks.details;
   const columns = DICTIONARY.tasks.allocation;
-  const primaryAiming = formatStoredAimingPoint(null);
   const selectedTarget = catalogTargets.find((target) => target.id === block.targetId);
-  const points = useMemo(
-    () =>
-      aimingPoints.filter((point) => {
-        if (point.target_id !== block.targetId) {
-          return false;
-        }
-        return point.archived_at === null || block.rows.some((row) => row.aimingPointId === point.id);
-      }),
-    [aimingPoints, block.rows, block.targetId],
-  );
   const platoons = platoonsForOrganization(organizationId);
   const updateRow = (rowKey: string, patch: Partial<PlanForceRow>) => {
     onChange({
@@ -156,13 +176,25 @@ function TargetBlock({
           id={`target-${block.key}`}
           value={block.targetId}
           targets={catalogTargets}
-          onChange={(targetId) =>
+          onCreateNew={onCreateTarget}
+          onChange={(targetId) => {
+            if (!targetId) {
+              onChange({ ...block, targetId: "", rows: [] });
+              return;
+            }
+            if (block.rows.length === 0) {
+              onChange(planBlockForTarget(targetId, PRIMARY_AIMING_POINT, block));
+              return;
+            }
             onChange({
               ...block,
               targetId,
-              rows: block.rows.map((row) => ({ ...row, aimingPointId: "" })),
-            })
-          }
+              rows: block.rows.map((row) => ({
+                ...row,
+                aimingPointId: aimingCodeFromStored(row.aimingPointId, aimingPoints),
+              })),
+            });
+          }}
         />
         <div className="w-8 min-w-8">
           <DeleteIconButton onClick={onRemove} />
@@ -258,20 +290,11 @@ function TargetBlock({
               return (
                 <div key={row.key} onClick={() => onSelectRow(row.key)} onFocus={() => onSelectRow(row.key)}>
                   <div className={columnClass}>
-                    <NativeFormSelect
-                      autoSelect={false}
-                      ariaLabel={columns.column_tp}
+                    <AimingPointInput
                       id={`${row.key}-aiming`}
-                      value={row.aimingPointId}
-                      placeholder={`${primaryAiming.badge} — ${primaryAiming.label}`}
-                      options={points
-                        .filter((point) => point.archived_at === null || point.id === row.aimingPointId)
-                        .map((point) => {
-                          const aiming = formatStoredAimingPoint(point);
-                          return { value: point.id, label: `${aiming.badge} — ${aiming.label}` };
-                        })}
+                      aria-label={columns.column_tp}
+                      value={aimingCodeFromStored(row.aimingPointId, aimingPoints)}
                       onChange={(aimingPointId) => onChange(assignPlanAimingPoint(block, row.key, aimingPointId))}
-                      className={controlClass}
                     />
                     <NativeFormSelect
                       autoSelect={false}

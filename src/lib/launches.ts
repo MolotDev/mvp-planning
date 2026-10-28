@@ -47,6 +47,11 @@ export function trackerName(id: string | null | undefined): string {
 export interface LaunchLifecycle {
   reported_at: string | null;
   archived_at: string | null;
+  confirmed_at?: string | null;
+}
+
+function hasConfirmed(entity?: LaunchLifecycle | null): boolean {
+  return entity != null && entity.confirmed_at != null && entity.confirmed_at !== "";
 }
 
 export function isLaunchReadOnly(
@@ -54,20 +59,23 @@ export function isLaunchReadOnly(
   task?: LaunchLifecycle | null,
   mission?: LaunchLifecycle | null,
 ): boolean {
-  if (launch.reported_at !== null || launch.archived_at !== null) {
+  if (launch.reported_at !== null || launch.archived_at !== null || hasConfirmed(launch)) {
     return true;
   }
-  if (task != null && (task.reported_at !== null || task.archived_at !== null)) {
+  if (task != null && (task.reported_at !== null || task.archived_at !== null || hasConfirmed(task))) {
     return true;
   }
-  return mission != null && (mission.reported_at !== null || mission.archived_at !== null);
+  return (
+    mission != null &&
+    (mission.reported_at !== null || mission.archived_at !== null || hasConfirmed(mission))
+  );
 }
 
 export function launchLockKind(
   launch: LaunchLifecycle,
   task?: LaunchLifecycle | null,
   mission?: LaunchLifecycle | null,
-): "archived" | "reported" | null {
+): "archived" | "confirmed" | "reported" | null {
   if (!isLaunchReadOnly(launch, task, mission)) {
     return null;
   }
@@ -77,6 +85,9 @@ export function launchLockKind(
     (mission != null && mission.archived_at !== null)
   ) {
     return "archived";
+  }
+  if (hasConfirmed(launch) || hasConfirmed(task) || hasConfirmed(mission)) {
+    return "confirmed";
   }
   return "reported";
 }

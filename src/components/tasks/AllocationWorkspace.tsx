@@ -15,7 +15,7 @@ import {
   type CrewAssignmentDraft,
 } from "@/lib/crewAllocation";
 import { crewDraftsFromBlocks, externalAimingUsage, type PlanTargetBlock } from "@/lib/detachmentPlan";
-import { formatStoredAimingPoint } from "@/lib/formatters";
+import { formatAimingPointRef } from "@/lib/formatters";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { crewClearanceAssetIds, parseAllocationQuantity } from "@/lib/taskDashboard";
 import { useAssetStore } from "@/store/useAssetStore";
@@ -381,7 +381,6 @@ export function AllocationWorkspace({
                 />
               </div>
               {allocations.map((allocation) => {
-                const aimingPoint = aimingPoints.find((item) => item.id === allocation.aiming_point_id);
                 const remaining = Math.max(0, getRemaining(allocation, drafts));
                 const assigned = allocation.quantity - remaining;
                 const bucketDrafts = drafts.filter((draft) => draft.allocationId === allocation.id);
@@ -400,7 +399,12 @@ export function AllocationWorkspace({
                     : remaining === 0
                       ? allocationText.complete
                       : fillTemplate(allocationText.bucket_remaining, { remaining });
-                const aiming = formatStoredAimingPoint(aimingPoint, target?.name);
+                const aiming = formatAimingPointRef(
+                  allocation.aiming_point_id,
+                  aimingPoints,
+                  target?.name,
+                  allocation.target_id,
+                );
                 return (
                   <article
                     key={allocation.id}

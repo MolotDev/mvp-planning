@@ -5,7 +5,7 @@ import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { PreviewActionButton } from "@/components/ui/preview-action-button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAccess, canEditLaunchFields, crewOwnsGroup, homePath, launchInScope } from "@/lib/access";
-import { getEntityState } from "@/lib/entityState";
+import { resolvePlanningEntityState } from "@/lib/entityState";
 import { allocationForLaunch, taskAimingPoints } from "@/lib/launchAiming";
 import { activeMissionTasks } from "@/lib/missionDashboard";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,6 @@ import { formatDateUk } from "@/lib/dates";
 import { Badge, TargetBadge } from "@/components/ui/badge";
 import { Calendar } from "lucide-react";
 import { formattingMGRS } from "@/lib/formattingMGRS";
-
 export function LaunchPreviewPage() {
   const { battleGroupId, taskId, missionId } = useParams();
   const navigate = useNavigate();
@@ -105,12 +104,11 @@ export function LaunchPreviewPage() {
     return <Navigate to={homePath(role)} replace />;
   }
   const pageMission = routeMission ?? mission;
-  const taskState = getEntityState(blocks[0].task);
-  const missionState = pageMission ? getEntityState(pageMission) : "active";
-  const locked = taskState !== "active" || missionState !== "active";
+  const sampleLaunch = blocks.flatMap((block) => block.launches).find((item) => item.archived_at === null);
+  const entityState = resolvePlanningEntityState(blocks[0].task, pageMission, sampleLaunch);
+  const locked = entityState !== "active";
   const canEdit = canEditLaunchFields(role) && blocks.some((block) => block.groups.some((item) => crewOwnsGroup(item, entityId)));
   const editing = isEditMode && !locked && canEdit;
-  const entityState = taskState === "active" && missionState === "active" ? "active" : missionState !== "active" ? missionState : taskState;
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">

@@ -31,6 +31,7 @@ function task(id: string, organizationId: string, lines: TaskAllocation[]): Task
     created_at: NOW,
     updated_at: NOW,
     reported_at: null,
+    confirmed_at: null,
     archived_at: null,
   };
 }
@@ -51,6 +52,7 @@ function launch(patch: Partial<Launch> & Pick<Launch, "id">): Launch {
     created_at: NOW,
     updated_at: NOW,
     archived_at: null,
+    confirmed_at: null,
     reported_at: null,
     reported_at_time: null,
     processed_at: null,

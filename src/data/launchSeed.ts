@@ -48,6 +48,7 @@ export function createLaunchRecord(
     created_at: createdAt,
     updated_at: createdAt,
     archived_at: null,
+    confirmed_at: null,
     reported_at: null,
     reported_at_time: null,
     processed_at: null,

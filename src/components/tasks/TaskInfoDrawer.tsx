@@ -2,7 +2,7 @@ import { DETACHMENT_REFS } from "@/data/crews";
 import { DICTIONARY } from "@/constants/dictionary";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import { formatDateUk, formatTimeUk } from "@/lib/dates";
-import { formatStoredAimingPoint } from "@/lib/formatters";
+import { formatAimingPointRef } from "@/lib/formatters";
 import type { Mission, Task, TaskAllocation } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
 import { Button } from "../ui/button";
@@ -18,10 +18,7 @@ interface TaskInfoDrawerProps {
 
 function lineLabel(line: TaskAllocation, targets: Target[], aimingPoints: AimingPoint[]): { badge: string; label: string } {
   const target = targets.find((item) => item.id === line.target_id);
-  const point = line.aiming_point_id
-    ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
-    : undefined;
-  return formatStoredAimingPoint(point, target?.name);
+  return formatAimingPointRef(line.aiming_point_id, aimingPoints, target?.name, line.target_id);
 }
 
 export function TaskInfoDrawer({ task, missions, targets, aimingPoints, onClose }: TaskInfoDrawerProps) {

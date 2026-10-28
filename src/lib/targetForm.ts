@@ -1,9 +1,23 @@
 import { DICTIONARY } from "@/constants/dictionary";
-import { mgrsError, parseRequiredNumber, requiredError } from "@/lib/validation";
+import {
+  formatMGRSDisplay,
+  isMGRSValid,
+  mgrsError,
+  parseRequiredNumber,
+  requiredError,
+} from "@/lib/validation";
 import { useTargetStore } from "@/store/useTargetStore";
-import type { AimingPointFormValues, TargetFormValues } from "@/types/target";
+import type { AimingPointFormValues, Target, TargetFormValues } from "@/types/target";
 
 export type FieldErrors<T> = Partial<Record<keyof T, string>>;
+
+export interface TargetFormValidation {
+  errors: FieldErrors<TargetFormValues>;
+  /** Existing catalog target that collides by name and/or MGRS. */
+  duplicateTarget: Target | null;
+  nameCollision: boolean;
+  mgrsCollision: boolean;
+}
 
 export function emptyTargetForm(): TargetFormValues {
   return {
@@ -27,18 +41,38 @@ export function emptyAimingPointForm(): AimingPointFormValues {
   };
 }
 
+export function emptyTargetFormValidation(): TargetFormValidation {
+  return {
+    errors: {},
+    duplicateTarget: null,
+    nameCollision: false,
+    mgrsCollision: false,
+  };
+}
+
 export function validateTargetForm(
   values: TargetFormValues,
   excludeId?: string,
-): FieldErrors<TargetFormValues> {
+): TargetFormValidation {
   const store = useTargetStore.getState();
   const errors: FieldErrors<TargetFormValues> = {};
+  let nameCollision = false;
+  let mgrsCollision = false;
+  let duplicateByName: Target | null = null;
+  let duplicateByMgrs: Target | null = null;
 
   const name = values.name.trim();
   if (!name) {
     errors.name = DICTIONARY.targets_catalog.validation.required;
   } else if (store.isTargetNameTaken(name, excludeId)) {
-    errors.name = DICTIONARY.targets_catalog.validation.unique_name;
+    nameCollision = true;
+    duplicateByName =
+      store.targets.find(
+        (target) =>
+          target.archived_at === null &&
+          target.id !== excludeId &&
+          target.name.trim().toLowerCase() === name.toLowerCase(),
+      ) ?? null;
   }
 
   const addressError = requiredError(values.address);
@@ -51,12 +85,15 @@ export function validateTargetForm(
     errors.type = typeError;
   }
 
-  const mgrs = values.mgrs.trim();
   const mgrsFieldError = mgrsError(values.mgrs);
   if (mgrsFieldError) {
     errors.mgrs = mgrsFieldError;
-  } else if (store.isTargetMgrsTaken(mgrs, excludeId)) {
-    errors.mgrs = DICTIONARY.targets_catalog.validation.unique_mgrs;
+  } else if (isMGRSValid(values.mgrs)) {
+    const collision = store.findTargetByMgrs(formatMGRSDisplay(values.mgrs), excludeId);
+    if (collision) {
+      mgrsCollision = true;
+      duplicateByMgrs = collision;
+    }
   }
 
   const distance = parseRequiredNumber(values.distance_from_hot_line);
@@ -66,7 +103,12 @@ export function validateTargetForm(
     errors.distance_from_hot_line = DICTIONARY.targets_catalog.validation.number;
   }
 
-  return errors;
+  return {
+    errors,
+    duplicateTarget: duplicateByMgrs ?? duplicateByName,
+    nameCollision,
+    mgrsCollision,
+  };
 }
 
 export function validateAimingPointForm(

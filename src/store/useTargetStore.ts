@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { DICTIONARY } from "@/constants/dictionary";
 import { SEED_AIMING_POINTS, SEED_TARGETS } from "@/data/targetSeed";
+import { formatMGRSDisplay, isMGRSValid, sanitizeMGRSInput, sameMgrs } from "@/lib/validation";
 import { notifyCrossTab } from "@/services/crossTabSync";
 import type { AimingPoint, StatusFilter, Target } from "@/types/target";
 
@@ -35,6 +37,7 @@ export interface TargetStoreState {
   isTargetDisplayedIdTaken: (displayedId: string, excludeId?: string) => boolean;
   isTargetNameTaken: (name: string, excludeId?: string) => boolean;
   isTargetMgrsTaken: (mgrs: string, excludeId?: string) => boolean;
+  findTargetByMgrs: (mgrs: string, excludeId?: string) => Target | null;
   isAimingPointDisplayedIdTaken: (targetId: string, displayedId: string, excludeId?: string) => boolean;
   isAimingPointMgrsTaken: (mgrs: string, excludeId?: string) => boolean;
 }
@@ -103,10 +106,30 @@ export const useTargetStore = create<TargetStoreState>()(
         get().targets.some(
           (target) => target.displayed_id === displayedId.trim() && target.id !== excludeId,
         ),
-      isTargetNameTaken: (name, excludeId) =>
-        get().targets.some((target) => target.name.trim() === name.trim() && target.id !== excludeId),
-      isTargetMgrsTaken: (mgrs, excludeId) =>
-        get().targets.some((target) => target.mgrs.trim() === mgrs.trim() && target.id !== excludeId),
+      isTargetNameTaken: (name, excludeId) => {
+        const needle = name.trim().toLowerCase();
+        return get().targets.some(
+          (target) =>
+            target.archived_at === null &&
+            target.id !== excludeId &&
+            target.name.trim().toLowerCase() === needle,
+        );
+      },
+      isTargetMgrsTaken: (mgrs, excludeId) => get().findTargetByMgrs(mgrs, excludeId) !== null,
+      findTargetByMgrs: (mgrs, excludeId) => {
+        const needle = sanitizeMGRSInput(mgrs);
+        if (!needle) {
+          return null;
+        }
+        return (
+          get().targets.find(
+            (target) =>
+              target.archived_at === null &&
+              target.id !== excludeId &&
+              sameMgrs(target.mgrs, needle),
+          ) ?? null
+        );
+      },
       isAimingPointDisplayedIdTaken: (targetId, _displayedId, excludeId) =>
         get().aimingPoints.some(
           (point) =>
@@ -115,26 +138,48 @@ export const useTargetStore = create<TargetStoreState>()(
             point.id !== excludeId,
         ),
       isAimingPointMgrsTaken: (mgrs, excludeId) =>
-        get().aimingPoints.some((point) => point.mgrs.trim() === mgrs.trim() && point.id !== excludeId),
+        get().aimingPoints.some(
+          (point) => point.archived_at === null && point.id !== excludeId && sameMgrs(point.mgrs, mgrs),
+        ),
       createTarget: (input) => {
         const now = new Date().toISOString();
+        const stamp = Date.now();
+        const mgrs = isMGRSValid(input.mgrs) ? formatMGRSDisplay(input.mgrs) : input.mgrs.trim();
+        const aimingPointId = `ap_${stamp}_00`;
+        const targetSeq = get().targetSeq + 1;
+        const aimingPointSeq = get().aimingPointSeq + 1;
         const target: Target = {
           ...input,
-          id: createId(),
-          label: `MT${get().targetSeq + 1}`,
-          displayed_id: "", //input.displayed_id.trim(),
+          id: `target_${stamp}`,
+          label: `MT${targetSeq}`,
+          displayed_id: "",
           name: input.name.trim(),
           address: input.address.trim(),
-          mgrs: input.mgrs.trim(),
+          mgrs,
           image_url: input.image_url?.trim() ? input.image_url.trim() : null,
-          aiming_point_ids: [],
+          aiming_point_ids: [aimingPointId],
+          created_at: now,
+          updated_at: now,
+          archived_at: null,
+        };
+        const primaryPoint: AimingPoint = {
+          id: aimingPointId,
+          target_id: target.id,
+          label: `AP${aimingPointSeq}`,
+          displayed_id: "MP00",
+          name: DICTIONARY.tasks.allocation.primary_target,
+          mgrs,
+          agl_msl: 0,
+          feat_hgt_msl: 0,
           created_at: now,
           updated_at: now,
           archived_at: null,
         };
         set((state) => ({
           targets: [target, ...state.targets],
-          targetSeq: state.targetSeq + 1,
+          aimingPoints: [...state.aimingPoints, primaryPoint],
+          targetSeq,
+          aimingPointSeq,
         }));
         notifyCrossTab("SYNC_ALL");
         return target;
@@ -145,13 +190,14 @@ export const useTargetStore = create<TargetStoreState>()(
           return null;
         }
         const now = new Date().toISOString();
+        const mgrs = isMGRSValid(input.mgrs) ? formatMGRSDisplay(input.mgrs) : input.mgrs.trim();
         const updated: Target = {
           ...existing,
           ...input,
-          displayed_id: "", //input.displayed_id.trim(),
+          displayed_id: "",
           name: input.name.trim(),
           address: input.address.trim(),
-          mgrs: input.mgrs.trim(),
+          mgrs,
           image_url: input.image_url?.trim() ? input.image_url.trim() : null,
           updated_at: now,
         };

@@ -38,6 +38,7 @@ export interface ActualEvent {
   time: string;
   date: string;
   event_description: string;
+  comment: string;
 }
 
 export interface Report {

@@ -13,8 +13,9 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { canAccess, canAdminister } from "@/lib/access";
 import { crewName, uavName, visibleBattleGroups } from "@/lib/battleGroup";
 import { detachmentName } from "@/lib/detachments";
-import { getEntityState } from "@/lib/entityState";
-import { formatStoredAimingPoint } from "@/lib/formatters";
+import { resolvePlanningEntityState } from "@/lib/entityState";
+import { taskBelongsToMission } from "@/lib/taskAllocations";
+import { formatAimingPointRef } from "@/lib/formatters";
 import { formattingMGRS } from "@/lib/formattingMGRS";
 import { countProcessedLaunches } from "@/lib/launches";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,8 @@ export function TaskCard({
   const managesTasks = canAdminister(role, "tasks");
   const canOpenLaunches = canAccess(role, "launches");
   const launches = useLaunchStore((state) => state.launches);
-  const entityState = getEntityState(task);
+  const linkedMissions = missions.filter((mission) => taskBelongsToMission(task, mission));
+  const entityState = resolvePlanningEntityState(task, ...linkedMissions);
   const assignedGroups = visibleBattleGroups(task, battleGroups);
   const groupedMissions = useMemo(() => {
     const allocations = focusTargetId
@@ -240,8 +242,12 @@ export function TaskCard({
                   wrapperClasses="items-start" /> : null}
                     <div className="flex flex-col gap-2 border-l border-primitive-neutral-700 bg-primitive-neutral-850/40 py-1 pl-3 pr-2">
                       {targetGroup.allocations.map((line) => {
-                        const aimingPoint = aimingPoints.find((item) => item.id === line.aiming_point_id);
-                        const aiming = formatStoredAimingPoint(aimingPoint, target?.name);
+                        const aiming = formatAimingPointRef(
+                          line.aiming_point_id,
+                          aimingPoints,
+                          target?.name,
+                          line.target_id,
+                        );
                         const lineLaunches = launches.filter(
                           (launch) => launch.archived_at === null && launch.allocation_line_id === line.id,
                         );

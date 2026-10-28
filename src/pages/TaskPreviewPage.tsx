@@ -16,8 +16,8 @@ import { crewName, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { formatDateUk, isBeforeToday, parseIsoDate, startOfDay } from "@/lib/dates";
-import { getEntityState } from "@/lib/entityState";
-import { formatStoredAimingPoint } from "@/lib/formatters";
+import { resolvePlanningEntityState } from "@/lib/entityState";
+import { formatAimingPointRef, formatStoredAimingPoint } from "@/lib/formatters";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly } from "@/lib/launches";
 import { matchingReports } from "@/lib/reportAggregation";
@@ -89,6 +89,7 @@ export function TaskPreviewPage() {
       created_at: now,
       updated_at: now,
       reported_at: null,
+      confirmed_at: null,
       archived_at: null,
     };
   }, [canCreate, createDate, entityId]);
@@ -134,7 +135,11 @@ export function TaskPreviewPage() {
     setStatsOpen(false);
     setRouteDrafts({});
     if (startEditing && current?.source === "detachment") {
-      const next = planBlocksFromTask(current, useBattleGroupStore.getState().battleGroups);
+      const next = planBlocksFromTask(
+        current,
+        useBattleGroupStore.getState().battleGroups,
+        useTargetStore.getState().aimingPoints,
+      );
       setPlan(next.length > 0 ? next : [emptyPlanTarget()]);
     } else {
       setPlan([]);
@@ -178,7 +183,7 @@ export function TaskPreviewPage() {
   }
 
   const text = DICTIONARY.tasks.details;
-  const entityState = getEntityState(task);
+  const entityState = resolvePlanningEntityState(task, mission);
   const canEdit = role === "DETACHMENT" && canAdminister(role, "tasks") && entityState === "active";
   const scheduledAt = task.scheduled_at || task.created_at;
   const focused = Boolean(focusTargetId) && !editing;
@@ -331,8 +336,10 @@ export function TaskPreviewPage() {
     const point = resolveLaunchAimingPoint(task, launch, owner, aimingPoints);
     const line = task.allocations.find((item) => item.id === (launch.allocation_line_id ?? owner?.allocation_line_id));
     const target = targets.find((item) => item.id === line?.target_id);
-    const id = point?.id ?? line?.target_id ?? "target";
-    const aiming = formatStoredAimingPoint(point, target?.name);
+    const id = point?.id ?? line?.aiming_point_id ?? line?.target_id ?? "target";
+    const aiming = point
+      ? formatStoredAimingPoint(point, target?.name)
+      : formatAimingPointRef(line?.aiming_point_id, aimingPoints, target?.name, line?.target_id);
     const section = sectionMap.get(id) ?? {
       id,
       label: aiming.label,
@@ -419,7 +426,7 @@ export function TaskPreviewPage() {
               onDraftsChange={setDrafts}
               onStartEdit={() => {
                 if (task.source === "detachment") {
-                  const next = planBlocksFromTask(task, battleGroups);
+                  const next = planBlocksFromTask(task, battleGroups, aimingPoints);
                   setPlan(next.length > 0 ? next : [emptyPlanTarget()]);
                 }
                 setRouteDrafts({});

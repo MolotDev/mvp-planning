@@ -30,6 +30,7 @@ function task(partial: Partial<Task> & Pick<Task, "id" | "label" | "created_at" 
     fact_notes: null,
     updated_at: partial.created_at,
     reported_at: null,
+    confirmed_at: null,
     archived_at: null,
     ...partial,
   };

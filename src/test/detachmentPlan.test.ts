@@ -28,6 +28,7 @@ function task(organizationId: string, aimingPointId: string, assetId: string, qu
     created_at: "",
     updated_at: "",
     reported_at: null,
+    confirmed_at: null,
     archived_at: null,
   };
 }
@@ -43,7 +44,7 @@ function block(): PlanTargetBlock {
         crewId: "1.1.1",
         assetId: "uav_1",
         quantity: "2",
-        aimingPointId: "point-1",
+        aimingPointId: "MP00",
       },
       {
         key: "row-2",
@@ -51,7 +52,7 @@ function block(): PlanTargetBlock {
         crewId: "1.1.2",
         assetId: "uav_1",
         quantity: "3",
-        aimingPointId: "point-1",
+        aimingPointId: "MP00",
       },
     ],
   };
@@ -65,7 +66,7 @@ describe("detachment target extension", () => {
         id: "line-1",
         mission_id: "mission-1",
         target_id: "target-1",
-        aiming_point_id: "point-1",
+        aiming_point_id: "MP00",
         asset_id: "uav_1",
         quantity: 5,
       },
@@ -169,7 +170,7 @@ describe("detachment target extension", () => {
           crewId: "1.2.1",
           assetId: "uav_1",
           quantity: "2",
-          aimingPointId: "mp00",
+          aimingPointId: "MP00",
           platoonId: "platoon_1_2",
         },
         {
@@ -178,19 +179,19 @@ describe("detachment target extension", () => {
           crewId: "",
           assetId: "uav_1",
           quantity: "5",
-          aimingPointId: "mp01",
+          aimingPointId: "MP01",
           platoonId: "platoon_1_1",
         },
       ],
     };
     const next = fanOutPlanRow(source, "open", "platoon_1_1", "detachment_1", crews, [source]);
-    expect(next?.rows[0]).toMatchObject({ key: "kept", aimingPointId: "mp00", quantity: "2" });
+    expect(next?.rows[0]).toMatchObject({ key: "kept", aimingPointId: "MP00", quantity: "2" });
     expect(next?.rows.slice(1).map((row) => ({ crewId: row.crewId, quantity: row.quantity, aimingPointId: row.aimingPointId }))).toEqual([
-      { crewId: "1.1.1", quantity: "3", aimingPointId: "mp01" },
-      { crewId: "1.1.2", quantity: "2", aimingPointId: "mp01" },
+      { crewId: "1.1.1", quantity: "3", aimingPointId: "MP01" },
+      { crewId: "1.1.2", quantity: "2", aimingPointId: "MP01" },
     ]);
     const added = nextForceRow(source, "uav_1", "1");
-    expect(added).toMatchObject({ assetId: "uav_1", quantity: "1", aimingPointId: "mp01", crewId: "", platoonId: "" });
+    expect(added).toMatchObject({ assetId: "uav_1", quantity: "1", aimingPointId: "MP01", crewId: "", platoonId: "" });
   });
 
   it("splits a platoon only across crews that are not already on a form row", () => {

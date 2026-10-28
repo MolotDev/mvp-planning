@@ -1,6 +1,7 @@
 import { matchingReports } from "@/lib/reportAggregation";
-import { allocationsForMission } from "@/lib/taskAllocations";
+import { allocationsForMission, sameOperationalDay, taskBelongsToMission } from "@/lib/taskAllocations";
 import { toReportDate } from "@/lib/reportFormat";
+import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
 import type { Report } from "@/types/report";
 
@@ -8,6 +9,47 @@ export function missionTasks(mission: Mission, tasks: Task[]): Task[] {
   return tasks.filter(
     (task) => task.archived_at === null && allocationsForMission(task, mission.id).length > 0,
   );
+}
+
+/** Active flight requests linked to the mission (by id / allocations) or same operational day for participant orgs. */
+export function relatedTasksForMissionConfirmation(mission: Mission, tasks: Task[]): Task[] {
+  const linked = tasks.filter(
+    (task) => task.archived_at === null && taskBelongsToMission(task, mission),
+  );
+  const participantOrgs = new Set(linked.map((task) => task.organization_id));
+  const byDay = tasks.filter(
+    (task) =>
+      task.archived_at === null &&
+      participantOrgs.has(task.organization_id) &&
+      sameOperationalDay(task.scheduled_at || task.created_at, mission.scheduled_at),
+  );
+  const byId = new Map<string, Task>();
+  [...linked, ...byDay].forEach((task) => byId.set(task.id, task));
+  return [...byId.values()];
+}
+
+export function relatedLaunchIdsForMissionConfirmation(
+  mission: Mission,
+  tasks: Task[],
+  launches: Launch[],
+): string[] {
+  const relatedTasks = relatedTasksForMissionConfirmation(mission, tasks);
+  const taskIds = new Set(relatedTasks.map((task) => task.id));
+  const lineIds = new Set(
+    relatedTasks.flatMap((task) => {
+      const forMission = allocationsForMission(task, mission.id);
+      const lines = forMission.length > 0 ? forMission : task.allocations;
+      return lines.map((line) => line.id);
+    }),
+  );
+  return launches
+    .filter(
+      (launch) =>
+        launch.archived_at === null &&
+        (taskIds.has(launch.task_id) ||
+          (launch.allocation_line_id != null && lineIds.has(launch.allocation_line_id))),
+    )
+    .map((launch) => launch.id);
 }
 
 export function taskReportSubmitted(task: Task, mission: Mission, reports: Report[]): boolean {

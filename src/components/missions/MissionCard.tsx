@@ -1,6 +1,5 @@
 import { Users } from "lucide-react";
-import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
-import { Badge, ProgressBadge, TargetBadge,  } from "@/components/ui/badge";
+import { Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -162,13 +161,7 @@ export function MissionCard({
           <p className="text-sm font-semibold text-primitive-neutral-0" title={`${label} ${title}`}>
             {label}
           </p>
-          {mission.confirmed_at !== null ? (
-            <Badge style={entityStatusBadgeStyle("reported")}>
-              {`${DICTIONARY.common.states.reported} + ${DICTIONARY.common.statuses.confirmed}`}
-            </Badge>
-          ) : (
-            <EntityStatusBadge status={getEntityState(mission)} />
-          )}
+          <EntityStatusBadge status={getEntityState(mission)} />
         </div>
       </CardHeader>
       <CardBody className="gap-3">

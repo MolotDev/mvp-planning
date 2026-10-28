@@ -1,5 +1,7 @@
 import { DICTIONARY } from "@/constants/dictionary";
+import { asAimingCode, findAimingPointByRef } from "@/lib/aimingPointCode";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
+import type { AimingPoint } from "@/types/target";
 
 export function formatAimingPoint(code?: string | null, targetName?: string): { badge: string; label: string } {
   const normalizedCode = code && code.trim() ? code.trim().toUpperCase() : "MP00";
@@ -26,4 +28,18 @@ export function formatStoredAimingPoint(
   const code = point?.displayed_id?.trim() || point?.label?.trim() || null;
   const name = point?.name?.trim() || targetName?.trim() || undefined;
   return formatAimingPoint(code, name);
+}
+
+/** Resolve UUID or MP## allocation ref into badge/label for UI. */
+export function formatAimingPointRef(
+  ref: string | null | undefined,
+  aimingPoints: AimingPoint[],
+  targetName?: string | null,
+  targetId?: string | null,
+): { badge: string; label: string } {
+  const point = findAimingPointByRef(aimingPoints, ref, targetId);
+  return formatStoredAimingPoint(
+    point ?? (ref ? { displayed_id: asAimingCode(ref) } : null),
+    targetName,
+  );
 }

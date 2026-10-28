@@ -9,7 +9,8 @@ import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Task } from "@/types/mission";
 import type { AimingPoint, Target } from "@/types/target";
-import { formatStoredAimingPoint } from "@/lib/formatters";
+import { findAimingPointByRef } from "@/lib/aimingPointCode";
+import { formatAimingPointRef } from "@/lib/formatters";
 import { AimingPointBadge, ProgressBadge } from "../ui/badge";
 
 interface LaunchSummaryCardsProps {
@@ -64,9 +65,7 @@ export function LaunchSummaryCards({
         task.allocations.find((line) => line.id === group.allocation_line_id) ??
         task.allocations.find((line) => line.asset_id === group.asset_id);
       const target = targets.find((item) => item.id === allocation?.target_id);
-      const point = allocation?.aiming_point_id
-        ? aimingPoints.find((item) => item.id === allocation.aiming_point_id && item.archived_at === null)
-        : undefined;
+      const point = findAimingPointByRef(aimingPoints, allocation?.aiming_point_id, allocation?.target_id);
       const groupLaunches = taskLaunches.filter((launch) => launch.battle_group_id === group.id);
       const key = `${group.lead_crew_id}:${group.asset_id}`;
       const current = summaryMap.get(key) ?? {
@@ -80,8 +79,13 @@ export function LaunchSummaryCards({
         launchIds: [],
       };
       const ready = groupLaunches.filter(isLaunchEquipped).length;
-      const pointId = point?.id ?? allocation?.target_id ?? group.id;
-      const aiming = formatStoredAimingPoint(point, target?.name);
+      const pointId = point?.id ?? allocation?.aiming_point_id ?? allocation?.target_id ?? group.id;
+      const aiming = formatAimingPointRef(
+        allocation?.aiming_point_id,
+        aimingPoints,
+        target?.name,
+        allocation?.target_id,
+      );
       const existingPoint = current.points.find((item) => item.id === pointId);
       if (existingPoint) {
         existingPoint.ready += ready;

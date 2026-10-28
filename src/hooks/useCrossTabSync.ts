@@ -1,5 +1,10 @@
 import { useEffect } from "react";
-import { crossTabSync, runRemoteSync, type SyncEventType } from "@/services/crossTabSync";
+import {
+  crossTabSync,
+  DOMAIN_STORAGE_UPDATE_EVENT,
+  runRemoteSync,
+  type SyncEventType,
+} from "@/services/crossTabSync";
 import { useAssetStore } from "@/store/useAssetStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
@@ -53,5 +58,13 @@ function enqueue(type: SyncEventType) {
 }
 
 export function useCrossTabSync() {
-  useEffect(() => crossTabSync.subscribe((message) => enqueue(message.type)), []);
+  useEffect(() => {
+    const unsubscribe = crossTabSync.subscribe((message) => enqueue(message.type));
+    const onStorageUpdate = () => enqueue("SYNC_ALL");
+    window.addEventListener(DOMAIN_STORAGE_UPDATE_EVENT, onStorageUpdate);
+    return () => {
+      unsubscribe();
+      window.removeEventListener(DOMAIN_STORAGE_UPDATE_EVENT, onStorageUpdate);
+    };
+  }, []);
 }

@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { CloseIconButton } from "@/components/ui/icon-buttons";
+
+const AUTO_CLOSE_MS = 5000;
 
 export function ApplyBelowPopover({
   anchor,
@@ -15,6 +17,25 @@ export function ApplyBelowPopover({
   onClose: () => void;
 }) {
   const [box, setBox] = useState(() => anchor.getBoundingClientRect());
+  const onCloseRef = useRef(onClose);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  onCloseRef.current = onClose;
+
+  const clearCloseTimer = () => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const scheduleClose = () => {
+    clearCloseTimer();
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      onCloseRef.current();
+    }, AUTO_CLOSE_MS);
+  };
 
   useEffect(() => {
     const update = () => setBox(anchor.getBoundingClientRect());
@@ -27,6 +48,11 @@ export function ApplyBelowPopover({
     };
   }, [anchor]);
 
+  useEffect(() => {
+    scheduleClose();
+    return clearCloseTimer;
+  }, []);
+
   const placeAbove = box.top > 56;
 
   return createPortal(
@@ -37,6 +63,8 @@ export function ApplyBelowPopover({
         left: box.left,
         transform: placeAbove ? "translateY(-100%)" : undefined,
       }}
+      onMouseEnter={clearCloseTimer}
+      onMouseLeave={scheduleClose}
     >
       <div className="flex items-center gap-3">
         <Button className="h-5 px-1.5 text-[12px] leading-none hover:cursor-pointer hover:shadow-md" onClick={onApply}>

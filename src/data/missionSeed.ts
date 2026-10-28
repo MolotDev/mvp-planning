@@ -31,6 +31,7 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       created_at: calculateDateOffset(now, -3),
       updated_at: calculateDateOffset(now, -2),
       reported_at: null,
+      confirmed_at: null,
       archived_at: calculateDateOffset(now, -2),
     },
     // {

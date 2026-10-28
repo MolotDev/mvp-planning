@@ -2,16 +2,23 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { createMissionSeed } from "@/data/missionSeed";
 import { taskTargetIds } from "@/lib/taskAllocations";
-import { allMissionReportsSubmitted, missionHasSubmittedReport } from "@/lib/missionConfirmation";
-import { notifyCrossTab } from "@/services/crossTabSync";
+import {
+  allMissionReportsSubmitted,
+  missionHasSubmittedReport,
+  relatedLaunchIdsForMissionConfirmation,
+  relatedTasksForMissionConfirmation,
+} from "@/lib/missionConfirmation";
+import { notifyCrossTab, notifyDomainStorageUpdate } from "@/services/crossTabSync";
 import { readAllocatedReports, registerMissionSchedule } from "@/store/storeBridge";
 import { operationalDay } from "@/lib/battleGroup";
 import { assignSequentialMissionLabels, nextMissionNumber } from "@/lib/missionLabel";
 import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
-import { getEntityState } from "@/lib/entityState";
+import { getEntityState, matchesEntityStatusFilter } from "@/lib/entityState";
 import type { TaskDraft } from "@/store/useTaskStore";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useLaunchStore } from "@/store/useLaunchStore";
 import type { AimingPoint, Target } from "@/types/target";
+import { COMPLETED_CONFIRMED } from "@/types/target";
 import type { Mission, MissionMetrics, MissionStatusFilter, Task } from "@/types/mission";
 
 export const MISSION_STORE_KEY = "military_crm_mission_store";
@@ -62,16 +69,34 @@ export function getMissionMetrics(missions: Mission[]): MissionMetrics {
   return {
     total: missions.length,
     active: missions.filter((mission) => getEntityState(mission) === "active").length,
-    reported: missions.filter((mission) => getEntityState(mission) === "reported").length,
+    reported: missions.filter((mission) => {
+      const state = getEntityState(mission);
+      return state === "reported" || state === COMPLETED_CONFIRMED;
+    }).length,
     archived: missions.filter((mission) => getEntityState(mission) === "archived").length,
   };
 }
 
 export function matchesMissionStatus(mission: Mission, status: MissionStatusFilter): boolean {
-  if (status === "all") {
-    return true;
-  }
-  return getEntityState(mission) === status;
+  return matchesEntityStatusFilter(mission, status);
+}
+
+function cascadeConfirmationIds(mission: Mission): { taskIds: string[]; launchIds: string[] } {
+  const tasks = useTaskStore.getState().tasks;
+  const launches = useLaunchStore.getState().launches;
+  const relatedTasks = relatedTasksForMissionConfirmation(mission, tasks);
+  return {
+    taskIds: relatedTasks.map((task) => task.id),
+    launchIds: relatedLaunchIdsForMissionConfirmation(mission, tasks, launches),
+  };
+}
+
+function applyConfirmationCascade(mission: Mission, confirmedAt: string | null) {
+  const { taskIds, launchIds } = cascadeConfirmationIds(mission);
+  useTaskStore.getState().setTasksConfirmed(taskIds, confirmedAt);
+  useLaunchStore.getState().setLaunchesConfirmed(launchIds, confirmedAt);
+  notifyCrossTab("SYNC_MISSIONS", "SYNC_TASKS", "SYNC_LAUNCHES");
+  queueMicrotask(() => notifyDomainStorageUpdate());
 }
 
 export function missionMatchesQuery(
@@ -226,7 +251,7 @@ export const useMissionStore = create<MissionStoreState>()(
             item.id === id ? { ...item, confirmed_at: now, updated_at: now } : item,
           ),
         }));
-        notifyCrossTab("SYNC_MISSIONS");
+        applyConfirmationCascade(mission, now);
         return true;
       },
       unlockMissionReports: (id) => {
@@ -240,7 +265,7 @@ export const useMissionStore = create<MissionStoreState>()(
             item.id === id ? { ...item, confirmed_at: null, updated_at: now } : item,
           ),
         }));
-        notifyCrossTab("SYNC_MISSIONS");
+        applyConfirmationCascade(mission, null);
         return true;
       },
       ensureDailyMission: (scheduledAt) => {

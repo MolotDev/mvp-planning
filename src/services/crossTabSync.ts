@@ -60,3 +60,13 @@ export const crossTabSync = new CrossTabSyncManager();
 export function notifyCrossTab(...types: SyncEventType[]) {
   types.forEach((type) => crossTabSync.notify(type));
 }
+
+/** Same-tab signal after domain localStorage writes so open screens can rehydrate. */
+export const DOMAIN_STORAGE_UPDATE_EVENT = "storage-update";
+
+export function notifyDomainStorageUpdate() {
+  if (typeof window === "undefined") {
+    return;
+  }
+  window.dispatchEvent(new Event(DOMAIN_STORAGE_UPDATE_EVENT));
+}

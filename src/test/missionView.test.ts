@@ -56,6 +56,7 @@ describe("splitMissionsByTarget", () => {
         created_at: earlier.created_at,
         updated_at: earlier.created_at,
         reported_at: null,
+        confirmed_at: null,
         archived_at: null,
       },
       {
@@ -76,6 +77,7 @@ describe("splitMissionsByTarget", () => {
         created_at: later.created_at,
         updated_at: later.created_at,
         reported_at: null,
+        confirmed_at: null,
         archived_at: null,
       },
     ];

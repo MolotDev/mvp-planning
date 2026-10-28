@@ -185,7 +185,9 @@ function normalizeReport(report: Report): Report {
         }))
       : [],
     checkpoint_updates: Array.isArray(report.checkpoint_updates) ? report.checkpoint_updates.map((item) => ({ ...item })) : [],
-    actual_events: Array.isArray(report.actual_events) ? report.actual_events.map((item) => ({ ...item })) : [],
+    actual_events: Array.isArray(report.actual_events)
+      ? report.actual_events.map((item) => ({ ...item, comment: item.comment ?? "" }))
+      : [],
     images: Array.isArray(report.images) ? [...report.images] : [],
     archived_at: report.archived_at ?? null,
     submitted_at: report.submitted_at ?? null,
@@ -363,7 +365,8 @@ export const useReportStore = create<ReportStoreState>()(
           id: createId(),
           time: formatTimeInput(now),
           date: formatIsoDate(nowDate),
-          event_description: description, 
+          event_description: description,
+          comment: "",
         };
         const checkpointUpdate: CheckpointUpdate | null =
           group && checkpoint

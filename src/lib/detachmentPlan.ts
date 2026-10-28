@@ -1,11 +1,13 @@
 import { DICTIONARY } from "@/constants/dictionary";
+import { aimingCodeFromStored, asAimingCode } from "@/lib/aimingPointCode";
 import { detachmentName } from "@/lib/detachments";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { parseRequiredNumber } from "@/lib/validation";
 import type { BattleGroup, Crew } from "@/types/battleGroup";
-import type { Task as StoredTask } from "@/types/database";
+import { PRIMARY_AIMING_POINT, type Task as StoredTask } from "@/types/database";
 import type { Task, TaskAllocation } from "@/types/mission";
+import type { AimingPoint } from "@/types/target";
 
 export interface PlanForceRow {
   key: string;
@@ -39,7 +41,7 @@ export function emptyForceRow(): PlanForceRow {
     crewId: "",
     assetId: "",
     quantity: "",
-    aimingPointId: "",
+    aimingPointId: PRIMARY_AIMING_POINT,
     platoonId: "",
   };
 }
@@ -62,12 +64,37 @@ export function nextForceRow(block: PlanTargetBlock, assetId: string, quantity: 
     ...emptyForceRow(),
     assetId,
     quantity,
-    aimingPointId: previous?.aimingPointId ?? "",
+    aimingPointId: asAimingCode(previous?.aimingPointId ?? PRIMARY_AIMING_POINT),
   };
 }
 
 export function emptyPlanTarget(): PlanTargetBlock {
   return { key: crypto.randomUUID(), targetId: "", rows: [] };
+}
+
+/** Bind a catalog target into a plan block and seed the first empty force row with MP00 (or given code). */
+export function planBlockForTarget(
+  targetId: string,
+  aimingPointId: string = PRIMARY_AIMING_POINT,
+  existing?: PlanTargetBlock | null,
+): PlanTargetBlock {
+  const base = existing ?? emptyPlanTarget();
+  const firstRow: PlanForceRow = {
+    ...emptyForceRow(),
+    aimingPointId: asAimingCode(aimingPointId),
+  };
+  return {
+    ...base,
+    targetId,
+    rows: [firstRow],
+  };
+}
+
+export function primaryAimingPointId(
+  _aimingPoints: Array<{ id: string; target_id: string; displayed_id: string; archived_at: string | null }>,
+  _targetId: string,
+): string {
+  return PRIMARY_AIMING_POINT;
 }
 
 function splitAllocation(block: PlanTargetBlock, row: PlanForceRow): string {
@@ -76,13 +103,14 @@ function splitAllocation(block: PlanTargetBlock, row: PlanForceRow): string {
 }
 
 export function assignPlanAimingPoint(block: PlanTargetBlock, rowKey: string, aimingPointId: string): PlanTargetBlock {
+  const nextCode = asAimingCode(aimingPointId);
   return {
     ...block,
     rows: block.rows.map((row) => {
-      if (row.key !== rowKey || row.aimingPointId === aimingPointId) {
+      if (row.key !== rowKey || row.aimingPointId === nextCode) {
         return row;
       }
-      return { ...row, aimingPointId, allocationId: splitAllocation(block, row) };
+      return { ...row, aimingPointId: nextCode, allocationId: splitAllocation(block, row) };
     }),
   };
 }
@@ -114,7 +142,11 @@ export function assignPlanAsset(block: PlanTargetBlock, rowKey: string, assetId:
   };
 }
 
-export function planBlocksFromTask(task: Task, groups: BattleGroup[]): PlanTargetBlock[] {
+export function planBlocksFromTask(
+  task: Task,
+  groups: BattleGroup[],
+  aimingPoints: AimingPoint[] = [],
+): PlanTargetBlock[] {
   const blocks: PlanTargetBlock[] = [];
   task.allocations.forEach((line) => {
     let block = blocks.find((item) => item.targetId === line.target_id);
@@ -126,6 +158,10 @@ export function planBlocksFromTask(task: Task, groups: BattleGroup[]): PlanTarge
       (group) => group.archived_at === null && group.task_id === task.id && group.allocation_line_id === line.id,
     );
     const assigned = crews.reduce((sum, group) => sum + group.uav_quantity, 0);
+    const aimingCode = aimingCodeFromStored(
+      line.aiming_point_id,
+      aimingPoints.filter((point) => point.target_id === line.target_id),
+    );
     crews.forEach((group) => {
       block?.rows.push({
         key: group.id,
@@ -133,7 +169,7 @@ export function planBlocksFromTask(task: Task, groups: BattleGroup[]): PlanTarge
         crewId: group.lead_crew_id,
         assetId: line.asset_id,
         quantity: group.uav_quantity ? String(group.uav_quantity) : "",
-        aimingPointId: line.aiming_point_id ?? "",
+        aimingPointId: aimingCode,
       });
     });
     const leftover = line.quantity - assigned;
@@ -144,7 +180,7 @@ export function planBlocksFromTask(task: Task, groups: BattleGroup[]): PlanTarge
         crewId: "",
         assetId: line.asset_id,
         quantity: String(crews.length === 0 ? line.quantity : leftover),
-        aimingPointId: line.aiming_point_id ?? "",
+        aimingPointId: aimingCode,
       });
     }
   });
@@ -170,8 +206,8 @@ function groupedLines(blocks: PlanTargetBlock[]): GroupedLine[] {
       if (!row.assetId || quantity === null || quantity <= 0) {
         return;
       }
-      const aimingPointId = row.aimingPointId || null;
-      const key = `${block.targetId}\0${aimingPointId ?? ""}\0${row.assetId}`;
+      const aimingPointId = asAimingCode(row.aimingPointId);
+      const key = `${block.targetId}\0${aimingPointId}\0${row.assetId}`;
       const existing = groups.get(key);
       if (existing) {
         existing.quantity += quantity;
@@ -194,7 +230,7 @@ export function allocationsFromBlocks(blocks: PlanTargetBlock[], missionId: stri
     id: line.allocationId,
     mission_id: missionId,
     target_id: line.targetId,
-    aiming_point_id: line.aimingPointId,
+    aiming_point_id: asAimingCode(line.aimingPointId),
     asset_id: line.assetId,
     quantity: line.quantity,
   }));

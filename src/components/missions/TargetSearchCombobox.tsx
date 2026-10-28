@@ -14,6 +14,8 @@ interface TargetSearchComboboxProps {
   targets: Target[];
   disabled?: boolean;
   onChange: (targetId: string) => void;
+  /** When set, opens in-place create flow instead of navigating to the catalog. */
+  onCreateNew?: () => void;
 }
 
 function targetLabel(target: Target): string {
@@ -34,6 +36,7 @@ export function TargetSearchCombobox({
   targets,
   disabled = false,
   onChange,
+  onCreateNew,
 }: TargetSearchComboboxProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -127,6 +130,12 @@ export function TargetSearchCombobox({
   };
 
   const createTarget = () => {
+    setOpen(false);
+    setQuery("");
+    if (onCreateNew) {
+      onCreateNew();
+      return;
+    }
     navigate("/catalogs/targets?action=create");
   };
 

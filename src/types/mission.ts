@@ -44,6 +44,7 @@ export interface Task {
   created_at: string;
   updated_at: string;
   reported_at: string | null;
+  confirmed_at: string | null;
   archived_at: string | null;
 }
 

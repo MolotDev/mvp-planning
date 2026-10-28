@@ -67,6 +67,7 @@ function launch(patch: Partial<Launch> & Pick<Launch, "id">): Launch {
     created_at: "2026-10-18T00:00:00.000Z",
     updated_at: "2026-10-18T00:00:00.000Z",
     archived_at: null,
+    confirmed_at: null,
     reported_at: null,
     reported_at_time: null,
     processed_at: null,

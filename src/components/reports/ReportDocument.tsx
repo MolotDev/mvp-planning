@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
+import { EventTypeCombobox } from "@/components/reports/EventTypeCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,10 @@ import {
   combineDateAndTime,
   formatDateInput,
   formatTimeInput,
+  nextLaunchTimeSortDirection,
+  sanitizeRouteNumber,
+  sortLaunchesByLaunchTime,
+  type LaunchTimeSortDirection,
 } from "@/lib/reportFormat";
 import { sliceForReport } from "@/lib/reportValidation";
 import { mockPlanningService } from "@/services/planningRepository";
@@ -133,7 +138,7 @@ function checkpointDraftsFromEvents(
         title: checkpoint.title,
         status: timed ? "COMPLETED" : null,
         fixed_time: timed ? event.time : "",
-        comments: "",
+        comments: event.comment,
       });
     }
   }
@@ -174,7 +179,18 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
   const slice = sliceForReport(report, snapshot);
   const text = DICTIONARY.reports;
   // const { primary: mainTarget, additional: additionalTargets } = dayTargetRoles(slice);
-  const orderedLaunches = slice.launches //chronologicalLaunches(slice, report);
+  const [launchTimeSort, setLaunchTimeSort] = useState<LaunchTimeSortDirection>("default");
+  const launchedAtByLaunchId = useMemo(() => {
+    const map = new Map<string, string>();
+    report.launches_by_trajectory.forEach((link) => {
+      map.set(link.launch_id, link.launched_at ?? "");
+    });
+    return map;
+  }, [report.launches_by_trajectory]);
+  const orderedLaunches = useMemo(
+    () => sortLaunchesByLaunchTime(slice.launches, launchedAtByLaunchId, launchTimeSort),
+    [slice.launches, launchedAtByLaunchId, launchTimeSort],
+  );
   const [statusOffer, setStatusOffer] = useState<{ launchId: string; statusId: string; anchor: HTMLElement } | null>(null);
   // const tableIds = report.trajectories.reduce<string[]>((ids, trajectory) => {
   //   if (trajectory.archived_at === null && !ids.includes(trajectory.table_id)) {
@@ -815,20 +831,27 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                           className={cn("h-7 min-h-6 w-fit px-2", crewsPart === EVENT_CREWS ? invalidControlClass : "")}
                         />
                         <span className="min-w-fit text-sm text-primitive-neutral-0">{" - "}</span>
-                        <FormSelect
+                        <EventTypeCombobox
                           id={`event-checkpoint-${event.id}`}
-                          className="h-7 min-w-40 flex-1 border-zinc-100"
                           value={checkpointId}
-                          placeholder={text.tables.event_log.select_event}
                           disabled={readOnly || checkpointLoad !== "ready"}
                           invalid={!checkpointId}
-                          options={checkpointCatalog.map((item) => ({ value: item.id, label: item.title }))}
+                          options={checkpointCatalog.map((item) => ({ id: item.id, label: item.title }))}
                           onChange={(nextId) => {
                             const parts = eventParts(event.event_description);
                             updateEvent(report.id, index, {
                               event_description: joinEventParts(parts[0], parts[1], nextId || EVENT_ACTION),
                             });
                           }}
+                        />
+                        <Input
+                          type="text"
+                          value={event.comment ?? ""}
+                          disabled={readOnly}
+                          placeholder={text.tables.event_log.event_comment}
+                          aria-label={text.tables.event_log.event_comment}
+                          onChange={(input) => updateEvent(report.id, index, { comment: input.target.value })}
+                          className="h-7 min-w-40 flex-1 rounded border-primitive-neutral-700 bg-primitive-neutral-900 px-3 py-1.5 text-sm"
                         />
                         <Button
                           variant="icon"
@@ -865,7 +888,30 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                 <thead>
                   <tr>
                     <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_date}</th>
-                    <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_time}</th>
+                    <th className={`${baseLabelCell} launch-sticked-column`}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1.5 font-medium text-primitive-neutral-200 transition-colors hover:cursor-pointer hover:text-primitive-neutral-0 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                        title={text.tables.launches_results.sort_launch_time}
+                        aria-label={
+                          launchTimeSort === "asc"
+                            ? text.tables.launches_results.sort_launch_time_asc
+                            : launchTimeSort === "desc"
+                              ? text.tables.launches_results.sort_launch_time_desc
+                              : text.tables.launches_results.sort_launch_time_default
+                        }
+                        onClick={() => setLaunchTimeSort((current) => nextLaunchTimeSortDirection(current))}
+                      >
+                        <span>{text.tables.launches_results.launch_time}</span>
+                        {launchTimeSort === "asc" ? (
+                          <ArrowUp className="h-3.5 w-3.5 shrink-0 text-primitive-neutral-400" aria-hidden="true" />
+                        ) : launchTimeSort === "desc" ? (
+                          <ArrowDown className="h-3.5 w-3.5 shrink-0 text-primitive-neutral-400" aria-hidden="true" />
+                        ) : (
+                          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 text-primitive-neutral-400" aria-hidden="true" />
+                        )}
+                      </button>
+                    </th>
                     <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_results.launch_number}</th>
                     <th className={`${baseLabelCell} launch-sticked-column`}>{text.tables.launches_grouped.asset_sn}</th>
                     <th  className={`${baseLabelCell} relative`}>
@@ -1005,9 +1051,32 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                         {isLaunchAssetFolded && (
                           <>
                             <td className={cell}>
-                              {launch.trajectory_name?.trim()
-                                ? launch.trajectory_name
-                                : (<span className="text-sm text-primitive-red-500">-</span>)}
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="off"
+                                disabled={readOnly}
+                                aria-label={text.tables.launches_results.trajectory}
+                                placeholder="—"
+                                value={launch.trajectory_name ?? ""}
+                                onChange={(event) => {
+                                  const clean = sanitizeRouteNumber(event.target.value);
+                                  updateLaunch(launch.id, {
+                                    trajectory_name: clean.trim() ? clean : null,
+                                  });
+                                }}
+                                onBlur={(event) => {
+                                  const clean = sanitizeRouteNumber(event.target.value);
+                                  updateLaunch(launch.id, {
+                                    trajectory_name: clean.trim() ? clean : null,
+                                  });
+                                }}
+                                aria-invalid={!launch.trajectory_name?.trim()}
+                                className={cn(
+                                  "h-7 w-16 min-w-16 px-2 text-center font-mono text-xs",
+                                  launch.trajectory_name?.trim() ? undefined : invalidControlClass,
+                                )}
+                              />
                             </td>
                             <td className={cn(cell, "group/tracker")}>
                               <div className="flex items-center justify-between min-w-20">

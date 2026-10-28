@@ -119,6 +119,55 @@ export function formatTimeInput(iso: string): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+export type LaunchTimeSortDirection = "asc" | "desc" | "default";
+
+export function nextLaunchTimeSortDirection(current: LaunchTimeSortDirection): LaunchTimeSortDirection {
+  if (current === "default") {
+    return "asc";
+  }
+  if (current === "asc") {
+    return "desc";
+  }
+  return "default";
+}
+
+/** Display-only sort by launch time (HH:MM). Empty times sink to the end. Does not mutate IDs. */
+export function sortLaunchesByLaunchTime<T extends { id: string }>(
+  launches: T[],
+  launchedAtByLaunchId: Map<string, string> | Record<string, string>,
+  sortDir: LaunchTimeSortDirection,
+): T[] {
+  if (sortDir === "default") {
+    return launches;
+  }
+  const timeOf = (launchId: string): string => {
+    const raw =
+      launchedAtByLaunchId instanceof Map
+        ? (launchedAtByLaunchId.get(launchId) ?? "")
+        : (launchedAtByLaunchId[launchId] ?? "");
+    return formatTimeInput(raw);
+  };
+  return [...launches].sort((left, right) => {
+    const leftTime = timeOf(left.id);
+    const rightTime = timeOf(right.id);
+    if (!leftTime && !rightTime) {
+      return left.id.localeCompare(right.id);
+    }
+    if (!leftTime) {
+      return 1;
+    }
+    if (!rightTime) {
+      return -1;
+    }
+    const compare = leftTime.localeCompare(rightTime) || left.id.localeCompare(right.id);
+    return sortDir === "asc" ? compare : -compare;
+  });
+}
+
+export function sanitizeRouteNumber(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
 export function combineDateAndTime(dateValue: string, timeValue: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || !/^\d{2}:\d{2}$/.test(timeValue)) {
     return null;

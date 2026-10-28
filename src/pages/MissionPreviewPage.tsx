@@ -7,8 +7,6 @@ import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPan
 import { Button } from "@/components/ui/button";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
-import { Badge } from "@/components/ui/badge";
-import { entityStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAdminister } from "@/lib/access";
@@ -168,13 +166,7 @@ export function MissionPreviewPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <GoBackIconButton onClick={() => navigate(-1)} />
-          {isConfirmed ? (
-            <Badge style={entityStatusBadgeStyle("reported")}>
-              {`${DICTIONARY.common.states.reported} + ${DICTIONARY.common.statuses.confirmed}`}
-            </Badge>
-          ) : (
-            <EntityStatusBadge status={entityState} />
-          )}
+          <EntityStatusBadge status={entityState} />
           <h2 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
             {heading}
           </h2>

@@ -13,7 +13,7 @@ import { DICTIONARY } from "@/constants/dictionary";
 import { CREWS, DETACHMENT_REFS } from "@/data/crews";
 import { hidesDetachmentFilter, launchInScope, locksCrewFilter, locksDetachmentFilter, withSessionScope } from "@/lib/access";
 import { formatIsoDate } from "@/lib/dates";
-import { getEntityState } from "@/lib/entityState";
+import { matchesEntityStatusFilter } from "@/lib/entityState";
 import { filterLaunchRows, getLaunchStateMetrics, launchBelongsToCurrentRequest } from "@/lib/launchBoard";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -97,7 +97,7 @@ export function LaunchesPlanningPage() {
     activeFilters.organizationId,
     activeFilters.crewId,
     true,
-  ).filter((row) => activeFilters.status === "all" || getEntityState(row.launch) === activeFilters.status)
+  ).filter((row) => matchesEntityStatusFilter(row.launch, activeFilters.status))
     .filter((row) => launchBelongsToCurrentRequest(row))
     .filter((row) => launchInScope(role, entityId, row.task, row.battleGroup));
   const metrics = getLaunchStateMetrics(rows.map((row) => row.launch));

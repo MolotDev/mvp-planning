@@ -42,6 +42,7 @@ export interface LaunchStoreState {
   reportLaunch: (id: string, input: LaunchReportInput) => Launch | null;
   archiveLaunch: (id: string) => Launch | null;
   markLaunchesReported: (ids: string[], reportedAt: string) => void;
+  setLaunchesConfirmed: (ids: string[], confirmedAt: string | null) => void;
   resetLaunchesForReportClear: (ids: string[]) => void;
 }
 
@@ -262,6 +263,18 @@ export const useLaunchStore = create<LaunchStoreState>()(
         }));
         notifyCrossTab("SYNC_LAUNCHES");
       },
+      setLaunchesConfirmed: (ids, confirmedAt) => {
+        const idSet = new Set(ids);
+        const now = new Date().toISOString();
+        set((state) => ({
+          launches: state.launches.map((launch) =>
+            idSet.has(launch.id) && launch.archived_at === null
+              ? { ...launch, confirmed_at: confirmedAt, updated_at: now }
+              : launch,
+          ),
+        }));
+        notifyCrossTab("SYNC_LAUNCHES");
+      },
       reportLaunch: (id, input) => {
         const existing = get().launches.find((launch) => launch.id === id);
         if (!existing || isStoredLaunchLocked(existing)) {
@@ -321,6 +334,7 @@ export const useLaunchStore = create<LaunchStoreState>()(
                 asset_serial_number: launch.asset_serial_number || legacy.uav_model_serial_number || "",
                 trajectory_name: launch.trajectory_name?.trim() ? launch.trajectory_name.trim() : null,
                 processed_at: launch.processed_at ?? null,
+                confirmed_at: launch.confirmed_at ?? null,
                 allocation_line_id: launch.allocation_line_id ?? null,
                 actual_launch_time: launch.actual_launch_time ?? null,
                 execution_status: launch.execution_status ?? null,

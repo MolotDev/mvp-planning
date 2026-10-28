@@ -1,3 +1,4 @@
+import { asAimingCode, findAimingPointByRef } from "@/lib/aimingPointCode";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Task, TaskAllocation } from "@/types/mission";
@@ -40,9 +41,7 @@ export function resolveLaunchAimingPoint(
 ): AimingPoint | undefined {
   const line = allocationForLaunch(task, launch, battleGroup);
   if (line?.aiming_point_id) {
-    const fromLine = aimingPoints.find(
-      (point) => point.id === line.aiming_point_id && point.archived_at === null,
-    );
+    const fromLine = findAimingPointByRef(aimingPoints, line.aiming_point_id, line.target_id);
     if (fromLine) {
       return fromLine;
     }
@@ -51,12 +50,23 @@ export function resolveLaunchAimingPoint(
   if (!compact || !task) {
     return undefined;
   }
-  const ids = new Set(
-    task.allocations.map((item) => item.aiming_point_id).filter((id): id is string => Boolean(id)),
+  const refs = new Set(
+    task.allocations
+      .map((item) => item.aiming_point_id)
+      .filter((id): id is string => Boolean(id))
+      .map((id) => asAimingCode(id)),
   );
-  return aimingPoints.find(
-    (point) => point.archived_at === null && ids.has(point.id) && compactMgrs(point.mgrs) === compact,
-  );
+  return aimingPoints.find((point) => {
+    if (point.archived_at !== null || compactMgrs(point.mgrs) !== compact) {
+      return false;
+    }
+    if (refs.has(asAimingCode(point.id)) || refs.has(asAimingCode(point.displayed_id))) {
+      return true;
+    }
+    return task.allocations.some(
+      (item) => item.aiming_point_id === point.id || item.target_id === point.target_id,
+    );
+  });
 }
 
 export function allocationAimingMgrs(
@@ -67,9 +77,7 @@ export function allocationAimingMgrs(
   if (!line) {
     return null;
   }
-  const point = line.aiming_point_id
-    ? aimingPoints.find((item) => item.id === line.aiming_point_id && item.archived_at === null)
-    : undefined;
+  const point = findAimingPointByRef(aimingPoints, line.aiming_point_id, line.target_id);
   if (point) {
     return point.mgrs;
   }
@@ -80,8 +88,18 @@ export function taskAimingPoints(
   task: Pick<Task, "allocations">,
   aimingPoints: AimingPoint[],
 ): AimingPoint[] {
-  const ids = task.allocations.map((line) => line.aiming_point_id).filter((id): id is string => Boolean(id));
-  return aimingPoints.filter((point) => point.archived_at === null && ids.includes(point.id));
+  const refs = task.allocations
+    .map((line) => line.aiming_point_id)
+    .filter((id): id is string => Boolean(id));
+  const matched = new Map<string, AimingPoint>();
+  refs.forEach((ref) => {
+    const line = task.allocations.find((item) => item.aiming_point_id === ref);
+    const point = findAimingPointByRef(aimingPoints, ref, line?.target_id);
+    if (point) {
+      matched.set(point.id, point);
+    }
+  });
+  return [...matched.values()];
 }
 
 export function resolveDefaultAimingMgrs(

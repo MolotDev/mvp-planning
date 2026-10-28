@@ -43,6 +43,7 @@ export interface Launch {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  confirmed_at: string | null;
   reported_at: string | null;
   reported_at_time: string | null;
   processed_at: string | null;

@@ -6,13 +6,16 @@ import { launchHasEnteredPlanData } from "@/lib/missionCascade";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch } from "@/types/launch";
 import type { Mission, MissionMetrics, Task } from "@/types/mission";
-import type { AimingPoint, Target } from "@/types/target";
+import { COMPLETED_CONFIRMED, type AimingPoint, type Target } from "@/types/target";
 
 export function getLaunchStateMetrics(launches: Launch[]): MissionMetrics {
   return {
     total: launches.length,
     active: launches.filter((launch) => getEntityState(launch) === "active").length,
-    reported: launches.filter((launch) => getEntityState(launch) === "reported").length,
+    reported: launches.filter((launch) => {
+      const state = getEntityState(launch);
+      return state === "reported" || state === COMPLETED_CONFIRMED;
+    }).length,
     archived: launches.filter((launch) => getEntityState(launch) === "archived").length,
   };
 }
