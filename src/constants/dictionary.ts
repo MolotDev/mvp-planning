@@ -714,7 +714,8 @@ export const DICTIONARY = {
       event_log: {
         time: "Час",
         date: "Дата",
-        event: "Подія"
+        event: "Подія",
+        select_event: "— Оберіть подію —",
       },
       launches_results: {
         launch_date: "Дата запуску",

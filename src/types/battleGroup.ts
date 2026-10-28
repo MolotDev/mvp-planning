@@ -14,6 +14,7 @@ export interface BattleGroup {
   task_id: string;
   lead_crew_id: string;
   support_crew_ids: string[];
+  callsign?: string | null;
   asset_id: string;
   allocation_line_id: string | null;
   uav_quantity: number;
