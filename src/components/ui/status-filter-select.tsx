@@ -32,6 +32,7 @@ export function StatusFilterSelect({ value, onChange, mode = "lifecycle", classN
       { value: "all", label: labels.all },
       { value: "reported", label: labels.completed },
       { value: "active", label: labels.active },
+      { value: "cancelled", label: labels.cancelled },
       { value: "archived", label: labels.archived },
     ];
   }, [mode, labels]);

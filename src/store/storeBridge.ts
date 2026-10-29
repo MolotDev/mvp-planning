@@ -60,6 +60,18 @@ export function readAllocatedReports(): Report[] {
   return readReports();
 }
 
+type ReportReopen = (organizationIds: string[], reportDate: string) => void;
+
+let reopenReports: ReportReopen | null = null;
+
+export function registerReportReopen(reopen: ReportReopen) {
+  reopenReports = reopen;
+}
+
+export function reopenAllocatedReports(organizationIds: string[], reportDate: string) {
+  reopenReports?.(organizationIds, reportDate);
+}
+
 let readMissionSchedule: (missionId: string) => string | null = () => null;
 
 export function registerMissionSchedule(source: (missionId: string) => string | null) {

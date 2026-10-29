@@ -4,14 +4,19 @@ import { CrosshairIcon, MapPinned, PanelRightClose, PanelRightOpen, PlaneIcon, U
 import { MissionAllocationBoard } from "@/components/missions/MissionAllocationBoard";
 import { MissionAnalyticsColumn } from "@/components/missions/MissionAnalyticsColumn";
 import { MissionReadinessPanel } from "@/components/missions/MissionReadinessPanel";
+import { ExecutionHeader } from "@/components/layout/ExecutionHeader";
+import { CancelMissionModal } from "@/components/missions/CancelMissionModal";
 import { Button } from "@/components/ui/button";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { Modal } from "@/components/ui/modal";
-import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAdminister } from "@/lib/access";
-import { isScheduledBeforeCreated, startOfDay } from "@/lib/dates";
+import { cancelMissionExecution } from "@/lib/cancelExecution";
+import { formatDateUk, isScheduledBeforeCreated, startOfDay } from "@/lib/dates";
+import { fillTemplate } from "@/lib/battleGroupCapacity";
+import { entityExecutionBadge } from "@/lib/executionBadge";
 import { getEntityState } from "@/lib/entityState";
+import { canShowCancelAction } from "@/lib/missionCancellation";
 import { allMissionReportsSubmitted, isMissionPlanningLocked } from "@/lib/missionConfirmation";
 import {
   draftsFromMission,
@@ -50,6 +55,7 @@ export function MissionPreviewPage() {
   const unlockMissionReports = useMissionStore((state) => state.unlockMissionReports);
   const reports = useReportStore((state) => state.reports);
   const [approvalModal, setApprovalModal] = useState<"confirm" | "unlock" | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [didChange, setDidChange] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<Date | null>(() =>
@@ -103,6 +109,12 @@ export function MissionPreviewPage() {
     : undefined;
   const title = focusCard?.title ?? (mission.name ? `${mission.label} — ${mission.name}` : mission.label);
   const heading = focusCard?.label ?? mission.label;
+  const executionBadge = entityExecutionBadge(mission);
+  const headerTitle = fillTemplate(DICTIONARY.missions.command.title_full, {
+    label: heading,
+    date: formatDateUk(mission.scheduled_at),
+  });
+  const showCancel = managesMissions && canShowCancelAction(mission);
   const summaryDrafts = focusTargetId && !editing
     ? targetDrafts.filter((draft) => draft.target_id === focusTargetId)
     : targetDrafts;
@@ -163,25 +175,31 @@ export function MissionPreviewPage() {
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <GoBackIconButton onClick={() => navigate(-1)} />
-          <EntityStatusBadge status={entityState} />
-          <h2 className="truncate text-lg font-semibold text-primitive-neutral-0" title={title}>
-            {heading}
-          </h2>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {canConfirm ? (
-            <Button onClick={() => setApprovalModal("confirm")}>{DICTIONARY.common.actions.confirm_execution}</Button>
-          ) : null}
-          {managesMissions && isConfirmed ? (
-            <Button variant="ghost" onClick={() => setApprovalModal("unlock")}>
-              {DICTIONARY.common.actions.allow_report_edit}
-            </Button>
-          ) : null}
-        </div>
-      </header>
+      <ExecutionHeader
+        onBack={() => navigate(-1)}
+        badge={executionBadge}
+        title={headerTitle}
+        titleTitle={title}
+        showCancel={showCancel}
+        onCancelClick={() => setCancelOpen(true)}
+        rightActions={
+          <>
+            {canEdit && !editing ? (
+              <Button variant="ghost" onClick={() => setEditing(true)}>
+                {DICTIONARY.missions.edit_toggle}
+              </Button>
+            ) : null}
+            {canConfirm ? (
+              <Button onClick={() => setApprovalModal("confirm")}>{DICTIONARY.common.actions.confirm_execution}</Button>
+            ) : null}
+            {managesMissions && isConfirmed ? (
+              <Button variant="ghost" onClick={() => setApprovalModal("unlock")}>
+                {DICTIONARY.common.actions.allow_report_edit}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
       <div className="flex min-h-0 flex-1 flex-row overflow-hidden justify-between">
         <div className="h-full w-[60%] space-y-2 overflow-y-auto overflow-x-hidden pr-2">
           <div className="flex flex-col rounded-md bg-primitive-neutral-900 p-4">
@@ -356,6 +374,28 @@ export function MissionPreviewPage() {
         >
           <p className="text-sm text-primitive-neutral-200">{DICTIONARY.missions.modals.unlock_reports.message}</p>
         </Modal>
+      ) : null}
+      {cancelOpen ? (
+        <CancelMissionModal
+          role="CENTER"
+          onClose={() => setCancelOpen(false)}
+          onConfirm={({ cancelTime, reason }) => {
+            const result = cancelMissionExecution(mission.id, {
+              cancelTime,
+              reason,
+              role: "CENTER",
+            });
+            setCancelOpen(false);
+            if (!result) {
+              notifyError(DICTIONARY.common.error);
+              return;
+            }
+            notifySuccess(DICTIONARY.common.cancellation.success);
+            if (result.outcome === "cancelled_before_exit") {
+              navigate("/planning/missions");
+            }
+          }}
+        />
       ) : null}
     </section>
   );

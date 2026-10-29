@@ -11,11 +11,16 @@ import {
   trajectoryPresets,
   type PlanningSnapshot,
 } from "@/lib/reportAggregation";
-import { isReportLockedByConfirmation } from "@/lib/missionConfirmation";
-import { formatTimeInput, toReportDate } from "@/lib/reportFormat";
+import { isReportEditable } from "@/lib/missionConfirmation";
+import { combineDateAndTime, DEFAULT_LAUNCH_TIME, toReportDate } from "@/lib/reportFormat";
 import { isReportSubmittable } from "@/lib/reportValidation";
 import { formatIsoDate } from "@/lib/dates";
-import { registerReportReconcile, registerReportSource, registerReportSync } from "@/store/storeBridge";
+import {
+  registerReportReconcile,
+  registerReportReopen,
+  registerReportSource,
+  registerReportSync,
+} from "@/store/storeBridge";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
 import { useMissionStore } from "@/store/useMissionStore";
@@ -54,6 +59,7 @@ export interface ReportStoreState {
   removeImage: (id: string, index: number) => void;
   clearReport: (id: string) => void;
   submitReport: (id: string) => boolean;
+  reopenForMission: (organizationIds: string[], reportDate: string) => void;
   archiveReport: (id: string) => boolean;
 }
 
@@ -96,22 +102,8 @@ function createId(): string {
   return crypto.randomUUID();
 }
 
-function isDraft(report: Report): boolean {
-  return report.status === "draft" && report.archived_at === null;
-}
-
 function canEditReportContent(report: Report): boolean {
-  if (report.archived_at !== null || report.status === "archived") {
-    return false;
-  }
-  if (report.status !== "draft" && report.status !== "submitted") {
-    return false;
-  }
-  return !isReportLockedByConfirmation(
-    report,
-    useMissionStore.getState().missions,
-    useTaskStore.getState().tasks,
-  );
+  return isReportEditable(report, useMissionStore.getState().missions, useTaskStore.getState().tasks);
 }
 
 function findActiveReport(reports: Report[], organizationId: string, reportDate: string): Report | undefined {
@@ -363,8 +355,8 @@ export const useReportStore = create<ReportStoreState>()(
           current.checkpoint_updates.find((item) => item.battle_group_id === group?.id)?.comment ?? "";
         const event: ActualEvent = {
           id: createId(),
-          time: formatTimeInput(now),
-          date: formatIsoDate(nowDate),
+          time: DEFAULT_LAUNCH_TIME,
+          date: current.report_date || formatIsoDate(nowDate),
           event_description: description,
           comment: "",
         };
@@ -411,11 +403,13 @@ export const useReportStore = create<ReportStoreState>()(
         }
         const now = new Date().toISOString();
         const existing = current.launches_by_trajectory.find((link) => link.launch_id === launchId);
+        const defaultLaunchedAt =
+          combineDateAndTime(current.report_date, DEFAULT_LAUNCH_TIME) ?? now;
         const nextLink: LaunchTrajectoryLink = {
           launch_id: launchId,
           trajectory_id: existing?.trajectory_id ?? "",
           launch_number: existing?.launch_number ?? 0,
-          launched_at: existing?.launched_at ?? now,
+          launched_at: existing?.launched_at || defaultLaunchedAt,
           ...patch,
         };
         const links = existing
@@ -459,7 +453,7 @@ export const useReportStore = create<ReportStoreState>()(
       },
       clearReport: (id) => {
         const current = get().reports.find((report) => report.id === id);
-        if (!current || !isDraft(current)) {
+        if (!current || !canEditReportContent(current)) {
           return;
         }
         const now = new Date().toISOString();
@@ -469,6 +463,8 @@ export const useReportStore = create<ReportStoreState>()(
         const trajectory = blankTrajectory(tableId, now, trajectoryPresets(slice));
         const cleared: Report = {
           ...current,
+          status: "draft",
+          submitted_at: null,
           analysis_timestamp: "",
           commander_summary: null,
           planning_participants: null,
@@ -482,9 +478,34 @@ export const useReportStore = create<ReportStoreState>()(
         };
         set((state) => ({ reports: replaceReport(state.reports, withLinks(cleared, now)) }));
       },
+      reopenForMission: (organizationIds, reportDate) => {
+        const orgs = new Set(organizationIds.filter(Boolean));
+        if (orgs.size === 0 || !reportDate) {
+          return;
+        }
+        const now = new Date().toISOString();
+        set((state) => ({
+          reports: state.reports.map((report) => {
+            if (
+              report.archived_at !== null ||
+              report.status === "archived" ||
+              report.status !== "submitted" ||
+              report.report_date !== reportDate ||
+              !orgs.has(report.organization_id)
+            ) {
+              return report;
+            }
+            return {
+              ...report,
+              status: "draft",
+              updated_at: now,
+            };
+          }),
+        }));
+      },
       submitReport: (id) => {
         const current = get().reports.find((report) => report.id === id);
-        if (!current || !isDraft(current) || !isReportSubmittable(current, planningSnapshot())) {
+        if (!current || !canEditReportContent(current) || !isReportSubmittable(current, planningSnapshot())) {
           return false;
         }
         const now = new Date().toISOString();
@@ -555,6 +576,10 @@ export const useReportStore = create<ReportStoreState>()(
 );
 
 registerReportSource(() => useReportStore.getState().reports);
+
+registerReportReopen((organizationIds, reportDate) => {
+  useReportStore.getState().reopenForMission(organizationIds, reportDate);
+});
 
 export function reconcileAllocatedReports() {
   const taskIds = [

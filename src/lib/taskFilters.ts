@@ -5,7 +5,7 @@ import {
   type TaskFilterState,
 } from "@/store/useTaskFilterStore";
 
-const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "all"];
+const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "cancelled", "all"];
 
 function missionSearchQuery(mission: Mission): string {
   const name = mission.name?.trim();

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, ArrowUpDown, FoldHorizontal, UnfoldHorizontal, Upload, X } from "lucide-react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
+import { TrackerSelect } from "@/components/launches/TrackerSelect";
 import { EventTypeCombobox } from "@/components/reports/EventTypeCombobox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/reportAggregation";
 import {
   combineDateAndTime,
+  DEFAULT_LAUNCH_TIME,
   formatDateInput,
   formatTimeInput,
   nextLaunchTimeSortDirection,
@@ -981,7 +983,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             onChange={(event) => {
                               const next = combineDateAndTime(
                                 event.target.value,
-                                formatTimeInput(launchedAt) || formatTimeInput(new Date().toISOString()),
+                                formatTimeInput(launchedAt) || DEFAULT_LAUNCH_TIME,
                               );
                               if (next) {
                                 setLaunchLink(report.id, launch.id, { launched_at: next });
@@ -1000,8 +1002,8 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                             value={formatTimeInput(launchedAt)}
                             onChange={(event) => {
                               const next = combineDateAndTime(
-                                formatDateInput(launchedAt) || formatDateInput(new Date().toISOString()),
-                                event.target.value,
+                                formatDateInput(launchedAt) || report.report_date,
+                                event.target.value || DEFAULT_LAUNCH_TIME,
                               );
                               if (next) {
                                 setLaunchLink(report.id, launch.id, { launched_at: next });
@@ -1096,12 +1098,14 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                               </div>
                             </td>
                             <td className={cell}>
-                              <Input
+                              <TrackerSelect
+                                launchId={launch.id}
+                                assetId={launch.asset_id}
+                                taskId={launch.task_id}
                                 value={launch.tracker_model_serial_number ?? ""}
                                 disabled={readOnly}
                                 aria-label={text.tables.launches_grouped.tracker_sn}
-                                onChange={(event) => {
-                                  const value = event.target.value;
+                                onChange={(value) => {
                                   if (value.trim() === "") {
                                     clearTracker(launch);
                                     return;

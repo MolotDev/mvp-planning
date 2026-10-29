@@ -5,6 +5,7 @@ import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { ClearTrackerButton } from "@/components/launches/ClearTrackerButton";
 import { InlineFieldAlert } from "@/components/launches/InlineFieldAlert";
+import { TrackerSelect } from "@/components/launches/TrackerSelect";
 import { AimingPointBadge, Badge, ProgressBadge, TargetBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CloseIconButton, DeleteIconButton } from "@/components/ui/icon-buttons";
@@ -723,20 +724,23 @@ export function LaunchEditor({
                           </td>
                           <td className="px-2 py-2">
                             <div className="relative max-w-[200px]">
-                              <Input
+                              <TrackerSelect
                                 className={cn(
                                   "max-h-7 w-full text-md px-1.5",
-                                  warning?.tracker && "border-primitive-red-500 pr-[75%]",
+                                  warning?.tracker && "border-primitive-red-500",
                                 )}
                                 tabIndex={draft.tracker_model_serial_number ? -1 : 0}
                                 aria-label={`${columns.tracker_serial} ${launch.id}`}
-                                aria-invalid={Boolean(warning?.tracker)}
-                                title={warning?.tracker || undefined}
+                                invalid={Boolean(warning?.tracker)}
+                                launchId={launch.id}
+                                assetId={launch.asset_id}
+                                taskId={launch.task_id}
+                                occupiedSerials={Object.entries(drafts)
+                                  .filter(([id]) => id !== launch.id)
+                                  .map(([, row]) => row.tracker_model_serial_number)}
                                 value={draft.tracker_model_serial_number}
                                 disabled={rowDisabled}
-                                onChange={(event) =>
-                                  patchDraft(launch.id, { tracker_model_serial_number: event.target.value })
-                                }
+                                onChange={(serial) => patchDraft(launch.id, { tracker_model_serial_number: serial })}
                               />
                               <InlineFieldAlert message={warning?.tracker ?? ""} className="leading-7" />
                             </div>

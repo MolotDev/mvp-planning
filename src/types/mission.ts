@@ -1,4 +1,6 @@
-export type MissionStatusFilter = "active" | "reported" | "archived" | "all";
+import type { CancellationMetadata } from "@/types/cancellation";
+
+export type MissionStatusFilter = "active" | "reported" | "archived" | "cancelled" | "all";
 
 export interface UavAsset {
   asset_id: string;
@@ -17,6 +19,7 @@ export interface Mission {
   reported_at: string | null;
   confirmed_at: string | null;
   archived_at: string | null;
+  cancellation?: CancellationMetadata | null;
 }
 
 export type TaskSource = "center" | "detachment";
@@ -46,6 +49,7 @@ export interface Task {
   reported_at: string | null;
   confirmed_at: string | null;
   archived_at: string | null;
+  cancellation?: CancellationMetadata | null;
 }
 
 export interface MissionMetrics {

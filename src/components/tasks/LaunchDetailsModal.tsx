@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ApplyBelowPopover } from "@/components/launches/ApplyBelowPopover";
 import { InlineFieldAlert } from "@/components/launches/InlineFieldAlert";
+import { TrackerSelect } from "@/components/launches/TrackerSelect";
 import { AimingPointBadge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DeleteIconButton } from "@/components/ui/icon-buttons";
@@ -260,15 +261,23 @@ export function LaunchDetailsModal({
                     </td>
                     <td className="px-2 py-2">
                       <div className="relative">
-                        <Input
-                          aria-label={text.column_tracker}
-                          aria-invalid={Boolean(warning?.tracker)}
-                          title={warning?.tracker || undefined}
-                          value={draft.tracker}
-                          readOnly={locked}
-                          onChange={(event) => patch(draft.id, { tracker: event.target.value })}
-                          className={cn(fieldClassName, warning?.tracker && "border-primitive-red-500 pr-[75%]")}
-                        />
+                        {locked ? (
+                          <span className="text-primitive-neutral-0">{draft.tracker || text.empty_value}</span>
+                        ) : (
+                          <TrackerSelect
+                            aria-label={text.column_tracker}
+                            invalid={Boolean(warning?.tracker)}
+                            launchId={draft.id}
+                            assetId={launch?.asset_id}
+                            taskId={launch?.task_id}
+                            occupiedSerials={sectionDrafts
+                              .filter((item) => item.id !== draft.id)
+                              .map((item) => item.tracker)}
+                            value={draft.tracker}
+                            onChange={(serial) => patch(draft.id, { tracker: serial })}
+                            className={cn(fieldClassName, warning?.tracker && "border-primitive-red-500")}
+                          />
+                        )}
                         <InlineFieldAlert message={warning?.tracker ?? ""} />
                       </div>
                     </td>

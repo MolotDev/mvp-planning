@@ -5,6 +5,7 @@ import { COMPLETED_CONFIRMED } from "@/types/target";
 import { registerReportSource } from "@/store/storeBridge";
 import { resetLaunchStore, useLaunchStore } from "@/store/useLaunchStore";
 import { resetMissionStore, useMissionStore } from "@/store/useMissionStore";
+import { resetReportStore, useReportStore } from "@/store/useReportStore";
 import { resetTaskStore, useTaskStore } from "@/store/useTaskStore";
 import type { Launch } from "@/types/launch";
 import type { Mission, Task } from "@/types/mission";
@@ -117,7 +118,8 @@ describe("confirmMission cascade", () => {
     resetMissionStore();
     resetTaskStore();
     resetLaunchStore();
-    registerReportSource(() => []);
+    resetReportStore();
+    registerReportSource(() => useReportStore.getState().reports);
   });
 
   it("sets confirmed_at on related tasks and launches", () => {
@@ -188,5 +190,26 @@ describe("confirmMission cascade", () => {
         useLaunchStore.getState().launches[0],
       ),
     ).toBe("reported");
+  });
+
+  it("reopens submitted reports to draft when center unlocks editing", () => {
+    useMissionStore.setState({
+      missions: [{ ...mission(), confirmed_at: NOW }],
+      missionSeq: 1,
+    });
+    useTaskStore.setState({
+      tasks: [{ ...task(), confirmed_at: NOW, reported_at: NOW }],
+      taskSeq: 1,
+    });
+    useLaunchStore.setState({
+      launches: [{ ...launch(), confirmed_at: NOW }],
+    });
+    useReportStore.setState({
+      reports: [submittedReport()],
+    });
+    registerReportSource(() => useReportStore.getState().reports);
+
+    expect(useMissionStore.getState().unlockMissionReports("m1")).toBe(true);
+    expect(useReportStore.getState().reports[0].status).toBe("draft");
   });
 });

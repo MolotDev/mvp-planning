@@ -49,6 +49,7 @@ export interface BattleGroupRules {
   launchRatePerHour?: number;
   shiftDurationHours?: number;
   sameDayTaskIds?: ReadonlySet<string>;
+  releasedTaskIds?: ReadonlySet<string>;
 }
 
 export function operationalDay(iso: string | null | undefined): string | null {
@@ -85,10 +86,14 @@ export function occupiedCrewIds(
   groups: BattleGroup[],
   exceptGroupId?: string,
   sameDayTaskIds?: ReadonlySet<string>,
+  releasedTaskIds?: ReadonlySet<string>,
 ): Set<string> {
   const occupied = new Set<string>();
   groups.forEach((group) => {
     if (group.archived_at !== null) {
+      return;
+    }
+    if (releasedTaskIds?.has(group.task_id)) {
       return;
     }
     if (exceptGroupId && group.id === exceptGroupId) {
@@ -131,10 +136,11 @@ export function uavName(id: string): string {
 }
 
 export function visibleBattleGroups(
-  task: { archived_at: string | null },
+  task: { archived_at: string | null; cancellation?: { outcome?: string } | null },
   groups: BattleGroup[],
 ): BattleGroup[] {
-  if (task.archived_at !== null) {
+  // Cancelled / archived tasks keep their historical assignment visible.
+  if (task.archived_at !== null || task.cancellation) {
     return groups;
   }
   return groups.filter((group) => group.archived_at === null);
@@ -150,7 +156,12 @@ export function inspectBattleGroup(
   if (input.lead_crew_id && input.support_crew_ids.includes(input.lead_crew_id)) {
     crewError = DICTIONARY.tasks.validation.lead_in_support;
   } else if (input.lead_crew_id) {
-    const occupied = occupiedCrewIds(groups, rules.exceptGroupId, rules.sameDayTaskIds);
+    const occupied = occupiedCrewIds(
+      groups,
+      rules.exceptGroupId,
+      rules.sameDayTaskIds,
+      rules.releasedTaskIds,
+    );
     const assigned = [input.lead_crew_id, ...input.support_crew_ids];
     if (assigned.some((id) => occupied.has(id)) || new Set(assigned).size !== assigned.length) {
       crewError = DICTIONARY.tasks.validation.crew_busy;

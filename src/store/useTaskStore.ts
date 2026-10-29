@@ -124,6 +124,7 @@ export function normalizeTask(task: StoredTask): Task {
     reported_at: task.reported_at ?? null,
     confirmed_at: task.confirmed_at ?? null,
     archived_at: task.archived_at ?? null,
+    cancellation: (task as Task).cancellation ?? null,
   };
 }
 
@@ -312,6 +313,7 @@ export const useTaskStore = create<TaskStoreState>()(
               reported_at: null,
               confirmed_at: null,
               archived_at: null,
+              cancellation: null,
             };
             tasks.push(task);
           }
@@ -472,6 +474,7 @@ export const useTaskStore = create<TaskStoreState>()(
           reported_at: null,
           confirmed_at: null,
           archived_at: null,
+          cancellation: null,
         };
         set((state) => ({
           tasks: [task, ...state.tasks],

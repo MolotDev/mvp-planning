@@ -5,7 +5,10 @@ import type { Launch } from "@/types/launch";
 import type { Task } from "@/types/mission";
 
 export function draftsFromGroups(task: Task, groups: BattleGroup[]): CrewAssignmentDraft[] {
-  const active = groups.filter((group) => group.task_id === task.id && group.archived_at === null);
+  const keepHistorical = task.archived_at !== null || Boolean(task.cancellation);
+  const active = groups.filter(
+    (group) => group.task_id === task.id && (keepHistorical || group.archived_at === null),
+  );
   const rows: CrewAssignmentDraft[] = [];
   active.forEach((group) => {
     const allocationId =

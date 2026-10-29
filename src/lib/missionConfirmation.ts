@@ -93,3 +93,14 @@ export function missionsCoveredByReport(report: Report, missions: Mission[], tas
 export function isReportLockedByConfirmation(report: Report, missions: Mission[], tasks: Task[]): boolean {
   return missionsCoveredByReport(report, missions, tasks).some((mission) => mission.confirmed_at !== null);
 }
+
+/** Draft or submitted report may be edited until archived or locked by mission confirmation. */
+export function isReportEditable(report: Report, missions: Mission[], tasks: Task[]): boolean {
+  if (report.archived_at !== null || report.status === "archived") {
+    return false;
+  }
+  if (report.status !== "draft" && report.status !== "submitted") {
+    return false;
+  }
+  return !isReportLockedByConfirmation(report, missions, tasks);
+}

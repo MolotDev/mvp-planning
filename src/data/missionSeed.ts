@@ -33,6 +33,7 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       reported_at: null,
       confirmed_at: null,
       archived_at: calculateDateOffset(now, -2),
+      cancellation: null,
     },
     // {
     //   id: TASK_2_ID,
@@ -99,6 +100,7 @@ export function createMissionSeed(now = new Date()): { missions: Mission[]; task
       reported_at: null,
       confirmed_at: null,
       archived_at: calculateDateOffset(now, -2),
+      cancellation: null,
     },
     // {
     //   id: MISSION_2_ID,

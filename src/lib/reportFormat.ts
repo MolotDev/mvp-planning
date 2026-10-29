@@ -119,6 +119,9 @@ export function formatTimeInput(iso: string): string {
   return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
+/** Default clock time for new report events and unset launch links. */
+export const DEFAULT_LAUNCH_TIME = "00:01";
+
 export type LaunchTimeSortDirection = "asc" | "desc" | "default";
 
 export function nextLaunchTimeSortDirection(current: LaunchTimeSortDirection): LaunchTimeSortDirection {

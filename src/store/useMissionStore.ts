@@ -9,11 +9,12 @@ import {
   relatedTasksForMissionConfirmation,
 } from "@/lib/missionConfirmation";
 import { notifyCrossTab, notifyDomainStorageUpdate } from "@/services/crossTabSync";
-import { readAllocatedReports, registerMissionSchedule } from "@/store/storeBridge";
+import { readAllocatedReports, registerMissionSchedule, reopenAllocatedReports } from "@/store/storeBridge";
 import { operationalDay } from "@/lib/battleGroup";
 import { assignSequentialMissionLabels, nextMissionNumber } from "@/lib/missionLabel";
 import { isBeforeToday, isDateInRange, startOfDay } from "@/lib/dates";
 import { getEntityState, matchesEntityStatusFilter } from "@/lib/entityState";
+import { toReportDate } from "@/lib/reportFormat";
 import type { TaskDraft } from "@/store/useTaskStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useLaunchStore } from "@/store/useLaunchStore";
@@ -48,6 +49,7 @@ function normalizeMission(mission: Mission): Mission {
     ...mission,
     task_ids: Array.isArray(mission.task_ids) ? [...mission.task_ids] : [],
     confirmed_at: mission.confirmed_at ?? null,
+    cancellation: mission.cancellation ?? null,
   };
 }
 
@@ -175,6 +177,7 @@ export const useMissionStore = create<MissionStoreState>()(
           reported_at: null,
           confirmed_at: null,
           archived_at: null,
+          cancellation: null,
         };
         set((state) => ({
           missions: [mission, ...state.missions],
@@ -266,6 +269,9 @@ export const useMissionStore = create<MissionStoreState>()(
           ),
         }));
         applyConfirmationCascade(mission, null);
+        const related = relatedTasksForMissionConfirmation(mission, useTaskStore.getState().tasks);
+        const organizationIds = [...new Set(related.map((task) => task.organization_id))];
+        reopenAllocatedReports(organizationIds, toReportDate(mission.scheduled_at));
         return true;
       },
       ensureDailyMission: (scheduledAt) => {
@@ -294,6 +300,7 @@ export const useMissionStore = create<MissionStoreState>()(
           reported_at: null,
           confirmed_at: null,
           archived_at: null,
+          cancellation: null,
         };
         set((state) => ({
           missions: [mission, ...state.missions],

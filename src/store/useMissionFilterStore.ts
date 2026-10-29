@@ -21,7 +21,7 @@ export const DEFAULT_MISSION_FILTERS: MissionFilterState = {
   viewMode: "daily",
 };
 
-const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "all"];
+const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "cancelled", "all"];
 
 interface MissionFilterStore {
   filters: MissionFilterState;

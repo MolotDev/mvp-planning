@@ -6,7 +6,7 @@ import { ArchiveIconButton, EditIconButton, PreviewIconButton } from "@/componen
 import { DICTIONARY } from "@/constants/dictionary";
 import { canAdminister } from "@/lib/access";
 import { formattingMGRS } from "@/lib/formattingMGRS";
-import { isReportLockedByConfirmation } from "@/lib/missionConfirmation";
+import { isReportEditable } from "@/lib/missionConfirmation";
 import { aggregateDay, deriveReportMetrics, type PlanningSnapshot } from "@/lib/reportAggregation";
 import { reportStatusBadgeStyle } from "@/components/reports/reportStatusBadge";
 import { formatReportDate } from "@/lib/reportFormat";
@@ -35,10 +35,9 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
         : DICTIONARY.reports.statuses.draft;
   const summary = report.commander_summary ?? "";
 
-  const reportLocked =
-    report.status === "archived" || isReportLockedByConfirmation(report, snapshot.missions, snapshot.tasks);
+  const reportEditable = isReportEditable(report, snapshot.missions, snapshot.tasks);
   const openReport = () => {
-    const editable = managesReports && !reportLocked ? "?mode=edit" : "";
+    const editable = managesReports && reportEditable ? "?mode=edit" : "";
     navigate(`/reports/${report.id}${editable}`);
   };
 
@@ -55,7 +54,7 @@ export function ReportCard({ report, snapshot, onArchive }: ReportCardProps) {
           </Badge>
         </div>
         <div onClick={(event) => event.stopPropagation()}>
-          {managesReports && !reportLocked ? (
+          {managesReports && reportEditable ? (
             <EditIconButton onClick={openReport} />
           ) : (
             <PreviewIconButton onClick={() => navigate(`/reports/${report.id}`)} />

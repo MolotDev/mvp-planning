@@ -3,6 +3,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { DICTIONARY } from "@/constants/dictionary";
 import { CREWS } from "@/data/crews";
 import { occupiedCrewIds, taskAllocation, taskIdsOnOperationalDay, validateBattleGroupInput, type BattleGroupRules } from "@/lib/battleGroup";
+import { releasedTaskIdsFromCancellation } from "@/lib/entityState";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { isApplyingRemoteSync, notifyCrossTab } from "@/services/crossTabSync";
 import { registerBattleGroupSource, syncAllocatedReports, syncLaunchForGroup, syncReportForTask, reconcileLaunchesWithBattleGroups } from "@/store/storeBridge";
@@ -45,6 +46,7 @@ function validationRules(taskId: string, exceptGroupId?: string): BattleGroupRul
     exceptGroupId,
     taskAssets: task ? taskAllocation(task) : [],
     sameDayTaskIds: taskIdsOnOperationalDay(taskId, tasks, useMissionStore.getState().missions),
+    releasedTaskIds: releasedTaskIdsFromCancellation(tasks),
   };
 }
 
@@ -181,11 +183,13 @@ export const useBattleGroupStore = create<BattleGroupStoreState>()(
             return DICTIONARY.tasks.crew_allocation.over_allocated;
           }
         }
-        const sameDay = taskIdsOnOperationalDay(taskId, useTaskStore.getState().tasks, useMissionStore.getState().missions);
+        const peers = useTaskStore.getState().tasks;
+        const sameDay = taskIdsOnOperationalDay(taskId, peers, useMissionStore.getState().missions);
         const occupied = occupiedCrewIds(
           get().battleGroups.filter((group) => group.task_id !== taskId),
           undefined,
           sameDay,
+          releasedTaskIdsFromCancellation(peers),
         );
         if (drafts.some((draft) => occupied.has(draft.crewId))) {
           return DICTIONARY.tasks.validation.crew_busy;

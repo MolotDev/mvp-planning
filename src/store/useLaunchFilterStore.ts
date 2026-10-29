@@ -28,7 +28,7 @@ export const DEFAULT_LAUNCH_FILTERS: LaunchFilterState = {
 };
 
 const GROUP_MODES: LaunchGroupMode[] = ["battle_group", "task", "table"];
-const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "all"];
+const STATUSES: MissionStatusFilter[] = ["active", "reported", "archived", "cancelled", "all"];
 
 interface LaunchFilterStore {
   filters: LaunchFilterState;

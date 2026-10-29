@@ -34,7 +34,14 @@ export interface AimingPoint {
 
 export type StatusFilter = "active" | "archived" | "all";
 
-export type EntityStatus = "active" | "archived" | "reported" | "confirmed";
+export type EntityStatus =
+  | "active"
+  | "archived"
+  | "reported"
+  | "confirmed"
+  | "cancelled_before_exit"
+  | "cancelled_without_launches"
+  | "partially_completed";
 
 /** Unified confirmation status across mission, task and launch views. */
 export const COMPLETED_CONFIRMED = "confirmed" as const satisfies EntityStatus;

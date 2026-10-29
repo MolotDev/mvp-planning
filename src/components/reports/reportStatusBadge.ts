@@ -24,6 +24,23 @@ export function reportStatusBadgeStyle(status: ReportStatus): CSSProperties {
 }
 
 export function entityStatusBadgeStyle(status: EntityStatus): CSSProperties {
+  if (
+    status === "cancelled_before_exit" ||
+    status === "cancelled_without_launches"
+  ) {
+    return {
+      color: "#f87171",
+      backgroundColor: "rgba(69, 10, 10, 0.7)",
+      border: "1px solid rgba(153, 27, 27, 0.6)",
+    };
+  }
+  if (status === "partially_completed") {
+    return {
+      color: "#fbbf24",
+      backgroundColor: "rgba(69, 26, 3, 0.7)",
+      border: "1px solid rgba(146, 64, 14, 0.6)",
+    };
+  }
   if (status === "archived") {
     return reportStatusBadgeStyle("archived");
   }

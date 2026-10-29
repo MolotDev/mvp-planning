@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { BattleGroupCrewLine } from "@/components/launches/BattleGroupCrewLine";
 import { HoverPopover } from "@/components/launches/HoverPopover";
+import { TrackerSelect } from "@/components/launches/TrackerSelect";
 import { Badge, TargetIdBadge } from "@/components/ui/badge";
 import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { Input } from "@/components/ui/input";
@@ -387,10 +388,13 @@ export function LaunchTable({ rows }: { rows: LaunchRowContext[] }) {
                 </td>
                 <td className="px-3 py-2">
                   {isShowFormFields ? (
-                    <Input
+                    <TrackerSelect
                       aria-label={`${columns.tracker_serial} ${launch.id}`}
+                      launchId={launch.id}
+                      assetId={launch.asset_id}
+                      taskId={launch.task_id}
                       value={rowDraft.tracker_model_serial_number}
-                      onChange={(event) => changeDraft(launch, { tracker_model_serial_number: event.target.value })}
+                      onChange={(serial) => changeDraft(launch, { tracker_model_serial_number: serial })}
                     />
                   ) : (
                     <span className="text-primitive-neutral-200">{trackerSerial}</span>

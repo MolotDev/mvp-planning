@@ -9,8 +9,10 @@ import { reconcileLaunchesWithBattleGroups, registerLaunchSync } from "@/store/s
 import { useMissionStore } from "@/store/useMissionStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { useTaskStore } from "@/store/useTaskStore";
+import { useTrackerStore } from "@/store/useTrackerStore";
 import type { BattleGroup } from "@/types/battleGroup";
 import type { Launch, LaunchReportInput } from "@/types/launch";
+import { findTrackerByRef } from "@/lib/trackerPool";
 
 export type LaunchFieldPatch = Partial<
   Pick<
@@ -87,6 +89,22 @@ function commitLaunchPatch(
   set((state) => ({
     launches: state.launches.map((launch) => (launch.id === existing.id ? updated : launch)),
   }));
+  if (
+    Object.prototype.hasOwnProperty.call(patch, "tracker_model_serial_number") ||
+    Object.prototype.hasOwnProperty.call(patch, "tracker_model_id")
+  ) {
+    const { task, mission } = launchMission(updated);
+    useTrackerStore.getState().syncLaunchAssignment(
+      updated.id,
+      existing.tracker_model_serial_number,
+      updated.tracker_model_serial_number,
+      {
+        assetId: updated.asset_id,
+        taskId: task?.id ?? updated.task_id,
+        missionId: mission?.id ?? task?.mission_id ?? null,
+      },
+    );
+  }
   notifyCrossTab("SYNC_LAUNCHES");
   return updated;
 }
@@ -109,16 +127,23 @@ function resolveTrackerFields(
   if (cleared && (serialTouched || patch.tracker_model_id === null)) {
     return { tracker_model_id: null, tracker_model_serial_number: null };
   }
-  const nextSerial = serial ?? "";
+  const nextSerial = (serial ?? "").trim();
+  const pool = findTrackerByRef(useTrackerStore.getState().trackers, nextSerial);
+  if (pool) {
+    return {
+      tracker_model_id: pool.id,
+      tracker_model_serial_number: pool.number,
+    };
+  }
   const nextModel =
-    nextSerial.trim() && TRACKERS.length === 1
+    nextSerial && TRACKERS.length === 1
       ? TRACKERS[0].id
       : modelTouched
         ? (patch.tracker_model_id ?? null)
         : existing.tracker_model_id;
   return {
     tracker_model_id: nextModel,
-    tracker_model_serial_number: nextSerial,
+    tracker_model_serial_number: nextSerial || null,
   };
 }
 

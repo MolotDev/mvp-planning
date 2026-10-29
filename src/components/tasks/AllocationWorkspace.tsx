@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewsForOrganization, platoonsForOrganization } from "@/data/crews";
 import { crewName, crewPlatoonName, occupiedCrewIds, taskIdsOnOperationalDay, uavName } from "@/lib/battleGroup";
+import { releasedTaskIdsFromCancellation } from "@/lib/entityState";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import {
   getAvailableCrewOptions,
@@ -168,11 +169,14 @@ export function AllocationWorkspace({
     [task.organization_id],
   );
   const occupiedElsewhere = useMemo(() => {
-    const sameDay = taskIdsOnOperationalDay(task.id, useTaskStore.getState().tasks, missions);
+    const peers = useTaskStore.getState().tasks;
+    const sameDay = taskIdsOnOperationalDay(task.id, peers, missions);
+    const released = releasedTaskIdsFromCancellation(peers);
     return occupiedCrewIds(
       battleGroups.filter((group) => group.task_id !== task.id),
       undefined,
       sameDay,
+      released,
     );
   }, [battleGroups, missions, task.id]);
   const dailyTasks = useMemo(() => peerTasks.filter((item) => item.scheduled_at === task.scheduled_at), [peerTasks, task.scheduled_at]);

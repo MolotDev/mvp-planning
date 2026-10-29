@@ -1,9 +1,7 @@
 import { DICTIONARY } from "@/constants/dictionary";
 import { cn } from "@/lib/utils";
-import type { StatusFilter } from "@/types/target";
-import type { MissionStatusFilter } from "@/types/mission";
 
-type StatusTab = StatusFilter | MissionStatusFilter;
+type StatusTab = "active" | "archived" | "all" | "reported";
 
 interface StatusToggleProps {
   value: StatusTab;

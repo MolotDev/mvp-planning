@@ -301,13 +301,15 @@ export function TaskCard({
                 {DICTIONARY.common.actions.distribute}
               </Button>
             ) : null}
-            {canOpenLaunches && assignedGroups.length > 0 ? (
+            {entityState !== "cancelled_before_exit" && canOpenLaunches && assignedGroups.length > 0 ? (
               <PreviewActionButton
                 label={DICTIONARY.common.actions.preview_launches}
                 onClick={() => navigate(`/planning/launches/${assignedGroups[0].id}`)}
               />
             ) : null}
-            {reportId ? <ViewReportButton reportId={reportId} /> : null}
+            {entityState !== "cancelled_before_exit" && reportId ? (
+              <ViewReportButton reportId={reportId} />
+            ) : null}
           </div>
         </div>
       </CardFooter>

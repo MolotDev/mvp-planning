@@ -6,20 +6,25 @@ import { CrewStatsDrawer } from "@/components/tasks/CrewStatsDrawer";
 import { LaunchDetailsModal, type LaunchAimingSection } from "@/components/tasks/LaunchDetailsModal";
 import { LaunchSummaryCards } from "@/components/tasks/LaunchSummaryCards";
 import { TaskInfoDrawer } from "@/components/tasks/TaskInfoDrawer";
+import { CancelMissionModal } from "@/components/missions/CancelMissionModal";
+import { ExecutionHeader } from "@/components/layout/ExecutionHeader";
 import { Button } from "@/components/ui/button";
-import { EntityStatusBadge } from "@/components/ui/entity-status-badge";
 import { GoBackIconButton } from "@/components/ui/icon-buttons";
 import { DICTIONARY } from "@/constants/dictionary";
 import { crewsForOrganization } from "@/data/crews";
 import { canAdminister, homePath, taskInScope } from "@/lib/access";
+import { cancelTaskExecution } from "@/lib/cancelExecution";
 import { crewName, uavName } from "@/lib/battleGroup";
 import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { CrewAssignmentDraft } from "@/lib/crewAllocation";
 import { formatDateUk, isBeforeToday, parseIsoDate, startOfDay } from "@/lib/dates";
+import { detachmentName } from "@/lib/detachments";
 import { resolvePlanningEntityState } from "@/lib/entityState";
+import { entityExecutionBadge } from "@/lib/executionBadge";
 import { formatAimingPointRef, formatStoredAimingPoint } from "@/lib/formatters";
 import { resolveLaunchAimingPoint } from "@/lib/launchAiming";
 import { isLaunchReadOnly } from "@/lib/launches";
+import { canShowCancelAction } from "@/lib/missionCancellation";
 import { matchingReports } from "@/lib/reportAggregation";
 import { groupLaunchesByCrew, type LaunchSerialEntry } from "@/lib/taskCrewMatrix";
 import { draftsFromGroups } from "@/lib/taskDashboard";
@@ -91,6 +96,7 @@ export function TaskPreviewPage() {
       reported_at: null,
       confirmed_at: null,
       archived_at: null,
+      cancellation: null,
     };
   }, [canCreate, createDate, entityId]);
   const task = creating ? draftTask : storedTask;
@@ -108,6 +114,7 @@ export function TaskPreviewPage() {
   const [launchSelection, setLaunchSelection] = useState<LaunchSelection | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
     if (!editing) {
@@ -204,6 +211,18 @@ export function TaskPreviewPage() {
   const headingLabel = focusCard?.label || task.label || task.id;
   const windowOpen = Boolean(task.scheduled_at) && new Date(task.scheduled_at).getTime() <= Date.now();
   const report = matchingReports(reports, [task.organization_id], task.scheduled_at)[0];
+  const executionBadge = entityExecutionBadge(task);
+  const headerTitle = creating
+    ? fillTemplate(text.create_title, { date: formatDateUk(scheduledAt) })
+    : fillTemplate(text.title_full, {
+        label: headingLabel,
+        detachment: detachmentName(task.organization_id),
+        date: formatDateUk(scheduledAt),
+      });
+  const showCancel =
+    !creating &&
+    (role === "DETACHMENT" || role === "CENTER") &&
+    canShowCancelAction(task);
   const roster = crewsForOrganization(task.organization_id).filter((crew) => crew.is_active);
   const taskLaunches = launches.filter((launch) => launch.archived_at === null && launch.task_id === task.id);
   const crewGroups = groupLaunchesByCrew(displayTask, displayGroups, launches);
@@ -379,36 +398,47 @@ export function TaskPreviewPage() {
   return (
     <>
       <section className="flex h-full min-h-0 flex-col overflow-hidden">
-        <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <GoBackIconButton onClick={() => navigate(-1)} />
-            {creating ? null : <EntityStatusBadge status={entityState} />}
-            <h1 className="truncate text-lg font-semibold text-primitive-neutral-0">
-              {creating
-                ? fillTemplate(text.create_title, { date: formatDateUk(scheduledAt) })
-                : fillTemplate(text.title_dated, { label: headingLabel, date: formatDateUk(scheduledAt) })}
-            </h1>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {!creating && role === "CENTER" && report?.status === "submitted" ? (
-              <Button variant="ghost" onClick={() => navigate(`/reports/${report.id}`)}>
-                {text.view_report}
-                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            ) : null}
-            {!creating && role === "DETACHMENT" ? (
-              <Button
-                variant="ghost"
-                // disabled={!windowOpen || entityState === "archived"}
-                title={!windowOpen ? text.report_not_yet : undefined}
-                onClick={openReport}
-              >
-                {text.enter_report}
-                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            ) : null}
-          </div>
-        </header>
+        <ExecutionHeader
+          onBack={() => navigate(-1)}
+          badge={
+            creating
+              ? { text: DICTIONARY.common.states.active, style: executionBadge.style }
+              : executionBadge
+          }
+          title={headerTitle}
+          showCancel={showCancel}
+          onCancelClick={() => setCancelOpen(true)}
+          rightActions={
+            <>
+              {!creating && role === "CENTER" && report?.status === "submitted" ? (
+                <Button variant="ghost" onClick={() => navigate(`/reports/${report.id}`)}>
+                  {text.view_report}
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+              {!creating && task.cancellation?.outcome === "cancelled_before_exit" ? (
+                <p
+                  className="max-w-xs text-right text-xs text-primitive-neutral-400"
+                  title={text.report_no_sortie}
+                >
+                  {text.report_no_sortie}
+                </p>
+              ) : null}
+              {!creating &&
+              role === "DETACHMENT" &&
+              task.cancellation?.outcome !== "cancelled_before_exit" ? (
+                <Button
+                  variant="ghost"
+                  title={!windowOpen ? text.report_not_yet : undefined}
+                  onClick={openReport}
+                >
+                  {text.enter_report}
+                  <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+            </>
+          }
+        />
         <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
           <div className="flex h-full w-[65%] flex-col gap-4 overflow-y-auto pr-2">
             <AllocationWorkspace
@@ -520,6 +550,28 @@ export function TaskPreviewPage() {
           lockedIds={lockedIds}
           plannedQuantity={plannedQuantity}
           onClose={() => setLaunchSelection(null)}
+        />
+      ) : null}
+      {cancelOpen && !creating ? (
+        <CancelMissionModal
+          role={role === "CENTER" ? "CENTER" : "DETACHMENT"}
+          onClose={() => setCancelOpen(false)}
+          onConfirm={({ cancelTime, reason }) => {
+            const result = cancelTaskExecution(task.id, {
+              cancelTime,
+              reason,
+              role: role === "CENTER" ? "CENTER" : "DETACHMENT",
+            });
+            setCancelOpen(false);
+            if (!result) {
+              notifyError(DICTIONARY.common.error);
+              return;
+            }
+            notifySuccess(DICTIONARY.common.cancellation.success);
+            if (result.outcome === "cancelled_before_exit") {
+              navigate("/planning/tasks");
+            }
+          }}
         />
       ) : null}
     </>
