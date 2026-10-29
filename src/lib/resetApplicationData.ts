@@ -13,6 +13,7 @@ import { resetTargetFilterStore } from "@/store/useTargetFilterStore";
 import { resetTargetStore } from "@/store/useTargetStore";
 import { resetTaskFilterStore } from "@/store/useTaskFilterStore";
 import { resetTaskStore } from "@/store/useTaskStore";
+import { resetTrackerStore } from "@/store/useTrackerStore";
 
 export function resetApplicationData() {
   resetMissionStore();
@@ -22,6 +23,7 @@ export function resetApplicationData() {
   resetTargetStore();
   resetAssetStore();
   resetReportStore();
+  resetTrackerStore();
   resetMissionFilterStore();
   resetTaskFilterStore();
   resetLaunchFilterStore();

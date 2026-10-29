@@ -86,7 +86,7 @@ export function MissionReadinessPanel({
         return [{
           group,
           detachment: detachmentName(task.organization_id),
-          aiming: `${aiming.badge} ${aiming.label}`,
+          aiming: aiming.label ? `${aiming.badge} ${aiming.label}` : aiming.badge,
           aimingBadge: aiming.badge,
           aimingLabel: aiming.label,
           ready: equippedCount(groupLaunches),

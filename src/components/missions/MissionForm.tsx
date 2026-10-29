@@ -242,7 +242,10 @@ function TargetAssignmentBlock({
                         .filter((point) => point.archived_at === null || point.id === row.aiming_point_id)
                         .map((point) => {
                           const aiming = formatStoredAimingPoint(point);
-                          return { value: point.id, label: `${aiming.badge} — ${aiming.label}` };
+                          return {
+                            value: point.id,
+                            label: aiming.label ? `${aiming.badge} — ${aiming.label}` : aiming.badge,
+                          };
                         })}
                       onChange={(aimingPointId) => onChange(assignRowAimingPoint(block, row.key, aimingPointId))}
                       className="h-8 w-full rounded-md border border-primitive-neutral-700 bg-primitive-neutral-900 px-3 text-sm hover:cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"

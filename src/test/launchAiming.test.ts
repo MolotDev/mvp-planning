@@ -66,4 +66,27 @@ describe("resolveLaunchAimingPoint", () => {
     } as Launch;
     expect(resolveLaunchAimingPoint(openTask, launch, undefined, points)?.id).toBe("ap-1");
   });
+
+  it("keeps free-form MP## allocation codes when no catalog aiming point exists", () => {
+    const codedTask = {
+      allocations: [
+        {
+          id: "line-mp05",
+          mission_id: "m",
+          target_id: "target-1",
+          aiming_point_id: "MP05",
+          asset_id: "uav_1",
+          quantity: 1,
+        },
+      ],
+    } as Task;
+    const launch = {
+      allocation_line_id: "line-mp05",
+      asset_id: "uav_1",
+      aiming_point_mgrs: "36U EV 45210 88320",
+    } as Launch;
+    const resolved = resolveLaunchAimingPoint(codedTask, launch, undefined, []);
+    expect(resolved?.displayed_id).toBe("MP05");
+    expect(resolved?.name).toBe("");
+  });
 });

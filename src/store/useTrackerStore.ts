@@ -202,3 +202,8 @@ export const useTrackerStore = create<TrackerStoreState>()(
     },
   ),
 );
+
+export function resetTrackerStore() {
+  useTrackerStore.persist.clearStorage();
+  useTrackerStore.setState({ trackers: createInitialTrackersPool() });
+}

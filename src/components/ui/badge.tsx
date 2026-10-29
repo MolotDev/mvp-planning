@@ -63,7 +63,7 @@ export function AimingPointBadge({label, mgrs, className = "" }: { label: string
         <Badge className={cn("font-semibold bg-sky-200/5 text-sky-300 flex items-center gap-1 w-fit tracking-widest", className || "text-[12px]")}>
           {mgrs}
         </Badge>
-        <span className="text-sm text-primitive-neutral-300">{label}</span>
+        {label ? <span className="text-sm text-primitive-neutral-300">{label}</span> : null}
       </div>
     </div>
   );

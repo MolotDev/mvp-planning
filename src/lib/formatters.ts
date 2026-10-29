@@ -1,9 +1,8 @@
 import { DICTIONARY } from "@/constants/dictionary";
 import { asAimingCode, findAimingPointByRef } from "@/lib/aimingPointCode";
-import { fillTemplate } from "@/lib/battleGroupCapacity";
 import type { AimingPoint } from "@/types/target";
 
-export function formatAimingPoint(code?: string | null, targetName?: string): { badge: string; label: string } {
+export function formatAimingPoint(code?: string | null, _targetName?: string): { badge: string; label: string } {
   const normalizedCode = code && code.trim() ? code.trim().toUpperCase() : "MP00";
   const formattedCode = normalizedCode.startsWith("AP") ? normalizedCode.replace("AP", "MP0") : normalizedCode;
 
@@ -14,10 +13,10 @@ export function formatAimingPoint(code?: string | null, targetName?: string): { 
     };
   }
 
-  const name = targetName?.trim();
+  // Non-primary aiming points show only the MP-code badge — no extra name.
   return {
     badge: formattedCode,
-    label: name ? name : fillTemplate(DICTIONARY.tasks.allocation.aiming_code_label, { code: formattedCode }),
+    label: "",
   };
 }
 

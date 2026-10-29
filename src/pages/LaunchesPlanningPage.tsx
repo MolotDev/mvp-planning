@@ -201,7 +201,7 @@ export function LaunchesPlanningPage() {
       <div className="min-h-0 flex-1 overflow-auto p-1">
         {rows.length === 0 ? (
           <div className="flex h-full items-center justify-center">
-            <Card className="w-full items-center gap-3 text-center justify-center">
+            <Card className="w-full items-center gap-3 text-center justify-center p-3">
               <Rocket className="h-8 w-8 text-primitive-neutral-500" aria-hidden="true" />
               <p className="text-sm text-primitive-neutral-300">{DICTIONARY.launches.empty}</p>
             </Card>

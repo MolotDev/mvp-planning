@@ -114,77 +114,81 @@ function LaunchScopeCard({
 
   return (
     <Card className="min-w-[320px] hover:cursor-pointer" onClick={() => onPreview(scope)}>
-      <CardHeader>
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="text-sm font-semibold text-primitive-neutral-0">{liveTask.label}</span>
-          <EntityStatusBadge status={entityState} />
-        </div>
-        <div onClick={(event) => event.stopPropagation()}>
-          <PreviewIconButton onClick={() => onPreview(scope)} />
-        </div>
-      </CardHeader>
-      <CardBody className="gap-3">
-        <p className="flex flex-wrap items-center gap-1 text-primitive-neutral-200">
-          <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
-          <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(scheduledAt)}</Badge>
-          {missionName ? (
-            <>
-              <span>—</span>
-              <span className="line-clamp-2 text-sm" title={missionName}>
-                {missionName}
-              </span>
-            </>
-          ) : null}
-        </p>
-        {scope.target ? (
-          <TargetBadge
-            targetId={scope.target.id}
-            mgrs={formattingMGRS.spacing(scope.target.mgrs)}
-            label={scope.target.name}
-            address={scope.target.address}
-            targetClasses="text-xs"
-            wrapperClasses="items-start"
-          />
-        ) : null}
-        {crewLines.map((group) => (
-          <BattleGroupCrewLine key={group.id} group={group} />
-        ))}
-        {groups.map((group) => {
-          const discrepancy = quantityDiscrepancy(group.uav_quantity, launches, group.id);
-          return discrepancy ? (
-            <QuantityDiscrepancy key={group.id} planned={discrepancy.planned} actual={discrepancy.actual} />
-          ) : null;
-        })}
-        <p className="text-md text-primitive-neutral-200">
-          {fillTemplate(DICTIONARY.tasks.launch_board.total_launches, { summary })}
-        </p>
-        <div className="flex flex-col gap-2">
-          {aimingBuckets.map((bucket) => {
-            const processed = bucket.launches.filter((launch) => launch.archived_at === null && isLaunchProcessed(launch));
-            const complete = processed.length === bucket.launches.length && bucket.launches.length > 0;
-            const point = bucket.point;
-            const aiming = formatStoredAimingPoint(point);
-            return (
-              <div
-                key={point?.id ?? "target"}
-                className={cn("flex flex-col gap-1 rounded-md border p-2", complete ? "border-primitive-neutral-800" : "border-red-800")}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
-                    <Badge className="bg-sky-950 text-[12px] font-semibold">{aiming.badge}</Badge>
-                    <span className="text-primitive-neutral-0">{aiming.label}</span>
-                  </div>
-                </div>
-                <p className="text-sm text-primitive-neutral-200">
-                  {fillTemplate(DICTIONARY.tasks.launch_board.processed_launches, {
-                    summary: launchQuantitySummary(processed),
-                  })}
-                </p>
+      <EntityStatusBadge status={entityState} />
+      <div className="flex flex-col gap-3 p-3 pt-0">
+        <CardHeader>
+          <div className="flex flex-col min-w-0 gap-2 w-full">
+            <div className="flex items-center min-w-0 gap-2 w-full justify-between">
+              <span className="text-sm font-semibold text-primitive-neutral-0">{liveTask.label}</span>
+              <div onClick={(event) => event.stopPropagation()}>
+                <PreviewIconButton onClick={() => onPreview(scope)} />
               </div>
-            );
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody className="gap-3">
+          <p className="flex flex-wrap items-center gap-1 text-primitive-neutral-200">
+            <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <Badge className="bg-primitive-neutral-800 text-[18px]">{formatDateUk(scheduledAt)}</Badge>
+            {missionName ? (
+              <>
+                <span>—</span>
+                <span className="line-clamp-2 text-sm" title={missionName}>
+                  {missionName}
+                </span>
+              </>
+            ) : null}
+          </p>
+          {scope.target ? (
+            <TargetBadge
+              targetId={scope.target.id}
+              mgrs={formattingMGRS.spacing(scope.target.mgrs)}
+              label={scope.target.name}
+              address={scope.target.address}
+              targetClasses="text-xs"
+              wrapperClasses="items-start"
+            />
+          ) : null}
+          {crewLines.map((group) => (
+            <BattleGroupCrewLine key={group.id} group={group} />
+          ))}
+          {groups.map((group) => {
+            const discrepancy = quantityDiscrepancy(group.uav_quantity, launches, group.id);
+            return discrepancy ? (
+              <QuantityDiscrepancy key={group.id} planned={discrepancy.planned} actual={discrepancy.actual} />
+            ) : null;
           })}
-        </div>
-      </CardBody>
+          <p className="text-md text-primitive-neutral-200">
+            {fillTemplate(DICTIONARY.tasks.launch_board.total_launches, { summary })}
+          </p>
+          <div className="flex flex-col gap-2">
+            {aimingBuckets.map((bucket) => {
+              const processed = bucket.launches.filter((launch) => launch.archived_at === null && isLaunchProcessed(launch));
+              const complete = processed.length === bucket.launches.length && bucket.launches.length > 0;
+              const point = bucket.point;
+              const aiming = formatStoredAimingPoint(point);
+              return (
+                <div
+                  key={point?.id ?? "target"}
+                  className={cn("flex flex-col gap-1 rounded-md border p-2", complete ? "border-primitive-neutral-800" : "border-red-800")}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-wrap items-baseline gap-1 text-[14px] font-semibold">
+                      <Badge className="bg-sky-950 text-[12px] font-semibold">{aiming.badge}</Badge>
+                      {aiming.label ? <span className="text-primitive-neutral-0">{aiming.label}</span> : null}
+                    </div>
+                  </div>
+                  <p className="text-sm text-primitive-neutral-200">
+                    {fillTemplate(DICTIONARY.tasks.launch_board.processed_launches, {
+                      summary: launchQuantitySummary(processed),
+                    })}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </CardBody>
+      </div>
     </Card>
   );
 }
