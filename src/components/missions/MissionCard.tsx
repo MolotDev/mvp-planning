@@ -157,14 +157,14 @@ export function MissionCard({
       onClick={() => onPreview(mission)}
     >
       <CardHeader>
-        <div className="flex items-center min-w-0 gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-primitive-neutral-0" title={`${label} ${title}`}>
-            {label}
-          </p>
+        <div className="flex flex-col items-center min-w-0 gap-2 flex-wrap w-full">
           <EntityStatusBadge status={getEntityState(mission)} />
+          {/* <p className="text-sm font-semibold text-primitive-neutral-0" title={`${label} ${title}`}>
+            {label}
+          </p> */}
         </div>
       </CardHeader>
-      <CardBody className="gap-3">
+      <CardBody className="gap-3 p-3 pt-0">
         <div className="flex flex-col gap-0.5 mb-2">
           <p
           className={cn(

@@ -316,7 +316,7 @@ export function AllocationWorkspace({
       </section>
 
       <section className="flex flex-col gap-3">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <span
             className={
               task.source === "detachment"

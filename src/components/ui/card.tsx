@@ -5,7 +5,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        "relative flex h-full flex-col justify-between rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 p-4 hover:z-10 hover:shadow-md",
+        "relative flex h-full flex-col justify-between rounded-lg border border-primitive-neutral-800 bg-primitive-neutral-900 hover:z-10 hover:shadow-md",
         className,
       )}
       {...props}

@@ -31,7 +31,7 @@ export const DICTIONARY = {
       confirmed: "Виконано + Підтверджено",
       cancelled_before_exit: "Скасовано (до виїзду)",
       cancelled_without_launches: "Скасовано (без пусків)",
-      partially_completed: "Частково виконано",
+      partially_completed: "Скасовано (з пусками)",
       on_sortie: "На виїзді",
       cancelled: "Скасовано",
     },
