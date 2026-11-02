@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Calendar, ClipboardList, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { TaskCard } from "@/components/tasks/TaskCard";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { AppDateRangePicker } from "@/components/ui/date-picker";
-import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
@@ -23,7 +22,7 @@ import {
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
 import { useMissionStore } from "@/store/useMissionStore";
-import { filterTasks, getTaskMetrics, useTaskStore } from "@/store/useTaskStore";
+import { filterTasks, useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import { DEFAULT_TASK_FILTERS, useTaskFilterStore, type TaskFilterState } from "@/store/useTaskFilterStore";
 import type { MissionStatusFilter } from "@/types/mission";
@@ -140,19 +139,22 @@ export function TasksPlanningPage() {
     () => (activeFilters.viewMode === "target" ? splitTasksByTarget(visibleTasks, missions, targets).slice(0, 5) : []),
     [activeFilters.viewMode, missions, targets, visibleTasks],
   );
-  const metrics = getTaskMetrics(activeFilters.viewMode === "target" ? targetCards.map((card) => card.task) : visibleTasks);
-
+  // const metrics = getTaskMetrics(activeFilters.viewMode === "target" ? targetCards.map((card) => card.task) : visibleTasks);
+  const canCreateTask = useCallback((date: Date) => {
+    const isSameDay = date.getDate() === new Date().getDate();
+    return role === "DETACHMENT" && entityId && (date ? isSameDay || date.getTime() > Date.now() : true);
+  }, [role, entityId]);
   return (
     <section className="flex h-full min-h-0 flex-col gap-4">
       <h1 className="sr-only">{DICTIONARY.tasks.title}</h1>
-      <HeaderMetricCards
+      {/* <HeaderMetricCards
         metrics={{
           total: metrics.total,
           completed: metrics.reported,
           active: metrics.active,
           archived: metrics.archived,
         }}
-      />
+      /> */}
       <div className="flex flex-col gap-3  lg:flex-row lg:items-center">
         <div className="w-full min-w-48 lg:w-48">
           <AppDateRangePicker
@@ -366,7 +368,7 @@ export function TasksPlanningPage() {
                     <Card className="min-h-60">
                       <CardBody className="justify-center gap-3 text-center">
                         <p className="text-sm text-primitive-neutral-300 opacity-60">{DICTIONARY.tasks.no_tasks}</p>
-                        {role === "DETACHMENT" && entityId && !isBeforeToday(date) ? (
+                        {canCreateTask(date) ? (
                           <Button
                             variant="outline"
                             className="text-xs"

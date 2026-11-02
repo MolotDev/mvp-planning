@@ -855,17 +855,19 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
                           onChange={(input) => updateEvent(report.id, index, { comment: input.target.value })}
                           className="h-7 min-w-40 flex-1 rounded border-primitive-neutral-700 bg-primitive-neutral-900 px-3 py-1.5 text-sm"
                         />
-                        <Button
-                          variant="icon"
-                          size="icon"
-                          disabled={readOnly}
-                          title={DICTIONARY.common.actions.delete}
-                          aria-label={DICTIONARY.common.actions.delete}
-                          className="h-7 w-7 bg-primitive-neutral-900"
-                          onClick={() => removeEvent(report.id, event.id)}
-                        >
-                          <X className="h-4 w-4" aria-hidden="true" />
-                        </Button>
+                        {readOnly ? null : (
+                          <Button
+                            variant="icon"
+                            size="icon"
+                            disabled={readOnly}
+                            title={DICTIONARY.common.actions.delete}
+                            aria-label={DICTIONARY.common.actions.delete}
+                            className="h-7 w-7 bg-primitive-neutral-900"
+                            onClick={() => removeEvent(report.id, event.id)}
+                          >
+                            <X className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -874,13 +876,13 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
             </tbody>
           </table>
         </div>
-        {!locked ? (
+        {readOnly ? null : (
           <div>
             <Button disabled={readOnly} className="h-7" onClick={() => addEvent(report.id, generateEventDescription())}>
               {text.add_event}
             </Button>
           </div>
-        ) : null}
+        )}
 
         {/* Launches order section */}
           <div>
@@ -1262,7 +1264,7 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, 
       </section>
 
       
-      {!locked && !readOnly && (
+      {readOnly ? null : (
         <footer className="flex flex-wrap justify-end gap-3">
           <Button variant="ghost" disabled={readOnly} onClick={onClear}>
             {text.clear_report}

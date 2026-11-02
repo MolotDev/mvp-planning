@@ -5,7 +5,6 @@ import { LaunchGroupCards, launchPreviewPath, scopesFromRows } from "@/component
 import { LaunchTable } from "@/components/launches/LaunchTable";
 import { Card } from "@/components/ui/card";
 import { AppDateRangePicker } from "@/components/ui/date-picker";
-import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
@@ -14,7 +13,7 @@ import { CREWS, DETACHMENT_REFS } from "@/data/crews";
 import { hidesDetachmentFilter, launchInScope, locksCrewFilter, locksDetachmentFilter, withSessionScope } from "@/lib/access";
 import { formatIsoDate } from "@/lib/dates";
 import { matchesEntityStatusFilter } from "@/lib/entityState";
-import { filterLaunchRows, getLaunchStateMetrics, launchBelongsToCurrentRequest } from "@/lib/launchBoard";
+import { filterLaunchRows, launchBelongsToCurrentRequest } from "@/lib/launchBoard";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useBattleGroupStore } from "@/store/useBattleGroupStore";
@@ -100,19 +99,19 @@ export function LaunchesPlanningPage() {
   ).filter((row) => matchesEntityStatusFilter(row.launch, activeFilters.status))
     .filter((row) => launchBelongsToCurrentRequest(row))
     .filter((row) => launchInScope(role, entityId, row.task, row.battleGroup));
-  const metrics = getLaunchStateMetrics(rows.map((row) => row.launch));
+  // const metrics = getLaunchStateMetrics(rows.map((row) => row.launch));
   const board = DICTIONARY.tasks.launch_board;
 
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
-      <HeaderMetricCards
+      {/* <HeaderMetricCards
         metrics={{
           total: metrics.total,
           completed: metrics.reported,
           active: metrics.active,
           archived: metrics.archived,
         }}
-      />
+      /> */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-48 w-48 flex-1 basis-0 overflow-hidden [&_.react-datepicker-wrapper]:w-full [&_.react-datepicker-wrapper]:min-w-0 [&_.react-datepicker__input-container]:block [&_.react-datepicker__input-container]:w-full [&_.react-datepicker__input-container]:min-w-0">
           <AppDateRangePicker

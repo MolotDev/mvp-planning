@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar, LandPlot, Plus, Search, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CreateEditMissionModal } from "@/components/missions/CreateEditMissionModal";
 import { MissionCard } from "@/components/missions/MissionCard";
 import { Button } from "@/components/ui/button";
 import { AppDateRangePicker } from "@/components/ui/date-picker";
-import { HeaderMetricCards } from "@/components/ui/header-metric-cards";
 import { Input } from "@/components/ui/input";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
@@ -21,7 +20,7 @@ import { splitMissionsByTarget, type MissionViewMode } from "@/lib/missionView";
 import { TRANSLATIONS } from "@/lib/translations";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useMissionFilterStore, type MissionFilterState } from "@/store/useMissionFilterStore";
-import { filterMissions, getMissionMetrics, useMissionStore } from "@/store/useMissionStore";
+import { filterMissions, useMissionStore } from "@/store/useMissionStore";
 import { useTaskStore } from "@/store/useTaskStore";
 import { useTargetStore } from "@/store/useTargetStore";
 import type { Mission, MissionStatusFilter } from "@/types/mission";
@@ -122,22 +121,26 @@ export function MissionsPlanningPage() {
     () => (filters.viewMode === "target" ? splitMissionsByTarget(filteredMissions, tasks, targets).slice(0, 5) : []),
     [filters.viewMode, filteredMissions, tasks, targets],
   );
-  const metrics = useMemo(
-    () => getMissionMetrics(filters.viewMode === "target" ? targetCards.map((card) => card.mission) : filteredMissions),
-    [filters.viewMode, filteredMissions, targetCards],
-  );
+  // const metrics = useMemo(
+  //   () => getMissionMetrics(filters.viewMode === "target" ? targetCards.map((card) => card.mission) : filteredMissions),
+  //   [filters.viewMode, filteredMissions, targetCards],
+  // );
   const [planningDate, setPlanningDate] = useState<Date | null>(null);
+  const canCreateMission = useCallback((date: Date) => {
+    const isSameDay = date.getDate() === new Date().getDate();
+    return managesMissions && (date ? isSameDay || date.getTime() > Date.now() : true);
+  }, [managesMissions]);
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <h1 className="sr-only">{TRANSLATIONS.missions}</h1>
-      <HeaderMetricCards
+      {/* <HeaderMetricCards
         metrics={{
           total: metrics.total,
           completed: metrics.reported,
           active: metrics.active,
           archived: metrics.archived,
         }}
-      />
+      /> */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <div className="w-full min-w-48 lg:w-48">
@@ -298,7 +301,7 @@ export function MissionsPlanningPage() {
                       <p className="text-sm text-primitive-neutral-300 opacity-60">
                         {DICTIONARY.missions.no_missions}
                       </p>
-                      {managesMissions && date.getDate() > new Date().getDate() ? (
+                      {canCreateMission(date) ? (
                         <Button variant="outline" onClick={() => {
                           setModalMission(null);
                           setPlanningDate(date);

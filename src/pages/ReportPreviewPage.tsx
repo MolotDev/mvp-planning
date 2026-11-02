@@ -86,6 +86,7 @@ export function ReportPreviewPage() {
   const cancelledBeforeExit = dayTasks.length > 0 && dayTasks.every(
     (task) => task.cancellation?.outcome === "cancelled_before_exit",
   );
+  const isReportSubmitted = report.submitted_at !== null && report.submitted_at !== "submitted";
   const contentEditable = isReportEditable(report, missions, tasks) && !cancelledBeforeExit;
   const locked = !contentEditable;
   const editing = managesReports && contentEditable;
@@ -139,7 +140,7 @@ export function ReportPreviewPage() {
         showCancel={showCancel}
         onCancelClick={() => setCancelOpen(true)}
         rightActions={
-          editing ? (
+          editing && !isReportSubmitted ? (
             <Button disabled={!canSubmit} onClick={() => setConfirm("submit")}>
               {DICTIONARY.reports.submit_report}
             </Button>
@@ -151,7 +152,7 @@ export function ReportPreviewPage() {
           locked={locked}
           report={report}
           snapshot={snapshot}
-          readOnly={!editing}
+          readOnly={!editing || isReportSubmitted}
           canSubmit={canSubmit}
           onClear={() => setConfirm("clear")}
           onSubmit={() => setConfirm("submit")}

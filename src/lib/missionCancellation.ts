@@ -244,7 +244,7 @@ export function canShowCancelAction(entity: {
   if (entity.cancellation) {
     return false;
   }
-  if (entity.confirmed_at) {
+  if (entity.reported_at !== null) {
     return false;
   }
   return true;
