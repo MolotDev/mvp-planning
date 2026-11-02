@@ -167,7 +167,7 @@ interface ReportDocumentProps {
   onCheckpointDraftsChange?: (rows: CheckpointDraftInput[]) => void;
 }
 
-export function ReportDocument({ report, snapshot, readOnly, canSubmit, locked, onClear, onSubmit, onCheckpointDraftsChange }: ReportDocumentProps) {
+export function ReportDocument({ report, snapshot, readOnly, canSubmit, onClear, onSubmit, onCheckpointDraftsChange }: ReportDocumentProps) {
   // const assets = useAssetStore((state) => state.assets);
   // const updateReport = useReportStore((state) => state.updateReport);
   const addEvent = useReportStore((state) => state.addEvent);
