@@ -1266,9 +1266,10 @@ export function ReportDocument({ report, snapshot, readOnly, canSubmit, onClear,
       
       {readOnly ? null : (
         <footer className="flex flex-wrap justify-end gap-3">
+          {report.submitted_at === null ? (
           <Button variant="ghost" disabled={readOnly} onClick={onClear}>
             {text.clear_report}
-          </Button>
+          </Button>) : null}
           <Button disabled={readOnly || !canSubmit} onClick={onSubmit} title={!canSubmit ? DICTIONARY.tasks.details.report_not_yet : undefined}>
             {text.submit_report}
           </Button>

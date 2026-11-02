@@ -86,7 +86,6 @@ export function ReportPreviewPage() {
   const cancelledBeforeExit = dayTasks.length > 0 && dayTasks.every(
     (task) => task.cancellation?.outcome === "cancelled_before_exit",
   );
-  // const isReportSubmitted = report.submitted_at !== null && report.submitted_at !== "submitted";
   const contentEditable = isReportEditable(report, missions, tasks) && !cancelledBeforeExit;
   const locked = !contentEditable;
   const editing = managesReports && contentEditable;
@@ -130,7 +129,7 @@ export function ReportPreviewPage() {
     setConfirm(null);
     notifySuccess(DICTIONARY.reports.toasts.submitted);
   };
-
+console.log({canSubmit})
   return (
     <section className="flex h-full min-h-0 flex-col gap-4 overflow-hidden">
       <ExecutionHeader

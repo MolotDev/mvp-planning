@@ -465,7 +465,7 @@ export const useReportStore = create<ReportStoreState>()(
           ...current,
           status: "draft",
           submitted_at: null,
-          analysis_timestamp: "",
+          analysis_timestamp: now,
           commander_summary: null,
           planning_participants: null,
           adjacent_units_participants: null,

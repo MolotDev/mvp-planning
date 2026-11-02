@@ -59,7 +59,7 @@ export function allCrewsReturnedToBase(report: Report, snapshot: PlanningSnapsho
 }
 
 export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot): boolean {
-  if (report.archived_at !== null || report.submitted_at !== null) {
+  if (report.archived_at !== null) {
     return false;
   }
   if (!report.analysis_timestamp || Number.isNaN(new Date(report.analysis_timestamp).getTime())) {
@@ -86,6 +86,7 @@ export function isReportSubmittable(report: Report, snapshot: PlanningSnapshot):
   if (!launchesReady) {
     return false;
   }
+  console.log("still here", allCrewsReturnedToBase(report, snapshot))
   return allCrewsReturnedToBase(report, snapshot);
 }
 
