@@ -11,7 +11,7 @@ import { ResetFiltersIconButton } from "@/components/ui/icon-buttons";
 import { StatusFilterSelect } from "@/components/ui/status-filter-select";
 import { DICTIONARY } from "@/constants/dictionary";
 import { hidesDetachmentFilter, locksDetachmentFilter, taskInScope, withSessionScope } from "@/lib/access";
-import { formatIsoDate, calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, getDaysArray, isBeforeToday, isLessThanOneDay, isMoreThanOneDay, isToday, startOfDay } from "@/lib/dates";
+import { formatIsoDate, calculateDateOffset, convertDateToDdMmDayOfWeek, formatDateUk, getDaysArray, isLessThanOneDay, isMoreThanOneDay, isToday, startOfDay } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import {
   sameTaskFilters,
